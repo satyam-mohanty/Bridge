@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">Bridge</string>
+    <string name="tile_label">Send to Mac</string>
+    <string name="status_disconnected">Disconnected</string>
+    <string name="status_searching">Searching for Mac…</string>
+    <string name="status_connected">Connected to Mac</string>
+    <string name="btn_scan_qr">Scan QR Code</string>
+    <string name="btn_paste_pairing">Paste Pairing Code</string>
+    <string name="btn_manual_ip">Set Mac IP</string>
+    <string name="btn_battery_opt">Battery Optimization</string>
+    <string name="btn_autostart_info">OEM Background Settings</string>
+    <string name="btn_copy_logs">Copy Diagnostics</string>
+    <string name="auto_mode_title">Auto-Sync Clipboard (Foreground Capture)</string>
+    <string name="auto_mode_desc">Requires READ_LOGS permission via adb. Automatically captures clipboard changes when copied.</string>
+</resources>

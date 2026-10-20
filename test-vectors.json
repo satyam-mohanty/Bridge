@@ -1,0 +1,31 @@
+{
+  "description": "Bridge AES-256-GCM Test Vectors",
+  "key_hex": "4242424242424242424242424242424242424242424242424242424242424242",
+  "key_base64": "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=",
+  "vectors": [
+    {
+      "name": "mac_to_android_counter_1",
+      "direction": 1,
+      "direction_byte": "0x01",
+      "counter": 1,
+      "nonce_hex": "010000000000000000000001",
+      "plaintext_utf8": "Hello Bridge Security Test Vector",
+      "plaintext_hex": "48656c6c6f20427269646765205365637572697479205465737420566563746f72",
+      "ciphertext_with_tag_hex": "d4b8f074a807ca7198b57ff340eafec3ef76f78b711417f8a76356e69ee2406623c224bd611ed95dea3c7e0ca226f97472",
+      "ciphertext_with_tag_base64": "1LjwdKgHynGYtX/zQOr+w+9294txFBf4p2NW5p7iQGYjwiS9YR7ZXeo8fgyiJvl0cg==",
+      "tag_hex": "c224bd611ed95dea3c7e0ca226f97472"
+    },
+    {
+      "name": "android_to_mac_counter_42",
+      "direction": 2,
+      "direction_byte": "0x02",
+      "counter": 42,
+      "nonce_hex": "02000000000000000000002a",
+      "plaintext_utf8": "Android to Mac Bridge Ping",
+      "plaintext_hex": "416e64726f696420746f204d6163204272696467652050696e67",
+      "ciphertext_with_tag_hex": "2ac6a5bd2948ff25394ae920f7eb65ba2a516f27bae729835db57b4a90f73fd3dc1386dd20ba98fc6096",
+      "ciphertext_with_tag_base64": "KsalvSlI/yU5Sukg9+tluipRbye65ymDXbV7SpD3P9PcE4bdILqY/GCW",
+      "tag_hex": "dc1386dd20ba98fc6096"
+    }
+  ]
+}

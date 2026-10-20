@@ -1,0 +1,57 @@
+name: Bridge
+options:
+  bundleIdPrefix: com.bridge
+  deploymentTarget:
+    macOS: "13.0"
+  xcodeVersion: "15.0"
+
+settings:
+  SWIFT_VERSION: "5.9"
+  MACOSX_DEPLOYMENT_TARGET: "13.0"
+  CODE_SIGN_IDENTITY: "-"
+  CODE_SIGN_STYLE: "Manual"
+  ENABLE_APP_SANDBOX: "NO"
+
+targets:
+  Bridge:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+    info:
+      path: Info.plist
+      properties:
+        CFBundleIconFile: AppIcon
+        CFBundleIconName: AppIcon
+        LSUIElement: false
+        NSLocalNetworkUsageDescription: "Bridge connects to your Android phone on your local network to synchronize clipboard content securely."
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: All Files
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.item
+              - public.data
+              - public.content
+        NSBonjourServices:
+          - "_bridge._tcp"
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.bridge.mac
+      INFOPLIST_FILE: Info.plist
+      ENABLE_APP_SANDBOX: "NO"
+      CODE_SIGN_IDENTITY: "-"
+      CODE_SIGN_STYLE: "Manual"
+
+  BridgeTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: Bridge
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.bridge.mac.tests
+      GENERATE_INFOPLIST_FILE: YES
+      ENABLE_APP_SANDBOX: "NO"
+      CODE_SIGN_IDENTITY: "-"
+      CODE_SIGN_STYLE: "Manual"

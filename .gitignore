@@ -1,0 +1,26 @@
+# Graphify output & cache
+graphify-out/
+.graphify_*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Xcode / macOS dev
+mac/**/xcuserdata/
+mac/**/DerivedData/
+mac/**/.build/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+
+# Android / Gradle
+android/.gradle/
+android/build/
+android/*/build/
+android/local.properties
+android/.idea/
+*.iml
+.gradle/
+build/
