@@ -192,30 +192,41 @@ class BridgeService : Service(), BridgeClientListener {
     fun handleClipboardChanged() {
         if (!_isConnectedFlow.value) return
         try {
-            if (BridgeAccessibilityService.isRunning) {
-                BridgeAccessibilityService.triggerSyncFromService()
-                return
-            }
-
             val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             // 1. Try reading directly (succeeds if application has focus)
             val sent = clipboardSyncManager.sendLocalClipboardToMac(client, clipManager, force = false)
-            if (!sent) {
-                // 2. Background access restricted by Android 10+:
-                // Prefer lightweight 1x1 overlay view if SYSTEM_ALERT_WINDOW is granted
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
-                    com.bridge.android.clipboard.OverlayClipReader.readClipboardWithOverlay(this, force = false)
-                } else {
-                    triggerTransparentClipReader(force = false)
-                }
-            }
+            if (sent) return
+
+            // 2. Direct read failed (Android 10+ background restriction).
+            //    Try AccessibilityService overlay first (no SYSTEM_ALERT_WINDOW needed).
+            performClipboardFallbackRead()
         } catch (e: Exception) {
             LogManager.e("Error in handleClipboardChanged", e)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
-                com.bridge.android.clipboard.OverlayClipReader.readClipboardWithOverlay(this, force = false)
-            } else {
-                triggerTransparentClipReader(force = false)
+            performClipboardFallbackRead()
+        }
+    }
+
+    private fun performClipboardFallbackRead() {
+        val a11y = BridgeAccessibilityService.instance
+        if (a11y != null) {
+            // Use TYPE_ACCESSIBILITY_OVERLAY (privileged, no extra permission needed).
+            // If it also fails, fall through to SYSTEM_ALERT_WINDOW overlay or activity.
+            a11y.readClipboardViaAccessibilityOverlay(client, clipboardSyncManager) { sent ->
+                if (!sent) {
+                    LogManager.d("Accessibility overlay read failed, trying next fallback")
+                    performOverlayOrActivityFallback()
+                }
             }
+        } else {
+            performOverlayOrActivityFallback()
+        }
+    }
+
+    private fun performOverlayOrActivityFallback() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
+            com.bridge.android.clipboard.OverlayClipReader.readClipboardWithOverlay(this, force = false)
+        } else {
+            triggerTransparentClipReader(force = false)
         }
     }
 

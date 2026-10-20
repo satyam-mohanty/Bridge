@@ -25,15 +25,11 @@ class BridgeAccessibilityService : AccessibilityService() {
         @Volatile
         var instance: BridgeAccessibilityService? = null
             private set
-
-        fun triggerSyncFromService() {
-            instance?.triggerSync()
-        }
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var lastTriggerTime = 0L
-    private var lastSelectedText: String? = null
+    @Volatile
     private var isOverlayReading = false
 
     private val clipListener = ClipboardManager.OnPrimaryClipChangedListener {
@@ -94,26 +90,6 @@ class BridgeAccessibilityService : AccessibilityService() {
         var detectedCopyAction = false
 
         when (event.eventType) {
-            AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED -> {
-                val node = try { event.source } catch (_: Exception) { null }
-                if (node != null) {
-                    try {
-                        val text = node.text
-                        if (text != null && text.isNotEmpty()) {
-                            val start = node.textSelectionStart
-                            val end = node.textSelectionEnd
-                            if (start >= 0 && end >= 0 && start != end) {
-                                val min = minOf(start, end)
-                                val max = maxOf(start, end)
-                                if (min >= 0 && max <= text.length) {
-                                    lastSelectedText = text.subSequence(min, max).toString()
-                                }
-                            }
-                        }
-                    } catch (_: Exception) {}
-                }
-            }
-
             AccessibilityEvent.TYPE_VIEW_CLICKED,
             AccessibilityEvent.TYPE_VIEW_LONG_CLICKED -> {
                 val text = event.text.joinToString(" ").lowercase()
@@ -170,40 +146,39 @@ class BridgeAccessibilityService : AccessibilityService() {
             LogManager.i("Accessibility: Scheduling clipboard sync to Mac")
             // Allow source app 60ms to commit data to system ClipboardService
             mainHandler.postDelayed({
-                triggerSync()
+                // Delegate to BridgeService which has the full fallback chain
+                val bridge = BridgeService.instance ?: return@postDelayed
+                bridge.handleClipboardChanged()
             }, 60)
         }
     }
 
-    fun triggerSync() {
-        val bridge = BridgeService.instance ?: return
-        if (!bridge.isConnectedFlow.value) return
-        val client = bridge.getClient()
-        val syncManager = bridge.getClipboardSyncManager()
-
-        // 1. Try reading directly using AccessibilityService context
-        try {
-            val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val sent = syncManager.sendLocalClipboardToMac(client, clipManager, force = false)
-            if (sent) {
-                LogManager.i("Accessibility: Clipboard sent to Mac directly")
-                return
-            }
-        } catch (e: Exception) {
-            LogManager.d("Accessibility: Direct clipboard read returned false or threw: ${e.message}")
-        }
-
-        // 2. Direct read failed (e.g. Android 10+ background restriction).
-        // Use TYPE_ACCESSIBILITY_OVERLAY to gain instantaneous window focus without requiring SYSTEM_ALERT_WINDOW permission.
-        readClipboardWithAccessibilityOverlay(client, syncManager)
-    }
-
-    private fun readClipboardWithAccessibilityOverlay(
+    /**
+     * Attempts to read the clipboard using a TYPE_ACCESSIBILITY_OVERLAY window.
+     * This is a privileged window type that AccessibilityServices can create without
+     * SYSTEM_ALERT_WINDOW permission, and it can gain window focus to bypass Android 10+
+     * background clipboard restrictions.
+     *
+     * @param onResult Called with true if clipboard was read and sent, false otherwise.
+     */
+    fun readClipboardViaAccessibilityOverlay(
         client: BridgeClient,
-        syncManager: ClipboardSyncManager
+        syncManager: ClipboardSyncManager,
+        onResult: (Boolean) -> Unit
     ) {
-        if (isOverlayReading) return
+        if (isOverlayReading) {
+            onResult(false)
+            return
+        }
         isOverlayReading = true
+
+        // Safety timeout: auto-reset isOverlayReading after 2 seconds
+        mainHandler.postDelayed({
+            if (isOverlayReading) {
+                LogManager.d("Accessibility: Overlay safety timeout reached, resetting state")
+                isOverlayReading = false
+            }
+        }, 2000)
 
         mainHandler.post {
             var overlayView: View? = null
@@ -249,32 +224,24 @@ class BridgeAccessibilityService : AccessibilityService() {
                 wm.addView(dummyView, params)
                 dummyView.requestFocus()
 
-                // Allow 35ms for WindowManager to establish focus
+                // Allow 120ms for WindowManager to establish focus (was 35ms — too short)
                 mainHandler.postDelayed({
                     try {
                         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         val sent = syncManager.sendLocalClipboardToMac(client, cm, force = false)
                         LogManager.i("Accessibility: Read clipboard via overlay (sent=$sent)")
-
-                        // Fallback: If primaryClip was empty/null, check lastSelectedText
-                        if (!sent && !lastSelectedText.isNullOrEmpty()) {
-                            val textSent = syncManager.sendLocalTextToMac(client, lastSelectedText!!, force = false)
-                            LogManager.i("Accessibility: Sent lastSelectedText fallback to Mac (sent=$textSent)")
-                        }
+                        onResult(sent)
                     } catch (e: Exception) {
                         LogManager.e("Accessibility: Error reading overlay clipboard", e)
+                        onResult(false)
                     } finally {
                         cleanup()
                     }
-                }, 35)
+                }, 120)
             } catch (e: Exception) {
                 LogManager.e("Accessibility: Failed to add overlay view", e)
                 cleanup()
-
-                // Fallback: If overlay creation failed, send lastSelectedText if available
-                if (!lastSelectedText.isNullOrEmpty()) {
-                    syncManager.sendLocalTextToMac(client, lastSelectedText!!, force = false)
-                }
+                onResult(false)
             }
         }
     }
