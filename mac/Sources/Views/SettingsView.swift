@@ -43,6 +43,14 @@ public struct SettingsView: View {
                 Button("Send test notification") {
                     model.sendTestNotification()
                 }
+                
+                Button("Open macOS Notification Settings") {
+                    model.openNotificationSettings()
+                }
+            } footer: {
+                Text("If system banners do not appear, ensure Bridge is allowed in System Settings > Notifications.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
         .formStyle(.grouped)

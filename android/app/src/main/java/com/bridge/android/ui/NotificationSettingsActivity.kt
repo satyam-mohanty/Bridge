@@ -150,7 +150,9 @@ class NotificationSettingsActivity : AppCompatActivity() {
                 } catch (_: Exception) {
                     info.packageName
                 }
-                val isSystem = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                val hasLaunchIntent = pm.getLaunchIntentForPackage(info.packageName) != null
+                // System app: flagged as system AND lacks a launcher intent (internal OS service)
+                val isSystem = !hasLaunchIntent && ((info.flags and ApplicationInfo.FLAG_SYSTEM) != 0)
                 list.add(AppEntry(info.packageName, label, isSystem))
             }
 
@@ -229,6 +231,7 @@ class NotificationSettingsActivity : AppCompatActivity() {
     }
 
     private fun loadAppIconAsync(packageName: String, imageView: ImageView) {
+        imageView.tag = packageName
         val cached = iconCache.get(packageName)
         if (cached != null) {
             imageView.setImageDrawable(cached)
@@ -245,7 +248,9 @@ class NotificationSettingsActivity : AppCompatActivity() {
             if (drawable != null) {
                 iconCache.put(packageName, drawable)
                 withContext(Dispatchers.Main) {
-                    imageView.setImageDrawable(drawable)
+                    if (imageView.tag == packageName) {
+                        imageView.setImageDrawable(drawable)
+                    }
                 }
             }
         }

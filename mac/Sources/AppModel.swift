@@ -326,6 +326,10 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
         MacNotificationManager.shared.sendTestNotification()
     }
     
+    public func openNotificationSettings() {
+        MacNotificationManager.shared.openSystemNotificationSettings()
+    }
+    
     // MARK: - NetworkMonitorDelegate
     public nonisolated func networkPathDidChange() {
         Task { @MainActor in

@@ -24,7 +24,8 @@ xcodebuild -scheme Bridge -configuration Debug build
 ### Step 2.2 — Run the Mac App
 Launch the compiled app:
 ```bash
-open "/Users/satyam/Library/Developer/Xcode/DerivedData/Bridge-gvcxcocaxmfeyoctxmmxalsbbseq/Build/Products/Debug/Bridge.app"
+cp -R "/Users/satyam/Library/Developer/Xcode/DerivedData/Bridge-gvcxcocaxmfeyoctxmmxalsbbseq/Build/Products/Debug/Bridge.app" /Applications/
+open /Applications/Bridge.app
 ```
 
 The app opens as a full native macOS window with Dock presence and a menu bar item:
