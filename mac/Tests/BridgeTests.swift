@@ -135,4 +135,20 @@ final class BridgeTests: XCTestCase {
         XCTAssertEqual(parsed.chunkIndex, 3)
         XCTAssertEqual(parsed.chunkBytes, chunkPayload)
     }
+    
+    func testFileChunkSerialization() throws {
+        let transferId = UUID().uuidString.lowercased()
+        let chunkPayload = Data([0x01, 0x02, 0x03, 0x04, 0x05])
+        let original = FileChunkData(transferId: transferId, chunkIndex: 7, chunkBytes: chunkPayload)
+        
+        let serialized = original.serialize()
+        guard let parsed = FileChunkData.deserialize(from: serialized) else {
+            XCTFail("Failed to deserialize file chunk")
+            return
+        }
+        
+        XCTAssertEqual(parsed.transferId, transferId)
+        XCTAssertEqual(parsed.chunkIndex, 7)
+        XCTAssertEqual(parsed.chunkBytes, chunkPayload)
+    }
 }

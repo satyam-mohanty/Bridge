@@ -2,6 +2,7 @@ package com.bridge.android.ui
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -12,6 +13,7 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.OpenableColumns
 import android.provider.Settings
+import android.text.TextUtils
 import android.util.Base64
 import android.view.View
 import android.widget.EditText
@@ -76,6 +78,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateConnectionStatus()
+        BridgeService.instance?.syncAutoModeState()
         try {
             val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipManager.addPrimaryClipChangedListener(clipListener)
@@ -287,15 +290,38 @@ class MainActivity : AppCompatActivity() {
             sheetBinding.tvBatteryOptStatus.setTextColor(ContextCompat.getColor(this, R.color.accent))
         }
 
+        // Accessibility Service Status
+        val isA11yEnabled = isAccessibilityServiceEnabled()
+        if (isA11yEnabled) {
+            sheetBinding.tvAccessibilityStatus.text = "Active ✓"
+            sheetBinding.tvAccessibilityStatus.setTextColor(ContextCompat.getColor(this, R.color.status_green))
+        } else {
+            sheetBinding.tvAccessibilityStatus.text = "Enable"
+            sheetBinding.tvAccessibilityStatus.setTextColor(ContextCompat.getColor(this, R.color.accent))
+        }
+
+        sheetBinding.rowAccessibilityService.setOnClickListener {
+            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            startActivity(intent)
+            Toast.makeText(this, "Find 'Bridge' under Downloaded apps and turn it ON", Toast.LENGTH_LONG).show()
+        }
+
         // Auto Mode Switch
         val hasReadLogs = checkSelfPermission("android.permission.READ_LOGS") == PackageManager.PERMISSION_GRANTED
-        val isAutoEnabled = keyStoreManager.isAutoModeEnabled() && hasReadLogs
+        val canLaunchReader = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
+        val isAutoEnabled = keyStoreManager.isAutoModeEnabled() && hasReadLogs && canLaunchReader
         sheetBinding.switchAutoModeSheet.isChecked = isAutoEnabled
 
         sheetBinding.switchAutoModeSheet.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 if (checkSelfPermission("android.permission.READ_LOGS") == PackageManager.PERMISSION_GRANTED) {
                     keyStoreManager.setAutoModeEnabled(true)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+                        sheetBinding.switchAutoModeSheet.isChecked = false
+                        showOverlayPermissionDialog()
+                        BridgeService.instance?.syncAutoModeState()
+                        return@setOnCheckedChangeListener
+                    }
                     BridgeService.instance?.syncAutoModeState()
                     Toast.makeText(this, "Auto-sync mode enabled", Toast.LENGTH_SHORT).show()
                 } else {
@@ -511,11 +537,41 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun showOverlayPermissionDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Allow automatic clipboard capture")
+            .setMessage("Android only lets Bridge read clipboard contents while it is visible. Allow “Display over other apps” so Bridge can briefly open its transparent reader after a clipboard change.")
+            .setPositiveButton("Open Settings") { _, _ ->
+                try {
+                    startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+                } catch (e: Exception) {
+                    LogManager.e("Could not open overlay permission settings", e)
+                    startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     private fun checkAndRequestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
             }
         }
+    }
+
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val expectedComponentName = ComponentName(this, com.bridge.android.service.BridgeAccessibilityService::class.java).flattenToString()
+        val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
+        val colonSplitter = TextUtils.SimpleStringSplitter(':')
+        colonSplitter.setString(enabledServices)
+        while (colonSplitter.hasNext()) {
+            val componentName = colonSplitter.next()
+            if (componentName.equals(expectedComponentName, ignoreCase = true)) {
+                return true
+            }
+        }
+        return false
     }
 }

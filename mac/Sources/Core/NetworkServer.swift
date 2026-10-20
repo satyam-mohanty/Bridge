@@ -408,12 +408,27 @@ public final class NetworkServer {
                 
                 // Pipelined sliding window: 16 chunks (~1 MB) in flight to fully saturate Wi-Fi link
                 let windowSemaphore = DispatchSemaphore(value: 16)
+                let group = DispatchGroup()
                 let throttleStep = max(1, totalChunks / 50)
+                var sendError: Error?
+                let errorLock = NSLock()
                 
                 for (index, chunk) in chunks.enumerated() {
+                    errorLock.lock()
+                    let hasError = sendError != nil
+                    errorLock.unlock()
+                    if hasError { break }
+                    
                     windowSemaphore.wait()
                     guard let connection = self.activeConnection else {
                         windowSemaphore.signal()
+                        errorLock.lock()
+                        sendError = NSError(
+                            domain: "com.bridge.mac",
+                            code: -1,
+                            userInfo: [NSLocalizedDescriptionKey: "Connection lost while transferring file"]
+                        )
+                        errorLock.unlock()
                         break
                     }
                     
@@ -423,13 +438,20 @@ public final class NetworkServer {
                         chunkBytes: chunk
                     )
                     
-                    self.sendChunkPipelined(type: .fileChunk, payload: chunkObj.serialize(), on: connection) {
+                    group.enter()
+                    self.sendChunkPipelined(type: .fileChunk, payload: chunkObj.serialize(), on: connection) { error in
+                        if let error = error {
+                            errorLock.lock()
+                            if sendError == nil { sendError = error }
+                            errorLock.unlock()
+                        }
                         windowSemaphore.signal()
+                        group.leave()
                     }
                     
                     let current = index + 1
                     if current == totalChunks || current % throttleStep == 0 {
-                        let progress = Double(current) / Double(totalChunks)
+                        let progress = totalChunks > 0 ? (Double(current) / Double(totalChunks)) : 1.0
                         DispatchQueue.main.async {
                             progressHandler(progress)
                             self.delegate?.serverFileTransferProgress(transferId: transferId, name: fileName, progress: progress, isIncoming: false)
@@ -438,14 +460,20 @@ public final class NetworkServer {
                 }
                 
                 // Await drain of in-flight window
-                for _ in 0..<16 {
-                    windowSemaphore.wait()
-                }
+                group.wait()
+                
+                errorLock.lock()
+                let finalError = sendError
+                errorLock.unlock()
                 
                 DispatchQueue.main.async {
-                    progressHandler(1.0)
-                    self.delegate?.serverFileTransferProgress(transferId: transferId, name: fileName, progress: 1.0, isIncoming: false)
-                    completion(.success(()))
+                    if let finalError = finalError {
+                        completion(.failure(finalError))
+                    } else {
+                        progressHandler(1.0)
+                        self.delegate?.serverFileTransferProgress(transferId: transferId, name: fileName, progress: 1.0, isIncoming: false)
+                        completion(.success(()))
+                    }
                 }
             } catch {
                 DispatchQueue.main.async {
@@ -455,15 +483,15 @@ public final class NetworkServer {
         }
     }
     
-    private func sendChunkPipelined(type: BridgeMessageType, payload: Data, on connection: NWConnection, completion: @escaping () -> Void) {
+    private func sendChunkPipelined(type: BridgeMessageType, payload: Data, on connection: NWConnection, completion: @escaping (Error?) -> Void) {
         guard let crypto = self.crypto else {
-            completion()
+            completion(NSError(domain: "com.bridge.mac", code: -2, userInfo: [NSLocalizedDescriptionKey: "Crypto not initialized"]))
             return
         }
         
         queue.async { [weak self] in
             guard let self = self else {
-                completion()
+                completion(NSError(domain: "com.bridge.mac", code: -3, userInfo: [NSLocalizedDescriptionKey: "Server deallocated"]))
                 return
             }
             
@@ -484,11 +512,11 @@ public final class NetworkServer {
                     if let error = error {
                         LogManager.shared.log("Chunk send error: \(error)", level: .error)
                     }
-                    completion()
+                    completion(error)
                 }))
             } catch {
                 LogManager.shared.log("Chunk encryption failed: \(error)", level: .error)
-                completion()
+                completion(error)
             }
         }
     }

@@ -1,7 +1,7 @@
 package com.bridge.android.ui
 
 import android.content.Context
-import android.content.Intent
+import com.bridge.android.service.BridgeService
 import com.bridge.android.util.LogManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,49 +17,57 @@ object LogcatWatcherService {
 
     fun startWatching(context: Context, scope: CoroutineScope) {
         stopWatching()
-        LogManager.i("Starting Logcat clipboard watcher (Auto Mode)")
+        LogManager.i("Starting resilient Logcat clipboard watcher (Auto Mode)")
 
         watcherJob = scope.launch(Dispatchers.IO) {
-            var process: Process? = null
-            try {
-                // Monitor logcat starting from now without clearing system buffer
-                process = Runtime.getRuntime().exec(arrayOf("logcat", "-v", "brief", "-T", "1"))
-                val reader = BufferedReader(InputStreamReader(process.inputStream))
+            while (isActive) {
+                var process: Process? = null
+                try {
+                    // Monitor logcat on system and main buffers where ClipboardService events are published
+                    process = Runtime.getRuntime().exec(arrayOf("logcat", "-b", "system", "-b", "main", "-v", "brief"))
+                    val reader = BufferedReader(InputStreamReader(process.inputStream))
 
-                var lastTriggerTime = 0L
+                    var lastTriggerTime = 0L
 
-                while (isActive) {
-                    val line = reader.readLine() ?: break
-                    // Ignore our own app's logs to prevent loops
-                    if (line.contains("com.bridge.android") || line.contains("Bridge")) continue
+                    while (isActive) {
+                        val line = reader.readLine() ?: break
+                        // Ignore our own app logs to avoid self-triggering
+                        if (line.contains("com.bridge.android") || line.contains("Bridge") || line.contains("TransparentClip")) continue
 
-                    // System logcat line when clip changes across AOSP and OEM variants (Motorola, Samsung, etc.)
-                    val isClipEvent = line.contains("setPrimaryClip") ||
-                            line.contains("ClipboardService") ||
-                            line.contains("ClipboardOverlay") ||
-                            line.contains("ClipboardRecord") ||
-                            line.contains("updateClipboardCache") ||
-                            line.contains("notifyPrimaryClip") ||
-                            line.contains("notifyClipboardUpdated")
+                        // Match system clipboard event signatures across Android 10-14 (AOSP, Motorola, Samsung, etc.)
+                        val isClipEvent = line.contains("ClipboardService") ||
+                                line.contains("setPrimaryClip") ||
+                                line.contains("ClipboardOverlay") ||
+                                line.contains("ClipboardRecord") ||
+                                line.contains("updateClipboardCache") ||
+                                line.contains("notifyPrimaryClip") ||
+                                line.contains("notifyClipboardUpdated") ||
+                                line.contains("Denying clipboard access") ||
+                                line.contains("primary clip")
 
-                    if (isClipEvent) {
-                        val now = System.currentTimeMillis()
-                        // Debounce by 800ms
-                        if (now - lastTriggerTime > 800) {
-                            lastTriggerTime = now
-                            LogManager.i("Logcat watcher detected clipboard update event. Triggering reader.")
-                            delay(150)
-                            val intent = Intent(context, TransparentClipReaderActivity::class.java).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
+                        if (isClipEvent) {
+                            val now = System.currentTimeMillis()
+                            // Debounce by 500ms
+                            if (now - lastTriggerTime > 500) {
+                                lastTriggerTime = now
+                                LogManager.i("Logcat watcher detected clipboard update event. Triggering clipboard sync.")
+                                delay(100)
+                                BridgeService.instance?.handleClipboardChanged()
                             }
-                            context.startActivity(intent)
                         }
                     }
+                } catch (e: Exception) {
+                    LogManager.e("Logcat watcher process error (is READ_LOGS permission granted?)", e)
+                } finally {
+                    try {
+                        process?.destroy()
+                    } catch (_: Exception) {}
                 }
-            } catch (e: Exception) {
-                LogManager.e("Logcat watcher error (is READ_LOGS permission granted?)", e)
-            } finally {
-                process?.destroy()
+
+                // If process exited or died, delay and retry while active
+                if (isActive) {
+                    delay(2000)
+                }
             }
         }
     }
@@ -72,3 +80,4 @@ object LogcatWatcherService {
 
     fun isWatching(): Boolean = watcherJob?.isActive == true
 }
+

@@ -21,7 +21,12 @@ import com.bridge.android.crypto.KeyStoreManager
 import com.bridge.android.network.BridgeClient
 import com.bridge.android.network.BridgeClientListener
 import com.bridge.android.network.DiscoveryEngine
+import android.app.ActivityOptions
+import android.content.BroadcastReceiver
+import android.content.ClipboardManager
+import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.provider.Settings
 import com.bridge.android.ui.LogcatWatcherService
 import com.bridge.android.ui.MainActivity
 import com.bridge.android.util.AndroidFileManager
@@ -55,6 +60,20 @@ class BridgeService : Service(), BridgeClientListener {
 
     private var loopJob: Job? = null
     private var backoffMs = 1000L
+
+    private val clipListener = ClipboardManager.OnPrimaryClipChangedListener {
+        LogManager.i("BridgeService: onPrimaryClipChanged event detected")
+        handleClipboardChanged()
+    }
+
+    private val unlockReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_USER_PRESENT) {
+                LogManager.d("Device unlocked: checking clipboard state")
+                handleClipboardChanged()
+            }
+        }
+    }
 
     data class FileTransferInfo(
         val transferId: String,
@@ -112,6 +131,7 @@ class BridgeService : Service(), BridgeClientListener {
         registerNetworkCallback()
         startConnectionLoop()
         syncAutoModeState()
+        registerClipboardListeners()
         LogManager.i("BridgeService created")
     }
 
@@ -133,6 +153,7 @@ class BridgeService : Service(), BridgeClientListener {
 
     override fun onDestroy() {
         instance = null
+        unregisterClipboardListeners()
         LogcatWatcherService.stopWatching()
         unregisterNetworkCallback()
         loopJob?.cancel()
@@ -142,10 +163,91 @@ class BridgeService : Service(), BridgeClientListener {
         super.onDestroy()
     }
 
+    private fun registerClipboardListeners() {
+        try {
+            val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipManager.addPrimaryClipChangedListener(clipListener)
+            val filter = IntentFilter(Intent.ACTION_USER_PRESENT)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(unlockReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                registerReceiver(unlockReceiver, filter)
+            }
+            LogManager.i("Registered clipboard change listener & unlock receiver in BridgeService")
+        } catch (e: Exception) {
+            LogManager.e("Failed to register clipboard listeners in BridgeService", e)
+        }
+    }
+
+    private fun unregisterClipboardListeners() {
+        try {
+            val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipManager.removePrimaryClipChangedListener(clipListener)
+            unregisterReceiver(unlockReceiver)
+        } catch (_: Exception) {}
+    }
+
+    fun handleClipboardChanged() {
+        if (!_isConnectedFlow.value) return
+        try {
+            val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            // 1. Try reading directly (succeeds if application has focus)
+            val sent = clipboardSyncManager.sendLocalClipboardToMac(client, clipManager, force = false)
+            if (!sent) {
+                // 2. Background access restricted by Android 10+:
+                // Prefer lightweight 1x1 overlay view if SYSTEM_ALERT_WINDOW is granted
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
+                    com.bridge.android.clipboard.OverlayClipReader.readClipboardWithOverlay(this, force = false)
+                } else {
+                    triggerTransparentClipReader(force = false)
+                }
+            }
+        } catch (e: Exception) {
+            LogManager.e("Error in handleClipboardChanged", e)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
+                com.bridge.android.clipboard.OverlayClipReader.readClipboardWithOverlay(this, force = false)
+            } else {
+                triggerTransparentClipReader(force = false)
+            }
+        }
+    }
+
+    fun triggerTransparentClipReader(force: Boolean = false) {
+        if (!_isConnectedFlow.value) return
+        try {
+            val intent = Intent(this, com.bridge.android.ui.TransparentClipReaderActivity::class.java).apply {
+                addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_NO_ANIMATION or
+                    Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS or
+                    Intent.FLAG_ACTIVITY_NO_USER_ACTION
+                )
+                putExtra("force", force)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // Android 14+
+                val options = ActivityOptions.makeBasic()
+                try {
+                    options.setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
+                } catch (_: Throwable) {}
+                try {
+                    val method = ActivityOptions::class.java.getMethod("setPendingIntentCreatorBackgroundActivityStartMode", Int::class.javaPrimitiveType)
+                    method.invoke(options, ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
+                } catch (_: Throwable) {}
+                startActivity(intent, options.toBundle())
+            } else {
+                startActivity(intent)
+            }
+            LogManager.i("Triggered TransparentClipReaderActivity (force=$force)")
+        } catch (e: Exception) {
+            LogManager.e("Error triggering TransparentClipReaderActivity", e)
+        }
+    }
+
     fun syncAutoModeState() {
         val hasReadLogs = checkSelfPermission(android.Manifest.permission.READ_LOGS) == PackageManager.PERMISSION_GRANTED
-        val isAutoEnabled = keyStoreManager.isAutoModeEnabled() && hasReadLogs
-        LogManager.i("syncAutoModeState: hasReadLogs=$hasReadLogs, isAutoEnabled=$isAutoEnabled (pref=${keyStoreManager.isAutoModeEnabled()})")
+        val canLaunchReader = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || android.provider.Settings.canDrawOverlays(this)
+        val isAutoEnabled = keyStoreManager.isAutoModeEnabled() && hasReadLogs && canLaunchReader
+        LogManager.i("syncAutoModeState: hasReadLogs=$hasReadLogs, canLaunchReader=$canLaunchReader, isAutoEnabled=$isAutoEnabled (pref=${keyStoreManager.isAutoModeEnabled()})")
         if (isAutoEnabled) {
             if (!LogcatWatcherService.isWatching()) {
                 LogcatWatcherService.startWatching(this, serviceScope)
@@ -165,10 +267,7 @@ class BridgeService : Service(), BridgeClientListener {
 
     fun sendCurrentClipboard() {
         if (_isConnectedFlow.value) {
-            val intent = Intent(this, com.bridge.android.ui.TransparentClipReaderActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
-            }
-            startActivity(intent)
+            triggerTransparentClipReader(force = true)
         } else {
             LogManager.i("Cannot send clipboard: Mac is not connected")
         }
@@ -353,14 +452,29 @@ class BridgeService : Service(), BridgeClientListener {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val sendClipIntent = Intent(this, BridgeService::class.java).apply {
+            action = ACTION_SEND_CLIPBOARD
+        }
+        val sendClipPendingIntent = PendingIntent.getService(
+            this,
+            1,
+            sendClipIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Bridge")
             .setContentText(statusText)
             .setSmallIcon(R.drawable.ic_bridge_notification)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+
+        if (_isConnectedFlow.value) {
+            builder.addAction(R.drawable.ic_clipboard, "Send to Mac", sendClipPendingIntent)
+        }
+
+        return builder.build()
     }
 
     private fun updateNotification(statusText: String) {

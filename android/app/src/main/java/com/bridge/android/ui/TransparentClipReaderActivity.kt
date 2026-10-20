@@ -13,6 +13,12 @@ class TransparentClipReaderActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+        )
+        window.clearFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
+
         val view = android.view.View(this).apply {
             isFocusable = true
             isFocusableInTouchMode = true
@@ -20,24 +26,26 @@ class TransparentClipReaderActivity : Activity() {
         setContentView(view)
         view.requestFocus()
 
-        // Safety timeout to avoid remaining alive
+        // Safety timeout to ensure activity dismisses cleanly without lingering
         window.decorView.postDelayed({
-            if (!isFinishing) {
+            if (!isFinishing && !readAttempted) {
                 attemptReadAndFinish()
             }
-        }, 500)
+        }, 350)
     }
 
     override fun onResume() {
         super.onResume()
-        if (hasWindowFocus()) {
-            attemptReadAndFinish()
+        window.decorView.post {
+            if (hasWindowFocus() && !readAttempted) {
+                attemptReadAndFinish()
+            }
         }
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) {
+        if (hasFocus && !readAttempted) {
             attemptReadAndFinish()
         }
     }
@@ -49,8 +57,13 @@ class TransparentClipReaderActivity : Activity() {
             val service = BridgeService.instance
             if (service != null && service.isConnectedFlow.value) {
                 val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val sent = service.getClipboardSyncManager().sendLocalClipboardToMac(service.getClient(), clipManager, force = true)
-                LogManager.i("TransparentClipReader: Captured clipboard with focus (sent=$sent)")
+                val force = intent?.getBooleanExtra("force", false) ?: false
+                val sent = service.getClipboardSyncManager().sendLocalClipboardToMac(
+                    service.getClient(),
+                    clipManager,
+                    force = force
+                )
+                LogManager.i("TransparentClipReader: Captured clipboard with focus (force=$force, sent=$sent)")
             }
         } catch (e: Exception) {
             LogManager.e("Error reading clipboard in TransparentClipReader", e)
@@ -60,3 +73,4 @@ class TransparentClipReaderActivity : Activity() {
         }
     }
 }
+

@@ -102,8 +102,8 @@ public struct ClipboardImageChunkData {
         let indexBytes = data.subdata(in: 36..<40)
         let lenBytes = data.subdata(in: 40..<44)
         
-        let chunkIndex = indexBytes.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
-        let chunkLen = lenBytes.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
+        let chunkIndex = indexBytes.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self).bigEndian }
+        let chunkLen = lenBytes.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self).bigEndian }
         
         guard data.count >= 44 + Int(chunkLen) else { return nil }
         let chunkBytes = data.subdata(in: 44..<(44 + Int(chunkLen)))
@@ -182,8 +182,8 @@ public struct FileChunkData {
         let indexBytes = data.subdata(in: 36..<40)
         let lenBytes = data.subdata(in: 40..<44)
         
-        let chunkIndex = indexBytes.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
-        let chunkLen = lenBytes.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
+        let chunkIndex = indexBytes.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self).bigEndian }
+        let chunkLen = lenBytes.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self).bigEndian }
         
         guard data.count >= 44 + Int(chunkLen) else { return nil }
         let chunkBytes = data.subdata(in: 44..<(44 + Int(chunkLen)))

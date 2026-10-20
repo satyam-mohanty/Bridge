@@ -77,13 +77,16 @@ adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 3. Long-press any text field on your phone and tap **Paste**.
 4. **Expected Result**: The exact text from your Mac appears on your phone.
 
-### Test B: Text Sync (Android ➔ Mac via Quick Settings Tile)
-1. Swipe down twice from the top of your phone screen to open the full Quick Settings panel.
-2. Tap the pencil/edit icon to edit tiles. Find **"Send to Mac"** (Bridge icon) and drag it into your active tiles.
-3. Copy any text on your phone (e.g. in WhatsApp, Chrome, or Notes).
-4. Pull down the Quick Settings shade and tap **"Send to Mac"**.
-5. Switch to your Mac and press `Cmd + V` in any app.
-6. **Expected Result**: The text copied on your phone is pasted on your Mac.
+### Test B: Real-Time Text Sync (Android ➔ Mac)
+1. Ensure Bridge is enabled in **Settings ➔ Accessibility ➔ Downloaded Apps ➔ Bridge** (or run `adb shell settings put secure enabled_accessibility_services com.bridge.android/.service.BridgeAccessibilityService && adb shell settings put secure accessibility_enabled 1`).
+2. Copy any text anywhere on your phone (e.g. in Chrome, WhatsApp, Notes, Twitter).
+3. The copied text is automatically detected and sent to your Mac in real time!
+4. Switch to your Mac and press `Cmd + V`.
+5. **Expected Result**: The text copied on your phone appears immediately on your Mac.
+
+### Test B2: Text Sync (Android ➔ Mac via Quick Settings Tile or Notification)
+1. Pull down the notification shade and tap **"Send to Mac"** directly from the persistent Bridge notification, or use the **"Send to Mac"** Quick Settings tile.
+2. Switch to your Mac and press `Cmd + V`.
 
 ### Test C: Image Sync (Mac ➔ Android)
 1. On your Mac, copy an image to your clipboard (e.g., right-click an image in a browser and choose "Copy Image", or take a screenshot to clipboard with `Cmd + Ctrl + Shift + 4`).
@@ -129,9 +132,10 @@ Android blocks background apps from reading the clipboard unless triggered by th
    ```bash
    adb shell pm grant com.bridge.android android.permission.READ_LOGS
    ```
-2. In the Android Bridge app, toggle **"Auto-Sync Clipboard"** to ON.
-3. Copy any text anywhere on your phone.
-4. **Expected Result**: Bridge detects the system clipboard copy event in logcat and syncs it to your Mac clipboard automatically.
+2. In Android settings, allow Bridge's **Display over other apps** permission. Bridge uses a transparent reader because Android 10+ prevents background apps from reading clipboard content.
+3. In the Android Bridge app, toggle **"Auto-Sync Clipboard"** to ON.
+4. Copy any text anywhere on your phone.
+5. **Expected Result**: Bridge detects the system clipboard copy event in logcat, briefly reads it, and syncs it to your Mac clipboard automatically.
 
 ---
 
