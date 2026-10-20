@@ -114,6 +114,7 @@ Bytes 1..N   : Payload
 | `0x0C` | `ICON_NEED` | UTF-8 JSON: Mac requesting app icon cache |
 | `0x0D` | `ICON_RESP` | UTF-8 JSON: Android app icon response (128px PNG) |
 | `0x0E` | `NOTIF_REMOVE` | UTF-8 JSON: Android notification removed |
+| `0x0F` | `CALL_EVENT` | UTF-8 JSON: Android incoming call state (ringing, answered, ended) |
 
 ---
 
@@ -311,5 +312,47 @@ macOS removes the corresponding notification from Notification Center using `UNU
    - Upon reconnection, fresh notifications (<= 2 minutes old) are flushed in sequence; expired items are dropped.
 4. **Privacy**:
    - If "Show message previews" is disabled on Android or macOS, the notification content is masked to the app name and `"New message"`.
+
+### 8.6 `0x0F` CALL_EVENT
+Sent by Android to report incoming phone call lifecycle transitions.
+```json
+{
+  "id": "+15551234567",
+  "state": "ringing",
+  "number": "+15551234567",
+  "name": "Jane Doe",
+  "ts": 1729432000000
+}
+```
+
+- `id`: Normalized call session identifier (phone number or session UUID).
+- `state`: 
+  - `"ringing"`: Phone is currently ringing from an incoming call.
+  - `"answered"`: Call was answered by the user (`OFFHOOK`).
+  - `"ended"`: Call has terminated (`IDLE`).
+- `number`: Resolved or raw incoming phone number (optional if suppressed by carrier/caller).
+- `name`: Resolved contact name from device address book via `READ_CONTACTS` (optional; falls back to `number`).
+- `ts`: Unix timestamp in milliseconds.
+
+#### Mac Behavior for `CALL_EVENT`:
+1. **`state == "ringing"`**:
+   - Posts a native notification with identifier `bridge-call-<id>`.
+   - Title: `"Incoming call"`.
+   - Subtitle: Contact name (or number).
+   - Body: Phone number or `"Incoming phone call"`.
+   - Sound: Native alert sound.
+   - Updates to the same call ID update in-place.
+2. **`state == "answered"`**:
+   - Removes `bridge-call-<id>` immediately from screen and Notification Center.
+3. **`state == "ended"`**:
+   - If the call was ringing and never answered:
+     - Removes `bridge-call-<id>`.
+     - Posts a notification with identifier `bridge-missed-call-<id>-<ts>`:
+       - Title: `"Missed call"`.
+       - Subtitle: Contact name (or number).
+       - Body: `"Missed call from <name or number>"`.
+   - If the call was previously answered:
+     - Ensures `bridge-call-<id>` is removed without posting a missed call alert.
+
 
 

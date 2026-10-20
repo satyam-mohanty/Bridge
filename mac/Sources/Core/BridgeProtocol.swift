@@ -15,6 +15,7 @@ public enum BridgeMessageType: UInt8 {
     case iconNeed = 0x0C
     case iconResp = 0x0D
     case notifRemove = 0x0E
+    case callEvent = 0x0F
 }
 
 public struct PingMessage: Codable {
@@ -280,6 +281,22 @@ public struct NotifRemoveMessage: Codable {
     public let key: String
     public init(key: String) {
         self.key = key
+    }
+}
+
+public struct CallEventMessage: Codable {
+    public let id: String
+    public let state: String // "ringing", "answered", "ended"
+    public let number: String?
+    public let name: String?
+    public let ts: Int64
+    
+    public init(id: String, state: String, number: String? = nil, name: String? = nil, ts: Int64 = Int64(Date().timeIntervalSince1970 * 1000)) {
+        self.id = id
+        self.state = state
+        self.number = number
+        self.name = name
+        self.ts = ts
     }
 }
 

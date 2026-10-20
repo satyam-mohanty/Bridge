@@ -1,5 +1,6 @@
 package com.bridge.android.ui
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -15,6 +16,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -41,6 +43,27 @@ class NotificationSettingsActivity : AppCompatActivity() {
     private var filteredAppsList = listOf<AppEntry>()
     private var appsAdapter: AppsAdapter? = null
 
+    private val callPermissions = arrayOf(
+        Manifest.permission.READ_PHONE_STATE,
+        Manifest.permission.READ_CALL_LOG,
+        Manifest.permission.READ_CONTACTS
+    )
+
+    private val requestCallPermissionsLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+            val missing = getMissingCallPermissions()
+            if (missing.isEmpty()) {
+                prefs.showIncomingCalls = true
+                binding.switchShowIncomingCalls.isChecked = true
+                LogManager.i("All call permissions granted; incoming call sync enabled")
+            } else {
+                prefs.showIncomingCalls = false
+                binding.switchShowIncomingCalls.isChecked = false
+                LogManager.i("Some call permissions denied: $missing")
+            }
+            updateCallPermissionsStatus()
+        }
+
     data class AppEntry(
         val packageName: String,
         val label: String,
@@ -61,6 +84,7 @@ class NotificationSettingsActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateNotificationAccessStatus()
+        updateCallPermissionsStatus()
         updateRecentAppsSection()
     }
 
@@ -89,6 +113,28 @@ class NotificationSettingsActivity : AppCompatActivity() {
         binding.switchShowPreviews.setOnCheckedChangeListener { _, isChecked ->
             prefs.showPreviews = isChecked
             LogManager.i("Notifications showPreviews set to $isChecked")
+        }
+
+        // Show incoming calls switch
+        val hasAllCallPerms = getMissingCallPermissions().isEmpty()
+        binding.switchShowIncomingCalls.isChecked = prefs.showIncomingCalls && hasAllCallPerms
+        updateCallPermissionsStatus()
+
+        binding.switchShowIncomingCalls.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                val missing = getMissingCallPermissions()
+                if (missing.isNotEmpty()) {
+                    requestCallPermissionsLauncher.launch(missing.toTypedArray())
+                } else {
+                    prefs.showIncomingCalls = true
+                    updateCallPermissionsStatus()
+                    LogManager.i("Incoming call sync enabled")
+                }
+            } else {
+                prefs.showIncomingCalls = false
+                updateCallPermissionsStatus()
+                LogManager.i("Incoming call sync disabled")
+            }
         }
 
         // Show system apps switch
@@ -126,6 +172,36 @@ class NotificationSettingsActivity : AppCompatActivity() {
         } else {
             binding.tvNotificationAccessStatus.text = "Not allowed"
             binding.tvNotificationAccessStatus.setTextColor(ContextCompat.getColor(this, R.color.status_red))
+        }
+    }
+
+    private fun getMissingCallPermissions(): List<String> {
+        return callPermissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun updateCallPermissionsStatus() {
+        val missing = getMissingCallPermissions()
+        if (missing.isEmpty()) {
+            if (prefs.showIncomingCalls) {
+                binding.tvCallPermissionsStatus.text = "Allowed"
+                binding.tvCallPermissionsStatus.setTextColor(ContextCompat.getColor(this, R.color.status_green))
+            } else {
+                binding.tvCallPermissionsStatus.text = "Alert on phone calls while ringing"
+                binding.tvCallPermissionsStatus.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+            }
+        } else {
+            val names = missing.map {
+                when (it) {
+                    Manifest.permission.READ_PHONE_STATE -> "Phone"
+                    Manifest.permission.READ_CALL_LOG -> "Call log"
+                    Manifest.permission.READ_CONTACTS -> "Contacts"
+                    else -> it
+                }
+            }.joinToString(", ")
+            binding.tvCallPermissionsStatus.text = "Missing permissions: $names"
+            binding.tvCallPermissionsStatus.setTextColor(ContextCompat.getColor(this, R.color.status_red))
         }
     }
 

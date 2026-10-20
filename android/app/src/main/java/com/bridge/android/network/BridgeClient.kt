@@ -389,6 +389,12 @@ class BridgeClient(
         }
     }
 
+    fun sendCallEvent(msg: BridgeProtocol.CallEventMessage) {
+        scope.launch(Dispatchers.IO) {
+            send(BridgeProtocol.TYPE_CALL_EVENT, msg.toJson().toByteArray(Charsets.UTF_8), flush = true)
+        }
+    }
+
     fun sendIconResp(pkg: String, versionCode: Long, iconBase64: String) {
         scope.launch(Dispatchers.IO) {
             val msg = BridgeProtocol.IconRespMessage(pkg, versionCode, iconBase64)

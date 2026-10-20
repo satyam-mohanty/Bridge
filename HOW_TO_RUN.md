@@ -173,6 +173,27 @@ Android blocks background apps from reading the clipboard unless triggered by th
    - On Mac: Open Bridge Settings (`Cmd + ,` or Settings tab) ➔ Click **Notifications** tab ➔ Click **Send test notification**.
    - **Expected Result**: A native test notification banner appears on your Mac immediately.
 
+### Test H: Incoming Phone Calls (Stage B)
+1. **Enable Incoming Calls in Android Settings**:
+   - In Bridge Android app ➔ Tap **Settings** ➔ Tap **Notifications**.
+   - Toggle **"Show incoming calls on Mac"** **ON**.
+   - When prompted by Android, grant **Phone**, **Call Logs**, and **Contacts** permissions.
+   - Status subtext changes to **"Allowed"** (in green).
+2. **Ringing Call**:
+   - Have someone call your phone or place a test call from another number.
+   - Look at your Mac: a native macOS notification banner appears immediately with a ring sound!
+   - **Title**: `"Incoming call"`.
+   - **Subtitle**: Resolved contact name (from your contacts) or phone number.
+   - **Body**: Phone number or incoming call indicator.
+3. **Answered Call**:
+   - Answer the call on your phone.
+   - **Expected Result**: The "Incoming call" banner disappears immediately from your Mac screen.
+4. **Missed Call (Ended without Answer)**:
+   - Call your phone again, let it ring, and let the caller hang up (or let it ring out).
+   - **Expected Result**: The "Incoming call" banner clears and is replaced with a **"Missed call from <name or number>"** notification in your macOS Notification Center!
+5. **Answered Call Hang Up**:
+   - When a call that was answered is hung up, no missed call notification is posted.
+
 ---
 
 ## 6. Power & Reliability Settings (One-Time Setup)

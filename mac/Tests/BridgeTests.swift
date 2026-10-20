@@ -202,5 +202,20 @@ final class BridgeTests: XCTestCase {
         let removeData = try JSONEncoder().encode(remove)
         let decodedRemove = try JSONDecoder().decode(NotifRemoveMessage.self, from: removeData)
         XCTAssertEqual(decodedRemove.key, remove.key)
+        
+        let call = CallEventMessage(
+            id: "+15551234567",
+            state: "ringing",
+            number: "+15551234567",
+            name: "Jane Doe",
+            ts: 1729432000000
+        )
+        let callData = try JSONEncoder().encode(call)
+        let decodedCall = try JSONDecoder().decode(CallEventMessage.self, from: callData)
+        XCTAssertEqual(decodedCall.id, call.id)
+        XCTAssertEqual(decodedCall.state, call.state)
+        XCTAssertEqual(decodedCall.number, call.number)
+        XCTAssertEqual(decodedCall.name, call.name)
+        XCTAssertEqual(decodedCall.ts, call.ts)
     }
 }

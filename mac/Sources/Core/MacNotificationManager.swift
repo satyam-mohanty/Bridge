@@ -7,6 +7,7 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
     
     private let center = UNUserNotificationCenter.current()
     private var isUNAuthorized: Bool = false
+    private var activeRingingCalls = Set<String>()
     
     private var iconCacheDir: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -230,18 +231,112 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
     }
     
     // MARK: - Removal
-    public func handleNotificationRemove(_ msg: NotifRemoveMessage) {
-        center.removeDeliveredNotifications(withIdentifiers: [msg.key])
-        center.removePendingNotificationRequests(withIdentifiers: [msg.key])
+    public func removeNotification(key: String) {
+        center.removeDeliveredNotifications(withIdentifiers: [key])
+        center.removePendingNotificationRequests(withIdentifiers: [key])
         
         DispatchQueue.main.async {
             for delivered in NSUserNotificationCenter.default.deliveredNotifications {
-                if delivered.identifier == msg.key {
+                if delivered.identifier == key {
                     NSUserNotificationCenter.default.removeDeliveredNotification(delivered)
                 }
             }
         }
+    }
+
+    public func handleNotificationRemove(_ msg: NotifRemoveMessage) {
+        removeNotification(key: msg.key)
         LogManager.shared.log("Notification removed: key=\(msg.key)")
+    }
+    
+    // MARK: - Call Event Handling (Stage B)
+    public func handleCallEvent(_ msg: CallEventMessage, showNotifications: Bool) {
+        guard showNotifications else {
+            LogManager.shared.log("Call event filtered: id=\(msg.id) state=\(msg.state) reason=disabled_on_mac")
+            return
+        }
+        
+        let callKey = "bridge-call-\(msg.id)"
+        let callerLabel = msg.name ?? msg.number ?? "Unknown caller"
+        
+        switch msg.state {
+        case "ringing":
+            activeRingingCalls.insert(msg.id)
+            let bodyText = (msg.name != nil && msg.number != nil) ? msg.number! : "Incoming phone call"
+            
+            center.getNotificationSettings { [weak self] settings in
+                guard let self = self else { return }
+                if settings.authorizationStatus == .authorized {
+                    self.deliverViaUN(
+                        key: callKey,
+                        app: "Phone",
+                        title: "Incoming call",
+                        subtitle: callerLabel,
+                        body: bodyText,
+                        contactPhotoData: nil,
+                        iconFileUrl: nil
+                    )
+                } else {
+                    self.deliverViaNS(
+                        key: callKey,
+                        app: "Phone",
+                        title: "Incoming call",
+                        subtitle: callerLabel,
+                        body: bodyText,
+                        contactPhotoData: nil,
+                        iconFileUrl: nil
+                    )
+                }
+            }
+            LogManager.shared.log("Notification displayed: [Call] Incoming call - \(callerLabel)")
+            
+        case "answered":
+            activeRingingCalls.remove(msg.id)
+            removeNotification(key: callKey)
+            LogManager.shared.log("Incoming call answered: id=\(msg.id)")
+            
+        case "ended":
+            let wasRinging = activeRingingCalls.remove(msg.id) != nil
+            removeNotification(key: callKey)
+            
+            if wasRinging {
+                // Ended without being answered -> MISSED CALL!
+                let missedKey = "bridge-missed-call-\(msg.id)-\(msg.ts)"
+                let missedTitle = "Missed call from \(callerLabel)"
+                let missedBody = (msg.name != nil && msg.number != nil) ? "Missed call from \(callerLabel) (\(msg.number!))" : "Missed call from \(callerLabel)"
+                
+                center.getNotificationSettings { [weak self] settings in
+                    guard let self = self else { return }
+                    if settings.authorizationStatus == .authorized {
+                        self.deliverViaUN(
+                            key: missedKey,
+                            app: "Phone",
+                            title: missedTitle,
+                            subtitle: "Phone",
+                            body: missedBody,
+                            contactPhotoData: nil,
+                            iconFileUrl: nil
+                        )
+                    } else {
+                        self.deliverViaNS(
+                            key: missedKey,
+                            app: "Phone",
+                            title: missedTitle,
+                            subtitle: "Phone",
+                            body: missedBody,
+                            contactPhotoData: nil,
+                            iconFileUrl: nil
+                        )
+                    }
+                }
+                LogManager.shared.log("Notification displayed: [Call] Missed call from \(callerLabel)")
+            } else {
+                LogManager.shared.log("Call ended after answer: id=\(msg.id)")
+            }
+            
+        default:
+            LogManager.shared.log("Unknown call state: \(msg.state)", level: .error)
+        }
     }
     
     // MARK: - Icon Cache

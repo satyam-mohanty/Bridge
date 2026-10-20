@@ -115,9 +115,10 @@ object NotificationSyncManager {
             return
         }
 
-        // 8. Skip dialer and telecom packages (handled in Stage B)
+        // 8. Skip dialer and telecom packages (handled via CallSyncManager)
         if (isDialerOrTelecom(context, pkg)) {
-            LogManager.i("Notif filtered: pkg=$pkg reason=dialer_or_telecom")
+            LogManager.i("Notif filtered: pkg=$pkg reason=dialer_or_telecom (forwarded to CallSyncManager)")
+            CallSyncManager.onCallNotificationPosted(context, sbn)
             return
         }
 
@@ -233,9 +234,15 @@ object NotificationSyncManager {
         dispatchNotification(postMsg)
     }
 
-    fun processNotificationRemoved(sbn: StatusBarNotification) {
+    fun processNotificationRemoved(context: Context, sbn: StatusBarNotification) {
         val key = sbn.key
+        val pkg = sbn.packageName
         recentContentHashes.remove(key)
+
+        if (isDialerOrTelecom(context, pkg)) {
+            CallSyncManager.onCallNotificationRemoved(context, sbn)
+            return
+        }
 
         val service = BridgeService.instance
         if (service != null && service.isConnectedFlow.value) {

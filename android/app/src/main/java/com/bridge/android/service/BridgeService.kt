@@ -132,6 +132,7 @@ class BridgeService : Service(), BridgeClientListener {
         startConnectionLoop()
         syncAutoModeState()
         registerClipboardListeners()
+        com.bridge.android.notification.CallSyncManager.register(this)
         LogManager.i("BridgeService created")
     }
 
@@ -153,6 +154,7 @@ class BridgeService : Service(), BridgeClientListener {
 
     override fun onDestroy() {
         instance = null
+        com.bridge.android.notification.CallSyncManager.unregister(this)
         unregisterClipboardListeners()
         LogcatWatcherService.stopWatching()
         unregisterNetworkCallback()

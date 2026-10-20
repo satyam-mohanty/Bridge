@@ -51,7 +51,7 @@ class BridgeNotificationListenerService : NotificationListenerService() {
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         if (sbn == null) return
         try {
-            NotificationSyncManager.processNotificationRemoved(sbn)
+            NotificationSyncManager.processNotificationRemoved(this, sbn)
         } catch (e: Exception) {
             LogManager.e("Error processing onNotificationRemoved", e)
         }

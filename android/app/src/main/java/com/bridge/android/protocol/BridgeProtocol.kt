@@ -23,6 +23,7 @@ object BridgeProtocol {
     const val TYPE_ICON_NEED: Byte = 0x0C
     const val TYPE_ICON_RESP: Byte = 0x0D
     const val TYPE_NOTIF_REMOVE: Byte = 0x0E
+    const val TYPE_CALL_EVENT: Byte = 0x0F
 
     data class TextMessage(
         val id: String,
@@ -346,6 +347,37 @@ object BridgeProtocol {
                 val json = JSONObject(jsonStr)
                 return NotifRemoveMessage(
                     key = json.getString("key")
+                )
+            }
+        }
+    }
+
+    data class CallEventMessage(
+        val id: String,
+        val state: String, // "ringing", "answered", "ended"
+        val number: String?,
+        val name: String?,
+        val ts: Long = System.currentTimeMillis()
+    ) {
+        fun toJson(): String {
+            val json = JSONObject()
+            json.put("id", id)
+            json.put("state", state)
+            if (number != null) json.put("number", number)
+            if (name != null) json.put("name", name)
+            json.put("ts", ts)
+            return json.toString()
+        }
+
+        companion object {
+            fun fromJson(jsonStr: String): CallEventMessage {
+                val json = JSONObject(jsonStr)
+                return CallEventMessage(
+                    id = json.getString("id"),
+                    state = json.getString("state"),
+                    number = if (json.has("number") && !json.isNull("number")) json.getString("number") else null,
+                    name = if (json.has("name") && !json.isNull("name")) json.getString("name") else null,
+                    ts = json.optLong("ts", System.currentTimeMillis())
                 )
             }
         }

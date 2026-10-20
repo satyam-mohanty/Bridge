@@ -25,6 +25,24 @@ public struct FileTransferItem: Identifiable, Equatable {
     }
 }
 
+public struct NotificationHistoryItem: Identifiable, Equatable {
+    public let id: String
+    public let app: String
+    public let title: String
+    public let body: String
+    public let date: Date
+    public let pkg: String
+    
+    public init(id: String = UUID().uuidString, app: String, title: String, body: String, date: Date = Date(), pkg: String = "") {
+        self.id = id
+        self.app = app
+        self.title = title
+        self.body = body
+        self.date = date
+        self.pkg = pkg
+    }
+}
+
 @MainActor
 public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMonitorDelegate {
     @Published public
@@ -40,6 +58,7 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
     }
     @Published public var downloadsDirectoryPath: String = ""
     @Published public var recentTransfers: [FileTransferItem] = []
+    @Published public var recentNotifications: [NotificationHistoryItem] = []
     @Published public var isTransferring: Bool = false
     @Published public var activeTransferProgress: Double = 0.0
     @Published public var activeTransferName: String = ""
@@ -230,11 +249,36 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
                     self.recentTransfers[idx].progress = 1.0
                     LogManager.shared.log("Successfully sent \(name) to phone")
                 case .failure(let error):
-                    self.recentTransfers[idx].status = "Failed"
-                    LogManager.shared.log("Failed to send \(name): \(error)", level: .error)
+                    let isCancelled = (error as NSError).code == -999
+                    self.recentTransfers[idx].status = isCancelled ? "Cancelled" : "Failed"
+                    if isCancelled {
+                        LogManager.shared.log("File transfer of \(name) cancelled by user")
+                    } else {
+                        LogManager.shared.log("Failed to send \(name): \(error)", level: .error)
+                    }
                 }
             }
         })
+    }
+    
+    public func clearRecentTransfers() {
+        recentTransfers.removeAll()
+        LogManager.shared.log("Cleared recent file transfers")
+    }
+    
+    public func clearNotificationHistory() {
+        recentNotifications.removeAll()
+        LogManager.shared.log("Cleared notification history")
+    }
+    
+    public func cancelActiveTransfer() {
+        LogManager.shared.log("User cancelled active transfer: \(activeTransferName)")
+        server.cancelActiveTransfer()
+        isTransferring = false
+        activeTransferProgress = 0.0
+        if let idx = recentTransfers.firstIndex(where: { $0.status == "Sending…" || $0.status == "Receiving…" }) {
+            recentTransfers[idx].status = "Cancelled"
+        }
     }
     
     // MARK: - NetworkServerDelegate
@@ -302,11 +346,41 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
     
     public nonisolated func serverDidReceiveNotificationPost(_ msg: NotifPostMessage) {
         Task { @MainActor in
+            self.recordNotification(msg)
             MacNotificationManager.shared.handleNotificationPost(
                 msg,
                 showNotifications: self.showAndroidNotifications,
                 showPreviews: self.showNotificationPreviews
             )
+        }
+    }
+    
+    private func recordNotification(_ msg: NotifPostMessage) {
+        let displayTitle: String
+        if let sender = msg.sender, !sender.trimmingCharacters(in: .whitespaces).isEmpty {
+            displayTitle = sender
+        } else if !msg.title.trimmingCharacters(in: .whitespaces).isEmpty {
+            displayTitle = msg.title
+        } else {
+            displayTitle = msg.app
+        }
+        
+        let bodyText = (msg.bigText?.isEmpty == false) ? msg.bigText! : msg.text
+        let item = NotificationHistoryItem(
+            id: msg.key,
+            app: msg.app.isEmpty ? "Phone" : msg.app,
+            title: displayTitle,
+            body: bodyText,
+            date: Date(timeIntervalSince1970: Double(msg.ts) / 1000.0),
+            pkg: msg.pkg
+        )
+        if let idx = recentNotifications.firstIndex(where: { $0.id == msg.key }) {
+            recentNotifications[idx] = item
+        } else {
+            recentNotifications.insert(item, at: 0)
+            if recentNotifications.count > 50 {
+                recentNotifications.removeLast()
+            }
         }
     }
     
@@ -322,8 +396,26 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
         }
     }
     
+    public nonisolated func serverDidReceiveCallEvent(_ msg: CallEventMessage) {
+        Task { @MainActor in
+            MacNotificationManager.shared.handleCallEvent(
+                msg,
+                showNotifications: self.showAndroidNotifications
+            )
+        }
+    }
+    
     public func sendTestNotification() {
         MacNotificationManager.shared.sendTestNotification()
+        let testItem = NotificationHistoryItem(
+            id: UUID().uuidString,
+            app: "Bridge Test",
+            title: "Test Notification",
+            body: "Bridge notification sync is working properly.",
+            date: Date(),
+            pkg: "com.bridge.android"
+        )
+        recentNotifications.insert(testItem, at: 0)
     }
     
     public func openNotificationSettings() {

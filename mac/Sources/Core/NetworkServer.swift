@@ -10,6 +10,7 @@ public protocol NetworkServerDelegate: AnyObject {
     func serverDidReceiveNotificationPost(_ msg: NotifPostMessage)
     func serverDidReceiveNotificationRemove(_ msg: NotifRemoveMessage)
     func serverDidReceiveIconResponse(_ msg: IconRespMessage)
+    func serverDidReceiveCallEvent(_ msg: CallEventMessage)
 }
 
 public final class NetworkServer {
@@ -37,6 +38,10 @@ public final class NetworkServer {
     // In-flight incoming file assembly
     private var pendingFileStart: FileStartMessage?
     private var receivedFileChunks: [UInt32: Data] = [:]
+    
+    // In-flight transfer cancellation
+    private var isTransferCancelled: Bool = false
+    private let transferCancelLock = NSLock()
     
     private init() {}
     
@@ -354,6 +359,13 @@ public final class NetworkServer {
                 LogManager.shared.log("Failed to decode IconRespMessage", level: .error)
             }
             
+        case BridgeMessageType.callEvent.rawValue:
+            if let msg = try? JSONDecoder().decode(CallEventMessage.self, from: payload) {
+                delegate?.serverDidReceiveCallEvent(msg)
+            } else {
+                LogManager.shared.log("Failed to decode CallEventMessage", level: .error)
+            }
+            
         default:
             LogManager.shared.log("Unknown message type: \(msgType)")
         }
@@ -404,7 +416,27 @@ public final class NetworkServer {
         }
     }
     
+    public func cancelActiveTransfer() {
+        transferCancelLock.lock()
+        isTransferCancelled = true
+        transferCancelLock.unlock()
+        
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            if let pending = self.pendingFileStart {
+                LogManager.shared.log("User cancelled incoming file transfer: \(pending.name)")
+                self.send(type: .fileAck, value: FileAckMessage(id: pending.id, status: "error"))
+                self.pendingFileStart = nil
+                self.receivedFileChunks.removeAll()
+            }
+        }
+    }
+    
     public func sendFile(url: URL, progressHandler: @escaping (Double) -> Void, completion: @escaping (Result<Void, Error>) -> Void) {
+        transferCancelLock.lock()
+        isTransferCancelled = false
+        transferCancelLock.unlock()
+        
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             do {
@@ -438,6 +470,20 @@ public final class NetworkServer {
                 let errorLock = NSLock()
                 
                 for (index, chunk) in chunks.enumerated() {
+                    self.transferCancelLock.lock()
+                    let wasCancelled = self.isTransferCancelled
+                    self.transferCancelLock.unlock()
+                    if wasCancelled {
+                        errorLock.lock()
+                        sendError = NSError(
+                            domain: "com.bridge.mac",
+                            code: -999,
+                            userInfo: [NSLocalizedDescriptionKey: "Transfer was cancelled by user"]
+                        )
+                        errorLock.unlock()
+                        break
+                    }
+                    
                     errorLock.lock()
                     let hasError = sendError != nil
                     errorLock.unlock()

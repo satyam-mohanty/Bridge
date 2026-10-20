@@ -11,6 +11,7 @@ class NotificationPreferences(context: Context) {
         private const val KEY_NOTIF_SYNC_ENABLED = "notif_sync_enabled"
         private const val KEY_SHOW_PREVIEWS = "notif_show_previews"
         private const val KEY_SHOW_SYSTEM_APPS = "notif_show_system_apps"
+        private const val KEY_SHOW_INCOMING_CALLS = "notif_show_incoming_calls"
         private const val KEY_ENABLED_PACKAGES = "notif_enabled_packages"
         private const val KEY_RECENT_PACKAGES = "notif_recent_packages"
     }
@@ -26,6 +27,10 @@ class NotificationPreferences(context: Context) {
     var showSystemApps: Boolean
         get() = prefs.getBoolean(KEY_SHOW_SYSTEM_APPS, false)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_SYSTEM_APPS, value).apply()
+
+    var showIncomingCalls: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_INCOMING_CALLS, false)
+        set(value) = prefs.edit().putBoolean(KEY_SHOW_INCOMING_CALLS, value).apply()
 
     fun getEnabledPackages(): Set<String> {
         return prefs.getStringSet(KEY_ENABLED_PACKAGES, emptySet()) ?: emptySet()

@@ -24,6 +24,11 @@
     <!-- Package Query for Notification App Selection (Android 11+) -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
 
+    <!-- Telephony & Contacts for Incoming Call Alerts (Stage B) -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
     <application
         android:name=".BridgeApp"
         android:allowBackup="false"
