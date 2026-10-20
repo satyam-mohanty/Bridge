@@ -19,6 +19,10 @@ object BridgeProtocol {
     const val TYPE_FILE_START: Byte = 0x08
     const val TYPE_FILE_CHUNK: Byte = 0x09
     const val TYPE_FILE_ACK: Byte = 0x0A
+    const val TYPE_NOTIF_POST: Byte = 0x0B
+    const val TYPE_ICON_NEED: Byte = 0x0C
+    const val TYPE_ICON_RESP: Byte = 0x0D
+    const val TYPE_NOTIF_REMOVE: Byte = 0x0E
 
     data class TextMessage(
         val id: String,
@@ -224,6 +228,124 @@ object BridgeProtocol {
                 return FileAckMessage(
                     id = json.getString("id"),
                     status = json.getString("status")
+                )
+            }
+        }
+    }
+
+    data class NotifPostMessage(
+        val key: String,
+        val pkg: String,
+        val app: String,
+        val title: String,
+        val text: String,
+        val bigText: String? = null,
+        val subText: String? = null,
+        val convTitle: String? = null,
+        val sender: String? = null,
+        val ts: Long,
+        val category: String? = null,
+        val versionCode: Long = 0,
+        val largeIcon: String? = null
+    ) {
+        fun toJson(): String {
+            val json = JSONObject()
+            json.put("key", key)
+            json.put("pkg", pkg)
+            json.put("app", app)
+            json.put("title", title)
+            json.put("text", text)
+            if (bigText != null) json.put("bigText", bigText)
+            if (subText != null) json.put("subText", subText)
+            if (convTitle != null) json.put("convTitle", convTitle)
+            if (sender != null) json.put("sender", sender)
+            json.put("ts", ts)
+            if (category != null) json.put("category", category)
+            json.put("versionCode", versionCode)
+            if (largeIcon != null) json.put("largeIcon", largeIcon)
+            return json.toString()
+        }
+
+        companion object {
+            fun fromJson(jsonStr: String): NotifPostMessage {
+                val json = JSONObject(jsonStr)
+                return NotifPostMessage(
+                    key = json.getString("key"),
+                    pkg = json.getString("pkg"),
+                    app = json.getString("app"),
+                    title = json.getString("title"),
+                    text = json.getString("text"),
+                    bigText = if (json.has("bigText") && !json.isNull("bigText")) json.getString("bigText") else null,
+                    subText = if (json.has("subText") && !json.isNull("subText")) json.getString("subText") else null,
+                    convTitle = if (json.has("convTitle") && !json.isNull("convTitle")) json.getString("convTitle") else null,
+                    sender = if (json.has("sender") && !json.isNull("sender")) json.getString("sender") else null,
+                    ts = json.optLong("ts", System.currentTimeMillis()),
+                    category = if (json.has("category") && !json.isNull("category")) json.getString("category") else null,
+                    versionCode = json.optLong("versionCode", 0),
+                    largeIcon = if (json.has("largeIcon") && !json.isNull("largeIcon")) json.getString("largeIcon") else null
+                )
+            }
+        }
+    }
+
+    data class IconNeedMessage(
+        val pkg: String
+    ) {
+        fun toJson(): String {
+            val json = JSONObject()
+            json.put("pkg", pkg)
+            return json.toString()
+        }
+
+        companion object {
+            fun fromJson(jsonStr: String): IconNeedMessage {
+                val json = JSONObject(jsonStr)
+                return IconNeedMessage(
+                    pkg = json.getString("pkg")
+                )
+            }
+        }
+    }
+
+    data class IconRespMessage(
+        val pkg: String,
+        val versionCode: Long,
+        val icon: String
+    ) {
+        fun toJson(): String {
+            val json = JSONObject()
+            json.put("pkg", pkg)
+            json.put("versionCode", versionCode)
+            json.put("icon", icon)
+            return json.toString()
+        }
+
+        companion object {
+            fun fromJson(jsonStr: String): IconRespMessage {
+                val json = JSONObject(jsonStr)
+                return IconRespMessage(
+                    pkg = json.getString("pkg"),
+                    versionCode = json.optLong("versionCode", 0),
+                    icon = json.getString("icon")
+                )
+            }
+        }
+    }
+
+    data class NotifRemoveMessage(
+        val key: String
+    ) {
+        fun toJson(): String {
+            val json = JSONObject()
+            json.put("key", key)
+            return json.toString()
+        }
+
+        companion object {
+            fun fromJson(jsonStr: String): NotifRemoveMessage {
+                val json = JSONObject(jsonStr)
+                return NotifRemoveMessage(
+                    key = json.getString("key")
                 )
             }
         }

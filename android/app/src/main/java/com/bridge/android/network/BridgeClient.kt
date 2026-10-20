@@ -33,6 +33,7 @@ interface BridgeClientListener {
     fun onImageReceived(data: ByteArray, hash: String)
     fun onFileReceived(name: String, data: ByteArray, mime: String)
     fun onFileProgress(transferId: String, name: String, progress: Float, isIncoming: Boolean) {}
+    fun onIconNeed(pkg: String) {}
 }
 
 class BridgeClient(
@@ -239,6 +240,11 @@ class BridgeClient(
                 LogManager.i("Mac requested disconnect")
                 stop()
             }
+            BridgeProtocol.TYPE_ICON_NEED -> {
+                val jsonStr = String(payload, Charsets.UTF_8)
+                val need = BridgeProtocol.IconNeedMessage.fromJson(jsonStr)
+                listener.onIconNeed(need.pkg)
+            }
             else -> {
                 LogManager.d("Unknown message type: $type")
             }
@@ -367,6 +373,26 @@ class BridgeClient(
             )
             send(BridgeProtocol.TYPE_CLIPBOARD_TEXT, msg.toJson().toByteArray(Charsets.UTF_8), flush = true)
             LogManager.i("Dispatched clipboard text to Mac (${text.length} chars)")
+        }
+    }
+
+    fun sendNotifPost(msg: BridgeProtocol.NotifPostMessage) {
+        scope.launch(Dispatchers.IO) {
+            send(BridgeProtocol.TYPE_NOTIF_POST, msg.toJson().toByteArray(Charsets.UTF_8), flush = true)
+        }
+    }
+
+    fun sendNotifRemove(key: String) {
+        scope.launch(Dispatchers.IO) {
+            val msg = BridgeProtocol.NotifRemoveMessage(key)
+            send(BridgeProtocol.TYPE_NOTIF_REMOVE, msg.toJson().toByteArray(Charsets.UTF_8), flush = true)
+        }
+    }
+
+    fun sendIconResp(pkg: String, versionCode: Long, iconBase64: String) {
+        scope.launch(Dispatchers.IO) {
+            val msg = BridgeProtocol.IconRespMessage(pkg, versionCode, iconBase64)
+            send(BridgeProtocol.TYPE_ICON_RESP, msg.toJson().toByteArray(Charsets.UTF_8), flush = true)
         }
     }
 

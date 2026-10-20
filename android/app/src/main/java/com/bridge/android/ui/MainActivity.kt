@@ -279,6 +279,16 @@ class MainActivity : AppCompatActivity() {
         val currentIp = keyStoreManager.getLastKnownIp()
         sheetBinding.tvCurrentIpSetting.text = if (currentIp.isNullOrBlank()) "Auto" else currentIp
 
+        // Notification Settings Display
+        val notifPrefs = com.bridge.android.notification.NotificationPreferences(this)
+        val isNotifEnabled = notifPrefs.isSyncEnabled
+        val enabledAppCount = notifPrefs.getEnabledPackages().size
+        sheetBinding.tvNotificationStatusSheet.text = if (isNotifEnabled) "$enabledAppCount active" else "Off"
+        sheetBinding.rowNotificationsSettings.setOnClickListener {
+            sheetDialog.dismiss()
+            startActivity(Intent(this, NotificationSettingsActivity::class.java))
+        }
+
         // Battery Status Display
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         val isIgnoringBattery = pm.isIgnoringBatteryOptimizations(packageName)

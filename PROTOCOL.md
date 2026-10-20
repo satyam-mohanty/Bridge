@@ -110,6 +110,10 @@ Bytes 1..N   : Payload
 | `0x08` | `FILE_START` | UTF-8 JSON: file metadata |
 | `0x09` | `FILE_CHUNK` | Binary Chunk Header + Raw Bytes |
 | `0x0A` | `FILE_ACK` | UTF-8 JSON: receipt confirmation |
+| `0x0B` | `NOTIF_POST` | UTF-8 JSON: Android notification posted/updated |
+| `0x0C` | `ICON_NEED` | UTF-8 JSON: Mac requesting app icon cache |
+| `0x0D` | `ICON_RESP` | UTF-8 JSON: Android app icon response (128px PNG) |
+| `0x0E` | `NOTIF_REMOVE` | UTF-8 JSON: Android notification removed |
 
 ---
 
@@ -233,4 +237,79 @@ Bytes 44..N  : Raw File Chunk Bytes
 3. **Sharing Triggers**:
    - **From Mac**: Drag & Drop into Bridge window, "Choose File..." button, or right-click Quick Action / Share.
    - **From Android**: System Share Sheet (`ACTION_SEND` and `ACTION_SEND_MULTIPLE`) supporting any MIME type (`*/*`), plus in-app "Send File" button.
+
+---
+
+## 8. Notification Sync (One-Way Android -> Mac)
+
+Bridge delivers notifications from user-selected Android apps to macOS as native system notifications (`UNUserNotificationCenter`).
+
+### 8.1 `0x0B` NOTIF_POST
+Sent by Android when a qualifying app posts or updates a notification.
+```json
+{
+  "key": "0|com.whatsapp|1234|...",
+  "pkg": "com.whatsapp",
+  "app": "WhatsApp",
+  "title": "Alice",
+  "text": "Hey, how are you?",
+  "bigText": "Hey, how are you?",
+  "subText": "Work Group",
+  "convTitle": "Team Project",
+  "sender": "Alice",
+  "ts": 1729432000000,
+  "category": "msg",
+  "versionCode": 240901,
+  "largeIcon": "<optional base64-encoded 96px JPEG contact photo>"
+}
+```
+
+- `key`: Unique system notification key assigned by Android. Used as the `UNNotificationRequest` identifier on macOS so subsequent updates to the same key replace the notification in-place.
+- `versionCode`: Used by macOS alongside `pkg` to index the local icon cache (`<pkg>_<versionCode>.png`).
+- `largeIcon`: Included ONLY when a contact photo or large icon is attached to the notification. Scaled down to max 96x96 px JPEG.
+
+### 8.2 `0x0C` ICON_NEED
+Sent by macOS to Android when it receives a `NOTIF_POST` for a package/version that is not yet present in the macOS local icon cache.
+```json
+{
+  "pkg": "com.whatsapp"
+}
+```
+
+### 8.3 `0x0D` ICON_RESP
+Sent by Android in response to `ICON_NEED`. Contains a 128 px PNG of the app launcher icon.
+```json
+{
+  "pkg": "com.whatsapp",
+  "versionCode": 240901,
+  "icon": "<base64-encoded 128px PNG>"
+}
+```
+macOS saves this icon persistently to `Application Support/Bridge/IconCache/<pkg>_<versionCode>.png`.
+
+### 8.4 `0x0E` NOTIF_REMOVE
+Sent by Android when a notification is dismissed or cleared on the phone.
+```json
+{
+  "key": "0|com.whatsapp|1234|..."
+}
+```
+macOS removes the corresponding notification from Notification Center using `UNUserNotificationCenter.removeDeliveredNotifications(withIdentifiers:)`.
+
+### 8.5 Lifecycle & Reliability Rules
+1. **Filtering on Android**:
+   - Skips Bridge itself (`com.bridge.android`).
+   - Skips group summaries (`FLAG_GROUP_SUMMARY`).
+   - Skips media sessions, progress indicators, foreground services (`FLAG_FOREGROUND_SERVICE`), and ongoing notifications (`FLAG_ONGOING_EVENT`) EXCEPT `category == "call"` (e.g. WhatsApp VoIP calls).
+   - Skips dialer and telecom packages (handled in Stage B).
+   - Skips apps not enabled by the user in Android settings.
+2. **Debouncing & Updates**:
+   - Identical repeats (same key and matching content) are debounced.
+   - Content updates for an active key replace the previous notification on macOS.
+3. **Offline Queue**:
+   - If macOS is disconnected, Android buffers up to 20 notifications for at most 2 minutes.
+   - Upon reconnection, fresh notifications (<= 2 minutes old) are flushed in sequence; expired items are dropped.
+4. **Privacy**:
+   - If "Show message previews" is disabled on Android or macOS, the notification content is masked to the app name and `"New message"`.
+
 

@@ -11,6 +11,10 @@ public enum BridgeMessageType: UInt8 {
     case fileStart = 0x08
     case fileChunk = 0x09
     case fileAck = 0x0A
+    case notifPost = 0x0B
+    case iconNeed = 0x0C
+    case iconResp = 0x0D
+    case notifRemove = 0x0E
 }
 
 public struct PingMessage: Codable {
@@ -205,6 +209,77 @@ public struct DisconnectMessage: Codable {
     public let reason: String
     public init(reason: String) {
         self.reason = reason
+    }
+}
+
+public struct NotifPostMessage: Codable {
+    public let key: String
+    public let pkg: String
+    public let app: String
+    public let title: String
+    public let text: String
+    public let bigText: String?
+    public let subText: String?
+    public let convTitle: String?
+    public let sender: String?
+    public let ts: Int64
+    public let category: String?
+    public let versionCode: Int64
+    public let largeIcon: String?
+    
+    public init(
+        key: String,
+        pkg: String,
+        app: String,
+        title: String,
+        text: String,
+        bigText: String? = nil,
+        subText: String? = nil,
+        convTitle: String? = nil,
+        sender: String? = nil,
+        ts: Int64 = Int64(Date().timeIntervalSince1970 * 1000),
+        category: String? = nil,
+        versionCode: Int64 = 0,
+        largeIcon: String? = nil
+    ) {
+        self.key = key
+        self.pkg = pkg
+        self.app = app
+        self.title = title
+        self.text = text
+        self.bigText = bigText
+        self.subText = subText
+        self.convTitle = convTitle
+        self.sender = sender
+        self.ts = ts
+        self.category = category
+        self.versionCode = versionCode
+        self.largeIcon = largeIcon
+    }
+}
+
+public struct IconNeedMessage: Codable {
+    public let pkg: String
+    public init(pkg: String) {
+        self.pkg = pkg
+    }
+}
+
+public struct IconRespMessage: Codable {
+    public let pkg: String
+    public let versionCode: Int64
+    public let icon: String
+    public init(pkg: String, versionCode: Int64, icon: String) {
+        self.pkg = pkg
+        self.versionCode = versionCode
+        self.icon = icon
+    }
+}
+
+public struct NotifRemoveMessage: Codable {
+    public let key: String
+    public init(key: String) {
+        self.key = key
     }
 }
 

@@ -151,4 +151,56 @@ final class BridgeTests: XCTestCase {
         XCTAssertEqual(parsed.chunkIndex, 7)
         XCTAssertEqual(parsed.chunkBytes, chunkPayload)
     }
+    
+    func testNotificationMessageCodable() throws {
+        let original = NotifPostMessage(
+            key: "0|com.whatsapp|1234|tag",
+            pkg: "com.whatsapp",
+            app: "WhatsApp",
+            title: "Alice",
+            text: "Hello there!",
+            bigText: "Hello there! Big text",
+            subText: "Work",
+            convTitle: "Team Chat",
+            sender: "Alice",
+            ts: 1729432000000,
+            category: "msg",
+            versionCode: 240901,
+            largeIcon: "base64jpeg"
+        )
+        
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(NotifPostMessage.self, from: data)
+        
+        XCTAssertEqual(decoded.key, original.key)
+        XCTAssertEqual(decoded.pkg, original.pkg)
+        XCTAssertEqual(decoded.app, original.app)
+        XCTAssertEqual(decoded.title, original.title)
+        XCTAssertEqual(decoded.text, original.text)
+        XCTAssertEqual(decoded.bigText, original.bigText)
+        XCTAssertEqual(decoded.subText, original.subText)
+        XCTAssertEqual(decoded.convTitle, original.convTitle)
+        XCTAssertEqual(decoded.sender, original.sender)
+        XCTAssertEqual(decoded.ts, original.ts)
+        XCTAssertEqual(decoded.category, original.category)
+        XCTAssertEqual(decoded.versionCode, original.versionCode)
+        XCTAssertEqual(decoded.largeIcon, original.largeIcon)
+        
+        let need = IconNeedMessage(pkg: "com.whatsapp")
+        let needData = try JSONEncoder().encode(need)
+        let decodedNeed = try JSONDecoder().decode(IconNeedMessage.self, from: needData)
+        XCTAssertEqual(decodedNeed.pkg, need.pkg)
+        
+        let resp = IconRespMessage(pkg: "com.whatsapp", versionCode: 240901, icon: "base64png")
+        let respData = try JSONEncoder().encode(resp)
+        let decodedResp = try JSONDecoder().decode(IconRespMessage.self, from: respData)
+        XCTAssertEqual(decodedResp.pkg, resp.pkg)
+        XCTAssertEqual(decodedResp.versionCode, resp.versionCode)
+        XCTAssertEqual(decodedResp.icon, resp.icon)
+        
+        let remove = NotifRemoveMessage(key: "0|com.whatsapp|1234|tag")
+        let removeData = try JSONEncoder().encode(remove)
+        let decodedRemove = try JSONDecoder().decode(NotifRemoveMessage.self, from: removeData)
+        XCTAssertEqual(decodedRemove.key, remove.key)
+    }
 }

@@ -348,6 +348,8 @@ class BridgeService : Service(), BridgeClientListener {
             updateNotification("Connected to $macName ($ip)")
             LogManager.i("BridgeService: Link established with $ip")
             syncAutoModeState()
+            com.bridge.android.notification.BridgeNotificationListenerService.rebind(this@BridgeService)
+            com.bridge.android.notification.NotificationSyncManager.flushOfflineQueue(client)
         }
     }
 
@@ -395,6 +397,12 @@ class BridgeService : Service(), BridgeClientListener {
             isIncoming = isIncoming,
             isCompleted = progress >= 1.0f
         )
+    }
+
+    override fun onIconNeed(pkg: String) {
+        serviceScope.launch(Dispatchers.IO) {
+            com.bridge.android.notification.NotificationSyncManager.handleIconNeed(this@BridgeService, pkg, client)
+        }
     }
 
     // MARK: - Network Callback (Instant Reconnect)

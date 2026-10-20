@@ -14,6 +14,7 @@ class BootReceiver : BroadcastReceiver() {
             if (keyStoreManager.hasKey()) {
                 LogManager.i("Device boot/upgrade detected: Starting BridgeService")
                 BridgeService.start(context)
+                com.bridge.android.notification.BridgeNotificationListenerService.rebind(context)
             } else {
                 LogManager.i("Device boot detected: Device not paired yet, skipping auto-start")
             }

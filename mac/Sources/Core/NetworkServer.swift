@@ -7,6 +7,9 @@ public protocol NetworkServerDelegate: AnyObject {
     func serverDidReceiveImage(data: Data, hash: String)
     func serverDidReceiveFile(name: String, savedUrl: URL, size: Int)
     func serverFileTransferProgress(transferId: String, name: String, progress: Double, isIncoming: Bool)
+    func serverDidReceiveNotificationPost(_ msg: NotifPostMessage)
+    func serverDidReceiveNotificationRemove(_ msg: NotifRemoveMessage)
+    func serverDidReceiveIconResponse(_ msg: IconRespMessage)
 }
 
 public final class NetworkServer {
@@ -328,6 +331,27 @@ public final class NetworkServer {
             if let conn = self.activeConnection {
                 conn.cancel()
                 self.cleanupConnection(conn)
+            }
+            
+        case BridgeMessageType.notifPost.rawValue:
+            if let msg = try? JSONDecoder().decode(NotifPostMessage.self, from: payload) {
+                delegate?.serverDidReceiveNotificationPost(msg)
+            } else {
+                LogManager.shared.log("Failed to decode NotifPostMessage", level: .error)
+            }
+            
+        case BridgeMessageType.notifRemove.rawValue:
+            if let msg = try? JSONDecoder().decode(NotifRemoveMessage.self, from: payload) {
+                delegate?.serverDidReceiveNotificationRemove(msg)
+            } else {
+                LogManager.shared.log("Failed to decode NotifRemoveMessage", level: .error)
+            }
+            
+        case BridgeMessageType.iconResp.rawValue:
+            if let msg = try? JSONDecoder().decode(IconRespMessage.self, from: payload) {
+                delegate?.serverDidReceiveIconResponse(msg)
+            } else {
+                LogManager.shared.log("Failed to decode IconRespMessage", level: .error)
             }
             
         default:

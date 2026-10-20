@@ -8,6 +8,7 @@ public struct MainWindowView: View {
     @State private var showDiagnosticsSheet: Bool = false
     @State private var showPairingSheet: Bool = false
     @State private var showClearConfirm: Bool = false
+    @State private var settingsTab: Int = 0
     
     public init(model: AppModel) {
         self.model = model
@@ -255,9 +256,55 @@ public struct MainWindowView: View {
     // MARK: - Settings Section
     private var settingsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Settings")
-                .font(.headline)
+            HStack {
+                Text("Settings")
+                    .font(.headline)
+                
+                Spacer()
+                
+                Picker("", selection: $settingsTab) {
+                    Text("General").tag(0)
+                    Text("Notifications").tag(1)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 220)
+            }
             
+            if settingsTab == 0 {
+                generalSettingsContent
+            } else {
+                notificationsSettingsContent
+            }
+        }
+    }
+    
+    private var notificationsSettingsContent: some View {
+        Form {
+            Section {
+                Toggle("Show Android notifications", isOn: $model.showAndroidNotifications)
+                
+                Toggle("Show previews", isOn: $model.showNotificationPreviews)
+                    .disabled(!model.showAndroidNotifications)
+            } header: {
+                Text("Phone Notifications")
+            } footer: {
+                Text("When enabled, allowed notifications from your Android phone will be shown as native macOS banners.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Section {
+                Button("Send test notification") {
+                    model.sendTestNotification()
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding(.vertical, 4)
+    }
+    
+    private var generalSettingsContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
             // Save Location
             VStack(alignment: .leading, spacing: 8) {
                 Text("Save Received Files To:")

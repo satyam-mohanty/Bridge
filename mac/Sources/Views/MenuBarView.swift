@@ -59,6 +59,14 @@ public struct MenuBarView: View {
             .buttonStyle(.plain)
             
             Button(action: {
+                NSApp.activate(ignoringOtherApps: true)
+                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            }) {
+                Label("Settings…", systemImage: "gear")
+            }
+            .buttonStyle(.plain)
+            
+            Button(action: {
                 model.selectAndSendFiles()
             }) {
                 Label("Send Files to Android…", systemImage: "paperplane")

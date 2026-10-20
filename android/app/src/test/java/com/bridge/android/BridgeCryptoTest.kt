@@ -146,4 +146,52 @@ class BridgeCryptoTest {
         assertEquals(5, deserialized.chunkIndex)
         assertArrayEquals(payload, deserialized.chunkBytes)
     }
+
+    @Test
+    fun testNotificationMessagesSerialization() {
+        val post = BridgeProtocol.NotifPostMessage(
+            key = "0|com.whatsapp|1234|tag",
+            pkg = "com.whatsapp",
+            app = "WhatsApp",
+            title = "Alice",
+            text = "Hello there!",
+            bigText = "Hello there! Big text",
+            subText = "Work",
+            convTitle = "Team Chat",
+            sender = "Alice",
+            ts = 1729432000000L,
+            category = "msg",
+            versionCode = 240901L,
+            largeIcon = "base64jpeg"
+        )
+        val jsonStr = post.toJson()
+        val parsedPost = BridgeProtocol.NotifPostMessage.fromJson(jsonStr)
+        assertEquals(post.key, parsedPost.key)
+        assertEquals(post.pkg, parsedPost.pkg)
+        assertEquals(post.app, parsedPost.app)
+        assertEquals(post.title, parsedPost.title)
+        assertEquals(post.text, parsedPost.text)
+        assertEquals(post.bigText, parsedPost.bigText)
+        assertEquals(post.subText, parsedPost.subText)
+        assertEquals(post.convTitle, parsedPost.convTitle)
+        assertEquals(post.sender, parsedPost.sender)
+        assertEquals(post.ts, parsedPost.ts)
+        assertEquals(post.category, parsedPost.category)
+        assertEquals(post.versionCode, parsedPost.versionCode)
+        assertEquals(post.largeIcon, parsedPost.largeIcon)
+
+        val need = BridgeProtocol.IconNeedMessage("com.whatsapp")
+        val parsedNeed = BridgeProtocol.IconNeedMessage.fromJson(need.toJson())
+        assertEquals("com.whatsapp", parsedNeed.pkg)
+
+        val resp = BridgeProtocol.IconRespMessage("com.whatsapp", 240901L, "base64png")
+        val parsedResp = BridgeProtocol.IconRespMessage.fromJson(resp.toJson())
+        assertEquals("com.whatsapp", parsedResp.pkg)
+        assertEquals(240901L, parsedResp.versionCode)
+        assertEquals("base64png", parsedResp.icon)
+
+        val remove = BridgeProtocol.NotifRemoveMessage("0|com.whatsapp|1234|tag")
+        val parsedRemove = BridgeProtocol.NotifRemoveMessage.fromJson(remove.toJson())
+        assertEquals(remove.key, parsedRemove.key)
+    }
 }

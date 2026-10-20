@@ -55,6 +55,10 @@ struct BridgeApp: App {
             MenuBarView(model: model)
         }
         .menuBarExtraStyle(.window)
+        
+        Settings {
+            SettingsView(model: model)
+        }
     }
 }
 

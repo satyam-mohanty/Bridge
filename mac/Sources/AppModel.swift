@@ -43,6 +43,16 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
     @Published public var isTransferring: Bool = false
     @Published public var activeTransferProgress: Double = 0.0
     @Published public var activeTransferName: String = ""
+    @Published public var showAndroidNotifications: Bool {
+        didSet {
+            UserDefaults.standard.set(showAndroidNotifications, forKey: "showAndroidNotifications")
+        }
+    }
+    @Published public var showNotificationPreviews: Bool {
+        didSet {
+            UserDefaults.standard.set(showNotificationPreviews, forKey: "showNotificationPreviews")
+        }
+    }
     
     private let server = NetworkServer.shared
     private let beacon = DiscoveryBeacon()
@@ -51,10 +61,19 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
     private var sharedKey: Data = Data()
     
     public init() {
-        self.sharedKey = KeychainHelper.getOrCreateSharedKey()
+        let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil || ProcessInfo.processInfo.processName == "xctest"
+        self.sharedKey = isTesting ? Data(repeating: 0, count: 32) : KeychainHelper.getOrCreateSharedKey()
         self.downloadsDirectoryPath = FileManagerHelper.shared.getDownloadsDirectory().path
         let shouldHide = UserDefaults.standard.bool(forKey: "hideFromDock")
         self.hideFromDock = shouldHide
+        
+        self.showAndroidNotifications = UserDefaults.standard.object(forKey: "showAndroidNotifications") as? Bool ?? true
+        self.showNotificationPreviews = UserDefaults.standard.object(forKey: "showNotificationPreviews") as? Bool ?? true
+        
+        if isTesting {
+            return
+        }
+        
         NSApp.setActivationPolicy(shouldHide ? .accessory : .regular)
         
         self.updatePairingJson()
@@ -279,6 +298,32 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
                 self.recentTransfers.insert(newItem, at: 0)
             }
         }
+    }
+    
+    public nonisolated func serverDidReceiveNotificationPost(_ msg: NotifPostMessage) {
+        Task { @MainActor in
+            MacNotificationManager.shared.handleNotificationPost(
+                msg,
+                showNotifications: self.showAndroidNotifications,
+                showPreviews: self.showNotificationPreviews
+            )
+        }
+    }
+    
+    public nonisolated func serverDidReceiveNotificationRemove(_ msg: NotifRemoveMessage) {
+        Task { @MainActor in
+            MacNotificationManager.shared.handleNotificationRemove(msg)
+        }
+    }
+    
+    public nonisolated func serverDidReceiveIconResponse(_ msg: IconRespMessage) {
+        Task { @MainActor in
+            MacNotificationManager.shared.handleIconResponse(msg)
+        }
+    }
+    
+    public func sendTestNotification() {
+        MacNotificationManager.shared.sendTestNotification()
     }
     
     // MARK: - NetworkMonitorDelegate

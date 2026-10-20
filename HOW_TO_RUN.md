@@ -137,6 +137,41 @@ Android blocks background apps from reading the clipboard unless triggered by th
 4. Copy any text anywhere on your phone.
 5. **Expected Result**: Bridge detects the system clipboard copy event in logcat, briefly reads it, and syncs it to your Mac clipboard automatically.
 
+### Test H: Android Phone Notifications on Mac (Stage A)
+
+1. **Permission Setup**:
+   - On Android: Open Bridge ➔ Tap Settings gear ➔ Tap **Notification Sync**.
+   - Tap **Notification access** (shows "Not allowed") ➔ In system settings, find **Bridge** and switch it **ON** (Allow). Return to Bridge: status changes to **Allowed**.
+   - Turn **Send notifications to Mac** master switch **ON**.
+2. **App Whitelist Selection**:
+   - Scroll through "All apps" or search for apps you want to receive on your Mac (e.g. WhatsApp, Messages, Slack).
+   - Toggle the switch **ON** for those apps (all other apps remain OFF by default).
+3. **Notification Forwarding Test**:
+   - Send yourself a test message or have someone message you on the enabled app.
+   - Look at your Mac: a native macOS system notification banner appears immediately!
+   - **Title**: Sender or conversation title.
+   - **Subtitle**: App name.
+   - **Body**: Message content.
+   - **Attachment**: Contact photo (if present in the notification) or app icon.
+4. **Notification Replacement & Debounce**:
+   - Send consecutive messages in the same conversation on phone.
+   - The existing notification on macOS is updated in-place (same key) rather than creating duplicates.
+5. **Notification Dismissal / Dismiss-on-Phone**:
+   - Dismiss or swipe away the notification on your phone.
+   - **Expected Result**: The corresponding notification is immediately removed from the Mac Notification Center.
+6. **Message Preview Privacy**:
+   - In Android (or Mac) Notification Settings, turn **Show message previews** **OFF**.
+   - Receive a message.
+   - **Expected Result**: Mac notification displays only the app name and `"New message"`.
+7. **Offline Queue Test**:
+   - Click "Disconnect" in the Mac menu bar.
+   - Receive a notification on the phone.
+   - Reconnect within 2 minutes.
+   - **Expected Result**: Bridge automatically flushes the queued notification upon reconnection and displays it on Mac.
+8. **Mac Test Notification Button**:
+   - On Mac: Open Bridge Settings (`Cmd + ,` or Settings tab) ➔ Click **Notifications** tab ➔ Click **Send test notification**.
+   - **Expected Result**: A native test notification banner appears on your Mac immediately.
+
 ---
 
 ## 6. Power & Reliability Settings (One-Time Setup)
