@@ -86,10 +86,14 @@ class ClipboardSyncManager(private val context: Context) {
             if (clip.itemCount == 0) return false
             val item = clip.getItemAt(0)
 
-            // Check if Image URI
+            // Check if Content URI representing an Image
             val uri = item.uri
-            if (uri != null) {
-                val mimeType = context.contentResolver.getType(uri) ?: ""
+            if (uri != null && uri.scheme == "content") {
+                val mimeType = try {
+                    context.contentResolver.getType(uri) ?: ""
+                } catch (_: Throwable) {
+                    ""
+                }
                 if (mimeType.startsWith("image/") || uri.toString().contains("image")) {
                     val processed = ImageUtils.processImageUri(context, uri)
                     if (processed != null) {
@@ -107,18 +111,32 @@ class ClipboardSyncManager(private val context: Context) {
                 }
             }
 
-            // Check if Text
-            val text = item.coerceToText(context)?.toString()
+            // Check if Text or Web Link
+            var text = item.text?.toString()
+            if (text.isNullOrEmpty()) {
+                text = try {
+                    item.coerceToText(context)?.toString()
+                } catch (_: Throwable) {
+                    null
+                }
+            }
+            if (text.isNullOrEmpty() && uri != null) {
+                text = uri.toString()
+            }
+            if (text.isNullOrEmpty() && !item.htmlText.isNullOrEmpty()) {
+                text = item.htmlText
+            }
+
             if (!text.isNullOrEmpty()) {
                 val hash = ImageUtils.sha256Hex(text.toByteArray(Charsets.UTF_8))
                 val lowerHash = hash.lowercase()
                 if (!force && seenHashes.contains(lowerHash)) {
-                    LogManager.d("Local text hash already synced")
+                    LogManager.d("Local text/link hash already synced")
                     return true
                 }
                 seenHashes.add(lowerHash)
 
-                LogManager.i("Sending local text to Mac (${text.length} chars)")
+                LogManager.i("Sending local text/link to Mac (${text.length} chars)")
                 client.sendTextMessage(text, hash)
                 return true
             }

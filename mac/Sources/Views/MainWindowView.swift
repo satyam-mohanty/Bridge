@@ -163,10 +163,26 @@ public struct MainWindowView: View {
                 Label(model.activeTransferName, systemImage: "arrow.triangle.2.circlepath")
                     .font(.subheadline)
                     .fontWeight(.medium)
+                    .lineLimit(1)
                 Spacer()
                 Text("\(Int(model.activeTransferProgress * 100))%")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                
+                Button(action: {
+                    model.cancelActiveTransfer()
+                }) {
+                    Text("Cancel")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.red)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.red.opacity(0.1))
+                        .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+                .help("Cancel transfer")
             }
             ProgressView(value: model.activeTransferProgress)
                 .progressViewStyle(.linear)
@@ -179,8 +195,19 @@ public struct MainWindowView: View {
     // MARK: - Recent Transfers Section
     private var recentTransfersSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Recent Transfers")
-                .font(.headline)
+            HStack {
+                Text("Recent Transfers")
+                    .font(.headline)
+                Spacer()
+                if !model.recentTransfers.isEmpty {
+                    Button("Clear") {
+                        model.clearRecentTransfers()
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.accentColor)
+                    .font(.subheadline)
+                }
+            }
             
             if model.recentTransfers.isEmpty {
                 HStack {

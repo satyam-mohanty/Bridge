@@ -286,6 +286,17 @@ class BridgeAccessibilityService : AccessibilityService() {
         if (viewId.contains("copy") || viewId.contains("cut")) return true
         if (viewId.contains("clipboard")) return true
 
+        // Link copy actions (e.g. "Copy link", "Copy address", "Copy URL", "Copy link to clipboard")
+        if (text.contains("link") || desc.contains("link") || viewId.contains("link") ||
+            text.contains("url") || desc.contains("url") || viewId.contains("url")
+        ) {
+            if (text.contains("cop") || desc.contains("cop") || viewId.contains("cop") ||
+                text.contains("address") || desc.contains("address")
+            ) {
+                return true
+            }
+        }
+
         // Multilingual identifiers
         if (text.contains("कॉपी") || desc.contains("कॉपी")) return true
         if (text.contains("copier") || text.contains("copiar") || text.contains("kopieren") || text.contains("copia") || text.contains("salin")) return true

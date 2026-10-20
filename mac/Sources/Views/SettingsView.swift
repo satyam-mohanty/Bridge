@@ -9,19 +9,19 @@ public struct SettingsView: View {
     
     public var body: some View {
         TabView {
-            generalTab
-                .tabItem {
-                    Label("General", systemImage: "gear")
-                }
-                .tag(0)
-            
             notificationsTab
                 .tabItem {
                     Label("Notifications", systemImage: "bell.badge")
                 }
+                .tag(0)
+            
+            generalTab
+                .tabItem {
+                    Label("General", systemImage: "gear")
+                }
                 .tag(1)
         }
-        .frame(width: 500, height: 320)
+        .frame(width: 520, height: 480)
     }
     
     public var notificationsTab: some View {
@@ -37,6 +37,70 @@ public struct SettingsView: View {
                 Text("When enabled, allowed notifications from your Android phone appear as native macOS alerts.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+            }
+            
+            Section {
+                if model.recentNotifications.isEmpty {
+                    Text("No recent notifications")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                } else {
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 8) {
+                            ForEach(model.recentNotifications) { notif in
+                                HStack(alignment: .top, spacing: 10) {
+                                    Image(systemName: "app.badge.fill")
+                                        .foregroundColor(.accentColor)
+                                        .font(.subheadline)
+                                        .padding(.top, 2)
+                                    
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        HStack {
+                                            Text(notif.app)
+                                                .font(.caption)
+                                                .fontWeight(.semibold)
+                                                .foregroundColor(.primary)
+                                            Spacer()
+                                            Text(notif.date, style: .time)
+                                                .font(.caption2)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        Text(notif.title)
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                            .lineLimit(1)
+                                        if !notif.body.isEmpty {
+                                            Text(notif.body)
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                                .lineLimit(2)
+                                        }
+                                    }
+                                }
+                                .padding(.vertical, 3)
+                                
+                                if notif.id != model.recentNotifications.last?.id {
+                                    Divider()
+                                }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    .frame(maxHeight: 150)
+                }
+            } header: {
+                HStack {
+                    Text("Recent Notifications")
+                    Spacer()
+                    if !model.recentNotifications.isEmpty {
+                        Button("Clear") {
+                            model.clearNotificationHistory()
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundColor(.accentColor)
+                        .font(.caption)
+                    }
+                }
             }
             
             Section {
