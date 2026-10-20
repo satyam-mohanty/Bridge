@@ -572,6 +572,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
+        if (com.bridge.android.service.BridgeAccessibilityService.isRunning) {
+            return true
+        }
         val expectedComponentName = ComponentName(this, com.bridge.android.service.BridgeAccessibilityService::class.java).flattenToString()
         val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
         val colonSplitter = TextUtils.SimpleStringSplitter(':')

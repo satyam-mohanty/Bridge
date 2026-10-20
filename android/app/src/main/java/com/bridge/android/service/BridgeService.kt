@@ -192,6 +192,11 @@ class BridgeService : Service(), BridgeClientListener {
     fun handleClipboardChanged() {
         if (!_isConnectedFlow.value) return
         try {
+            if (BridgeAccessibilityService.isRunning) {
+                BridgeAccessibilityService.triggerSyncFromService()
+                return
+            }
+
             val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             // 1. Try reading directly (succeeds if application has focus)
             val sent = clipboardSyncManager.sendLocalClipboardToMac(client, clipManager, force = false)
@@ -462,10 +467,11 @@ class BridgeService : Service(), BridgeClientListener {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val sendClipIntent = Intent(this, BridgeService::class.java).apply {
-            action = ACTION_SEND_CLIPBOARD
+        val sendClipIntent = Intent(this, com.bridge.android.ui.TransparentClipReaderActivity::class.java).apply {
+            putExtra("force", true)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
         }
-        val sendClipPendingIntent = PendingIntent.getService(
+        val sendClipPendingIntent = PendingIntent.getActivity(
             this,
             1,
             sendClipIntent,

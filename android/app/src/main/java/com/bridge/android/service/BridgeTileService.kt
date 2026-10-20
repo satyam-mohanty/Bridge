@@ -22,8 +22,20 @@ class BridgeTileService : TileService() {
         if (service != null && service.isConnectedFlow.value) {
             val intent = Intent(this, com.bridge.android.ui.TransparentClipReaderActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
+                putExtra("force", true)
             }
-            startActivityAndCollapse(intent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                val pendingIntent = android.app.PendingIntent.getActivity(
+                    this,
+                    0,
+                    intent,
+                    android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                startActivityAndCollapse(pendingIntent)
+            } else {
+                @Suppress("DEPRECATION")
+                startActivityAndCollapse(intent)
+            }
             LogManager.i("Quick Settings tile: Triggered clipboard capture")
         } else {
             Toast.makeText(this, "Bridge: Mac is not connected", Toast.LENGTH_SHORT).show()

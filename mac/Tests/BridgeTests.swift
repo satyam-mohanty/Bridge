@@ -218,4 +218,71 @@ final class BridgeTests: XCTestCase {
         XCTAssertEqual(decodedCall.name, call.name)
         XCTAssertEqual(decodedCall.ts, call.ts)
     }
+    
+    func testKeychainSaveAndLoadRoundtrip() throws {
+        let originalService = KeychainHelper.service
+        let originalAccount = KeychainHelper.account
+        defer {
+            KeychainHelper.service = originalService
+            KeychainHelper.account = originalAccount
+        }
+        
+        KeychainHelper.service = "com.bridge.mac.unittests"
+        KeychainHelper.account = "UnitTestKey"
+        KeychainHelper.deleteSharedKey()
+        defer {
+            KeychainHelper.deleteSharedKey()
+        }
+        
+        let testKey = Data((0..<32).map { _ in UInt8.random(in: 0...255) })
+        let saved = KeychainHelper.saveSharedKey(testKey)
+        XCTAssertTrue(saved, "saveSharedKey should succeed")
+        
+        let loaded = KeychainHelper.loadSharedKey()
+        XCTAssertEqual(loaded, testKey, "Loaded key must match saved key")
+    }
+    
+    func testKeychainInvalidKeyLengthRejected() throws {
+        let originalService = KeychainHelper.service
+        let originalAccount = KeychainHelper.account
+        defer {
+            KeychainHelper.service = originalService
+            KeychainHelper.account = originalAccount
+        }
+        
+        KeychainHelper.service = "com.bridge.mac.unittests"
+        KeychainHelper.account = "UnitTestInvalidKey"
+        
+        let invalidKey = Data([0x01, 0x02, 0x03]) // Only 3 bytes instead of 32
+        let saved = KeychainHelper.saveSharedKey(invalidKey)
+        XCTAssertFalse(saved, "Keys not 32 bytes must be rejected")
+    }
+    
+    func testFallbackKeyStorage() throws {
+        let originalService = KeychainHelper.service
+        let originalAccount = KeychainHelper.account
+        defer {
+            KeychainHelper.service = originalService
+            KeychainHelper.account = originalAccount
+        }
+        
+        KeychainHelper.service = "com.bridge.mac.unittests"
+        KeychainHelper.account = "UnitTestFallback"
+        KeychainHelper.deleteFallbackKey()
+        defer {
+            KeychainHelper.deleteFallbackKey()
+        }
+        
+        let testKey = Data((0..<32).map { UInt8($0) })
+        KeychainHelper.saveFallbackKey(testKey)
+        
+        let loaded = KeychainHelper.loadFallbackKey()
+        XCTAssertEqual(loaded, testKey)
+        
+        if let url = KeychainHelper.fallbackKeyURL {
+            let attrs = try FileManager.default.attributesOfItem(atPath: url.path)
+            let posix = attrs[.posixPermissions] as? NSNumber
+            XCTAssertEqual(posix?.intValue, 0o600, "Fallback key must have 0600 permissions")
+        }
+    }
 }

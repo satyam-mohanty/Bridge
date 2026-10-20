@@ -128,6 +128,26 @@ class ClipboardSyncManager(private val context: Context) {
         return false
     }
 
+    fun sendLocalTextToMac(client: BridgeClient, text: String, force: Boolean = false): Boolean {
+        if (text.isEmpty()) return false
+        try {
+            val hash = ImageUtils.sha256Hex(text.toByteArray(Charsets.UTF_8))
+            val lowerHash = hash.lowercase()
+            if (!force && seenHashes.contains(lowerHash)) {
+                LogManager.d("Local text hash already synced")
+                return true
+            }
+            seenHashes.add(lowerHash)
+
+            LogManager.i("Sending local text to Mac (${text.length} chars)")
+            client.sendTextMessage(text, hash)
+            return true
+        } catch (e: Exception) {
+            LogManager.e("Error sending local text to Mac", e)
+            return false
+        }
+    }
+
     fun sendSharedUriToMac(client: BridgeClient, uri: Uri) {
         val mimeType = context.contentResolver.getType(uri) ?: ""
         if (mimeType.startsWith("image/")) {
