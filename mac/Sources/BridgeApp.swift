@@ -41,6 +41,8 @@ struct BridgeApp: App {
     var body: some Scene {
         WindowGroup("Bridge", id: "main") {
             MainWindowView(model: model)
+                .background(Color(red: 0.05, green: 0.05, blue: 0.05))
+                .preferredColorScheme(.dark)
                 .onAppear {
                     appDelegate.model = model
                 }

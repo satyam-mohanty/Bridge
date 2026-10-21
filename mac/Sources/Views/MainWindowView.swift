@@ -10,6 +10,14 @@ public struct MainWindowView: View {
     @State private var showClearConfirm: Bool = false
     @State private var settingsTab: Int = 0
     
+    // Pure neutral dark / black theme (eliminates macOS wallpaper reddish tinting)
+    private let bgWindow = Color(red: 0.05, green: 0.05, blue: 0.05)       // #0D0D0D pure dark background
+    private let bgHeader = Color(red: 0.08, green: 0.08, blue: 0.08)       // #141414 header background
+    private let bgCard = Color(red: 0.12, green: 0.12, blue: 0.12)         // #1F1F1F neutral card surface
+    private let bgCardSubtle = Color(red: 0.08, green: 0.08, blue: 0.08)   // #141414 empty state card
+    private let bgInput = Color(red: 0.09, green: 0.09, blue: 0.09)        // #171717 text input / logs
+    private let borderSubtle = Color(white: 0.20)                          // Subtle neutral border
+    
     public init(model: AppModel) {
         self.model = model
     }
@@ -21,9 +29,10 @@ public struct MainWindowView: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
                 .padding(.bottom, 16)
-                .background(Color(NSColor.windowBackgroundColor))
+                .background(bgHeader)
             
             Divider()
+                .overlay(borderSubtle)
             
             ScrollView {
                 VStack(spacing: 20) {
@@ -48,6 +57,8 @@ public struct MainWindowView: View {
             }
         }
         .frame(minWidth: 620, idealWidth: 660, minHeight: 520, idealHeight: 600)
+        .background(bgWindow)
+        .preferredColorScheme(.dark)
         .sheet(isPresented: $showPairingSheet) {
             PairingQRView(pairingJson: model.pairingJson, model: model)
         }
@@ -89,11 +100,11 @@ public struct MainWindowView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Color(NSColor.controlBackgroundColor))
+            .background(bgCard)
             .cornerRadius(20)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                    .stroke(borderSubtle, lineWidth: 1)
             )
         }
     }
@@ -128,12 +139,12 @@ public struct MainWindowView: View {
         .padding(.horizontal, 16)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(isDropTargeted ? Color.accentColor.opacity(0.08) : Color(NSColor.controlBackgroundColor))
+                .fill(isDropTargeted ? Color.accentColor.opacity(0.12) : bgCard)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14)
                 .strokeBorder(
-                    isDropTargeted ? Color.accentColor : Color.secondary.opacity(0.25),
+                    isDropTargeted ? Color.accentColor : borderSubtle,
                     style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
                 )
         )
@@ -191,8 +202,9 @@ public struct MainWindowView: View {
                 .progressViewStyle(.linear)
         }
         .padding(14)
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(bgCard)
         .cornerRadius(10)
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(borderSubtle, lineWidth: 1))
     }
     
     // MARK: - Recent Transfers Section
@@ -226,8 +238,9 @@ public struct MainWindowView: View {
                     .padding(.vertical, 20)
                     Spacer()
                 }
-                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                .background(bgCardSubtle)
                 .cornerRadius(10)
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(borderSubtle, lineWidth: 0.5))
             } else {
                 VStack(spacing: 8) {
                     ForEach(model.recentTransfers.prefix(6)) { item in
@@ -279,8 +292,9 @@ public struct MainWindowView: View {
             }
         }
         .padding(10)
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(bgCard)
         .cornerRadius(8)
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(borderSubtle, lineWidth: 0.5))
     }
     
     // MARK: - Recent Notifications Section
@@ -314,8 +328,9 @@ public struct MainWindowView: View {
                     .padding(.vertical, 20)
                     Spacer()
                 }
-                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                .background(bgCardSubtle)
                 .cornerRadius(10)
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(borderSubtle, lineWidth: 0.5))
             } else {
                 VStack(spacing: 8) {
                     ForEach(model.recentNotifications.prefix(6)) { notif in
@@ -364,8 +379,9 @@ public struct MainWindowView: View {
             Spacer()
         }
         .padding(10)
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(bgCard)
         .cornerRadius(8)
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(borderSubtle, lineWidth: 0.5))
     }
     
     // MARK: - Settings Section
@@ -447,8 +463,9 @@ public struct MainWindowView: View {
                     .controlSize(.small)
                 }
                 .padding(10)
-                .background(Color(NSColor.controlBackgroundColor))
+                .background(bgCard)
                 .cornerRadius(8)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(borderSubtle, lineWidth: 0.5))
             }
             
             Divider()
@@ -527,8 +544,9 @@ public struct MainWindowView: View {
                     .font(.system(.caption, design: .monospaced))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(Color(NSColor.textBackgroundColor))
+                    .background(bgInput)
                     .cornerRadius(8)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(borderSubtle, lineWidth: 0.5))
             }
             .frame(height: 320)
             
