@@ -31,6 +31,11 @@ class BridgeAccessibilityService : AccessibilityService() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var lastTriggerTime = 0L
 
+    private val clipListener = android.content.ClipboardManager.OnPrimaryClipChangedListener {
+        LogManager.i("Accessibility: ClipboardManager onPrimaryClipChanged event detected")
+        scheduleSpeculativeSync()
+    }
+
     private val syncRunnable = Runnable {
         val bridge = BridgeService.instance ?: return@Runnable
         bridge.handleClipboardChanged()
@@ -41,6 +46,14 @@ class BridgeAccessibilityService : AccessibilityService() {
         isRunning = true
         instance = this
         LogManager.i("BridgeAccessibilityService connected and ready")
+
+        try {
+            val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            cm.addPrimaryClipChangedListener(clipListener)
+            LogManager.i("Accessibility: Registered OnPrimaryClipChangedListener")
+        } catch (e: Throwable) {
+            LogManager.d("Failed to register clipListener in A11y: ${e.message}")
+        }
 
         val info = AccessibilityServiceInfo().apply {
             eventTypes = AccessibilityEvent.TYPE_VIEW_CLICKED or
@@ -59,6 +72,10 @@ class BridgeAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         isRunning = false
         instance = null
+        try {
+            val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            cm.removePrimaryClipChangedListener(clipListener)
+        } catch (_: Throwable) {}
         mainHandler.removeCallbacksAndMessages(null)
         LogManager.i("BridgeAccessibilityService destroyed")
         super.onDestroy()
@@ -121,6 +138,7 @@ class BridgeAccessibilityService : AccessibilityService() {
                         className.contains("Overlay", ignoreCase = true) ||
                         className.contains("Toast", ignoreCase = true) ||
                         className.contains("Chooser", ignoreCase = true) ||
+                        pkgName.contains("clipboard", ignoreCase = true) ||
                         text.contains("copi") || desc.contains("copi") ||
                         text.contains("clip") || desc.contains("clip")
                     ) {
@@ -140,11 +158,10 @@ class BridgeAccessibilityService : AccessibilityService() {
 
     private fun scheduleSpeculativeSync() {
         val now = System.currentTimeMillis()
-        if (now - lastTriggerTime > 120) {
+        if (now - lastTriggerTime > 100) {
             lastTriggerTime = now
             LogManager.i("Accessibility: Scheduling copy sync in 80ms")
             mainHandler.removeCallbacks(syncRunnable)
-            // Allow source app 80ms to commit data to system ClipboardService
             mainHandler.postDelayed(syncRunnable, 80)
         }
     }

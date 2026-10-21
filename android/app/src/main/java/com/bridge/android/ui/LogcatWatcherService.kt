@@ -47,11 +47,11 @@ object LogcatWatcherService {
 
                         if (isClipEvent) {
                             val now = System.currentTimeMillis()
-                            // Debounce by 500ms
-                            if (now - lastTriggerTime > 500) {
+                            // Debounce by 400ms
+                            if (now - lastTriggerTime > 400) {
                                 lastTriggerTime = now
                                 LogManager.i("Logcat watcher detected clipboard update event. Triggering clipboard sync.")
-                                delay(100)
+                                delay(60)
                                 BridgeService.instance?.handleClipboardChanged()
                             }
                         }

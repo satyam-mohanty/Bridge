@@ -82,9 +82,8 @@
             android:exported="false"
             android:theme="@style/Theme.Bridge.Transparent"
             android:excludeFromRecents="true"
-            android:noHistory="true"
             android:taskAffinity=""
-            android:launchMode="singleInstance" />
+            android:launchMode="standard" />
 
         <!-- Notification Settings Activity -->
         <activity
@@ -153,6 +152,7 @@
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="com.bridge.android.action.WIDGET_TOGGLE" />
+                <action android:name="com.bridge.android.action.TEST_CLIPBOARD" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

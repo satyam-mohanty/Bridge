@@ -223,15 +223,29 @@ class BridgeService : Service(), BridgeClientListener {
     fun handleClipboardChanged(force: Boolean = false) {
         if (!_isConnectedFlow.value) return
 
+        // 1. First attempt: Direct read via BridgeAccessibilityService context
+        val a11y = BridgeAccessibilityService.instance
+        if (a11y != null && BridgeAccessibilityService.isRunning) {
+            try {
+                val clipManager = a11y.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                val sent = clipboardSyncManager.sendLocalClipboardToMac(client, clipManager, force = force, activeContext = a11y)
+                if (sent) {
+                    LogManager.i("Direct read via BridgeAccessibilityService SUCCEEDED")
+                    return
+                }
+            } catch (e: Throwable) {
+                LogManager.d("Direct read via a11y failed: ${e.message}")
+            }
+        }
+
+        // 2. Direct read from BridgeService (succeeds if application is in focus)
         try {
             val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            // 1. Direct read (succeeds if application already has focus)
             val sent = clipboardSyncManager.sendLocalClipboardToMac(client, clipManager, force = force, activeContext = this)
             if (sent) return
         } catch (_: Throwable) {}
 
-        // 2. Direct read failed (Android 10+ background restriction).
-        // Launch TransparentClipReaderActivity to gain momentary focus and capture the clip cleanly.
+        // 3. Launch TransparentClipReaderActivity to gain momentary focus and capture the clip cleanly
         triggerTransparentClipReader(force = force)
     }
 
@@ -244,13 +258,13 @@ class BridgeService : Service(), BridgeClientListener {
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_NO_ANIMATION or
-                    Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS or
-                    Intent.FLAG_ACTIVITY_NO_USER_ACTION
+                    Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
                 )
                 putExtra("force", force)
             }
+
+            val options = ActivityOptions.makeBasic()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // Android 14+
-                val options = ActivityOptions.makeBasic()
                 try {
                     options.setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
                 } catch (_: Throwable) {}
@@ -258,11 +272,40 @@ class BridgeService : Service(), BridgeClientListener {
                     val method = ActivityOptions::class.java.getMethod("setPendingIntentCreatorBackgroundActivityStartMode", Int::class.javaPrimitiveType)
                     method.invoke(options, ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
                 } catch (_: Throwable) {}
-                launchContext.startActivity(intent, options.toBundle())
-            } else {
-                launchContext.startActivity(intent)
             }
-            LogManager.i("Triggered TransparentClipReaderActivity (force=$force)")
+
+            // 1. If AccessibilityService is connected and active, launch directly through its system context
+            if (a11y != null && BridgeAccessibilityService.isRunning) {
+                try {
+                    a11y.startActivity(intent, options.toBundle())
+                    LogManager.i("Triggered TransparentClipReaderActivity via A11y (force=$force)")
+                    return
+                } catch (e: Throwable) {
+                    LogManager.d("Direct launch via A11y failed: ${e.message}")
+                }
+            }
+
+            // 2. PendingIntent dispatch with background activity permission
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                try {
+                    val pi = PendingIntent.getActivity(
+                        launchContext,
+                        (System.currentTimeMillis() % 10000).toInt(),
+                        intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                        options.toBundle()
+                    )
+                    pi.send(launchContext, 0, null, null, null, null, options.toBundle())
+                    LogManager.i("Triggered TransparentClipReaderActivity via PendingIntent (force=$force)")
+                    return
+                } catch (e: Throwable) {
+                    LogManager.d("PendingIntent launch failed: ${e.message}")
+                }
+            }
+
+            // 3. Direct launch fallback
+            launchContext.startActivity(intent, options.toBundle())
+            LogManager.i("Triggered TransparentClipReaderActivity via Context (force=$force)")
         } catch (e: Exception) {
             LogManager.e("Error triggering TransparentClipReaderActivity", e)
         }
@@ -270,9 +313,8 @@ class BridgeService : Service(), BridgeClientListener {
 
     fun syncAutoModeState() {
         val hasReadLogs = checkSelfPermission(android.Manifest.permission.READ_LOGS) == PackageManager.PERMISSION_GRANTED
-        val canLaunchReader = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || android.provider.Settings.canDrawOverlays(this)
-        val isAutoEnabled = keyStoreManager.isAutoModeEnabled() && hasReadLogs && canLaunchReader
-        LogManager.i("syncAutoModeState: hasReadLogs=$hasReadLogs, canLaunchReader=$canLaunchReader, isAutoEnabled=$isAutoEnabled (pref=${keyStoreManager.isAutoModeEnabled()})")
+        val isAutoEnabled = keyStoreManager.isAutoModeEnabled() && hasReadLogs
+        LogManager.i("syncAutoModeState: hasReadLogs=$hasReadLogs, isAutoEnabled=$isAutoEnabled (pref=${keyStoreManager.isAutoModeEnabled()})")
         if (isAutoEnabled) {
             if (!LogcatWatcherService.isWatching()) {
                 LogcatWatcherService.startWatching(this, serviceScope)

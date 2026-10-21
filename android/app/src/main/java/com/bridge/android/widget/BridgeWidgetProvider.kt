@@ -17,6 +17,7 @@ class BridgeWidgetProvider : AppWidgetProvider() {
 
     companion object {
         const val ACTION_WIDGET_TOGGLE = "com.bridge.android.action.WIDGET_TOGGLE"
+        const val ACTION_TEST_CLIPBOARD = "com.bridge.android.action.TEST_CLIPBOARD"
 
         fun updateAllWidgets(context: Context) {
             val appWidgetManager = AppWidgetManager.getInstance(context) ?: return
@@ -82,6 +83,27 @@ class BridgeWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
+        if (intent.action == ACTION_TEST_CLIPBOARD) {
+            val setText = intent.getStringExtra("clip_text")
+            val force = intent.getBooleanExtra("force", true)
+            LogManager.i("BridgeWidgetProvider: Received ACTION_TEST_CLIPBOARD (clip_text=$setText)")
+            val service = BridgeService.instance
+            if (service != null) {
+                if (!setText.isNullOrEmpty()) {
+                    val a11y = com.bridge.android.service.BridgeAccessibilityService.instance
+                    val launchCtx: Context = if (a11y != null && com.bridge.android.service.BridgeAccessibilityService.isRunning) a11y else context
+                    val actIntent = Intent(launchCtx, com.bridge.android.ui.TransparentClipReaderActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
+                        putExtra("set_clip", setText)
+                        putExtra("force", true)
+                    }
+                    launchCtx.startActivity(actIntent)
+                } else {
+                    service.handleClipboardChanged(force = force)
+                }
+            }
+            return
+        }
         if (intent.action == ACTION_WIDGET_TOGGLE) {
             val km = KeyStoreManager(context)
             val isSearching = km.isSearchingEnabled()
