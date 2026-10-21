@@ -332,10 +332,12 @@ final class BridgeTests: XCTestCase {
     }
     
     func testMenuBarIconsExistAndLoad() throws {
-        let connectedImage = NSImage(named: "bridge_menu_connected") ?? Bundle.main.url(forResource: "bridge_menu_connected", withExtension: "png").flatMap { NSImage(contentsOf: $0) }
-        XCTAssertNotNil(connectedImage, "bridge_menu_connected image must exist and load")
+        let connectedImage = NSImage(named: "bridge_menu_connected")
+        XCTAssertNotNil(connectedImage, "bridge_menu_connected image must exist in asset catalog")
+        XCTAssertTrue(connectedImage?.isTemplate == true, "bridge_menu_connected must have template rendering intent")
         
-        let notConnectedImage = NSImage(named: "bridge_menu_not_connected") ?? Bundle.main.url(forResource: "bridge_menu_not_connected", withExtension: "png").flatMap { NSImage(contentsOf: $0) }
-        XCTAssertNotNil(notConnectedImage, "bridge_menu_not_connected image must exist and load")
+        let notConnectedImage = NSImage(named: "bridge_menu_not_connected")
+        XCTAssertNotNil(notConnectedImage, "bridge_menu_not_connected image must exist in asset catalog")
+        XCTAssertTrue(notConnectedImage?.isTemplate == true, "bridge_menu_not_connected must have template rendering intent")
     }
 }

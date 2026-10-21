@@ -63,8 +63,10 @@ struct BridgeApp: App {
             }
         }
         
-        MenuBarExtra("Bridge", image: model.isConnected ? "bridge_menu_connected" : "bridge_menu_not_connected") {
+        MenuBarExtra {
             MenuBarView(model: model)
+        } label: {
+            Image(model.isConnected ? "bridge_menu_connected" : "bridge_menu_not_connected")
         }
         .menuBarExtraStyle(.window)
         
