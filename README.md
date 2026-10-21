@@ -1,5 +1,9 @@
 # Bridge
 
+<p>
+  <a href="https://buymeacoffee.com/satyammohanty" style="display:inline-block;padding:6px 10px;border-radius:6px;background:#FFDD00;color:#000000;text-decoration:none;font-family:Inter,Arial,sans-serif;font-size:12px;font-weight:600;line-height:1.2;">☕ Buy Me a Coffee</a>
+</p>
+
 > Seamless, zero-cloud peer-to-peer ecosystem bridging macOS and Android over your local Wi-Fi network. Built with end-to-end AES-256-GCM encryption, native Liquid Glass design on macOS, and material refinement on Android.
 
 ---
