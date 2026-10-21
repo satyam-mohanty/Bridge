@@ -19,8 +19,8 @@ object OverlayClipReader {
 
     fun readClipboardWithOverlay(context: Context, force: Boolean = false) {
         val now = System.currentTimeMillis()
-        if (isReading || (now - lastReadTime < 250)) {
-            LogManager.d("OverlayClipReader: Skipping duplicate read request (isReading=$isReading)")
+        if (isReading) {
+            LogManager.d("OverlayClipReader: Already reading")
             return
         }
 

@@ -163,6 +163,9 @@ public final class ClipboardManager {
             
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
+            if let image = NSImage(data: data) {
+                pasteboard.writeObjects([image])
+            }
             pasteboard.setData(data, forType: .png)
             self.lastChangeCount = pasteboard.changeCount
             LogManager.shared.log("Applied remote image from Android to clipboard (\(data.count) bytes)")

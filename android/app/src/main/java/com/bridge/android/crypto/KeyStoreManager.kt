@@ -23,6 +23,7 @@ class KeyStoreManager(context: Context) {
         private const val PREF_MAC_NAME = "mac_name"
         private const val PREF_LAST_IP = "last_known_mac_ip"
         private const val PREF_AUTO_MODE = "auto_mode_enabled"
+        private const val PREF_SEARCHING_ENABLED = "searching_enabled"
     }
 
     private fun getOrCreateMasterKey(): SecretKey {
@@ -100,6 +101,12 @@ class KeyStoreManager(context: Context) {
 
     fun setAutoModeEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(PREF_AUTO_MODE, enabled).apply()
+    }
+
+    fun isSearchingEnabled(): Boolean = prefs.getBoolean(PREF_SEARCHING_ENABLED, true)
+
+    fun setSearchingEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(PREF_SEARCHING_ENABLED, enabled).apply()
     }
 
     fun clear() {

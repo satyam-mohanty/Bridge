@@ -231,7 +231,7 @@ object NotificationSyncManager {
             largeIcon = largeIconToSend
         )
 
-        dispatchNotification(postMsg)
+        dispatchNotification(context, postMsg)
     }
 
     fun processNotificationRemoved(context: Context, sbn: StatusBarNotification) {
@@ -251,7 +251,18 @@ object NotificationSyncManager {
         }
     }
 
-    private fun dispatchNotification(msg: BridgeProtocol.NotifPostMessage) {
+    private fun dispatchNotification(context: Context, msg: BridgeProtocol.NotifPostMessage) {
+        try {
+            com.bridge.android.history.RecentNotificationHistoryManager(context).addNotification(
+                key = msg.key,
+                pkg = msg.pkg,
+                app = msg.app,
+                title = msg.title,
+                text = msg.text,
+                ts = msg.ts
+            )
+        } catch (_: Exception) {}
+
         val service = BridgeService.instance
         if (service != null && service.isConnectedFlow.value) {
             service.getClient().sendNotifPost(msg)

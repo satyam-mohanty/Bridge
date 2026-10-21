@@ -84,66 +84,112 @@ class ClipboardSyncManager(private val context: Context) {
             }
 
             if (clip.itemCount == 0) return false
-            val item = clip.getItemAt(0)
+            val description = clip.description
+            val isExplicitImageClip = description != null && description.hasMimeType("image/*")
 
-            // Check if Content URI representing an Image
-            val uri = item.uri
-            if (uri != null && uri.scheme == "content") {
-                val mimeType = try {
-                    context.contentResolver.getType(uri) ?: ""
-                } catch (_: Throwable) {
-                    ""
-                }
-                if (mimeType.startsWith("image/") || uri.toString().contains("image")) {
-                    val processed = ImageUtils.processImageUri(context, uri)
-                    if (processed != null) {
-                        val lowerHash = processed.hash.lowercase()
-                        if (!force && seenHashes.contains(lowerHash)) {
-                            LogManager.d("Local image hash already synced")
+            // 1. First scan all items for Image content
+            for (i in 0 until clip.itemCount) {
+                val item = clip.getItemAt(i) ?: continue
+                val uri = item.uri
+                if (uri != null) {
+                    val mimeType = try {
+                        context.contentResolver.getType(uri) ?: ""
+                    } catch (_: Throwable) {
+                        ""
+                    }
+                    val uriStr = uri.toString().lowercase()
+                    val hasImageExtension = uriStr.endsWith(".png") || uriStr.endsWith(".jpg") ||
+                            uriStr.endsWith(".jpeg") || uriStr.endsWith(".webp") ||
+                            uriStr.endsWith(".gif") || uriStr.endsWith(".bmp") ||
+                            uriStr.endsWith(".heic")
+                    val isImageMime = mimeType.startsWith("image/") || isExplicitImageClip
+
+                    if (isImageMime || hasImageExtension || ImageUtils.isImageUri(context, uri)) {
+                        val processed = ImageUtils.processImageUri(context, uri)
+                        if (processed != null) {
+                            val lowerHash = processed.hash.lowercase()
+                            if (!force && seenHashes.contains(lowerHash)) {
+                                LogManager.d("Local image hash already synced")
+                                return true
+                            }
+                            seenHashes.add(lowerHash)
+
+                            LogManager.i("Sending local image to Mac (${processed.data.size} bytes, ${processed.totalChunks} chunks)")
+                            client.sendImage(processed.data, processed.mime, processed.hash, processed.totalChunks)
                             return true
                         }
-                        seenHashes.add(lowerHash)
-
-                        LogManager.i("Sending local image to Mac (${processed.data.size} bytes, ${processed.totalChunks} chunks)")
-                        client.sendImage(processed.data, processed.mime, processed.hash, processed.totalChunks)
-                        return true
                     }
                 }
             }
 
-            // Check if Text or Web Link
-            var text = item.text?.toString()
-            if (text.isNullOrEmpty()) {
-                text = try {
-                    item.coerceToText(context)?.toString()
-                } catch (_: Throwable) {
-                    null
-                }
-            }
-            if (text.isNullOrEmpty() && uri != null) {
-                text = uri.toString()
-            }
-            if (text.isNullOrEmpty() && !item.htmlText.isNullOrEmpty()) {
-                text = item.htmlText
-            }
+            // 2. Scan items for Web Links or Text
+            for (i in 0 until clip.itemCount) {
+                val item = clip.getItemAt(i) ?: continue
 
-            if (!text.isNullOrEmpty()) {
-                val hash = ImageUtils.sha256Hex(text.toByteArray(Charsets.UTF_8))
-                val lowerHash = hash.lowercase()
-                if (!force && seenHashes.contains(lowerHash)) {
-                    LogManager.d("Local text/link hash already synced")
-                    return true
+                // Check for URI that represents a web link
+                val uri = item.uri
+                if (uri != null) {
+                    val scheme = uri.scheme?.lowercase()
+                    if (scheme == "http" || scheme == "https") {
+                        val linkText = uri.toString()
+                        if (sendExtractedText(client, linkText, force, "web link URI")) {
+                            return true
+                        }
+                    }
                 }
-                seenHashes.add(lowerHash)
 
-                LogManager.i("Sending local text/link to Mac (${text.length} chars)")
-                client.sendTextMessage(text, hash)
-                return true
+                // Check text
+                var text = item.text?.toString()
+                if (text.isNullOrEmpty()) {
+                    text = try {
+                        item.coerceToText(context)?.toString()
+                    } catch (_: Throwable) {
+                        null
+                    }
+                }
+
+                // Check HTML href if available and text is empty
+                if (text.isNullOrEmpty() && !item.htmlText.isNullOrEmpty()) {
+                    val html = item.htmlText!!
+                    val hrefMatcher = java.util.regex.Pattern.compile("""href=["'](https?://[^"']+)["']""", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(html)
+                    if (hrefMatcher.find()) {
+                        text = hrefMatcher.group(1)
+                    } else {
+                        text = android.text.Html.fromHtml(html, android.text.Html.FROM_HTML_MODE_LEGACY).toString().trim()
+                    }
+                }
+
+                // Check URI string fallback
+                if (text.isNullOrEmpty() && uri != null) {
+                    text = uri.toString()
+                }
+
+                if (!text.isNullOrEmpty()) {
+                    val trimmed = text.trim()
+                    if (trimmed.isNotEmpty()) {
+                        if (sendExtractedText(client, trimmed, force, "text/link")) {
+                            return true
+                        }
+                    }
+                }
             }
         } catch (e: Exception) {
             LogManager.e("Error reading local clipboard", e)
         }
         return false
+    }
+
+    private fun sendExtractedText(client: BridgeClient, text: String, force: Boolean, source: String): Boolean {
+        val hash = ImageUtils.sha256Hex(text.toByteArray(Charsets.UTF_8))
+        val lowerHash = hash.lowercase()
+        if (!force && seenHashes.contains(lowerHash)) {
+            LogManager.d("Local $source hash already synced")
+            return true
+        }
+        seenHashes.add(lowerHash)
+        LogManager.i("Sending local $source to Mac (${text.length} chars)")
+        client.sendTextMessage(text, hash)
+        return true
     }
 
     fun sendLocalTextToMac(client: BridgeClient, text: String, force: Boolean = false): Boolean {

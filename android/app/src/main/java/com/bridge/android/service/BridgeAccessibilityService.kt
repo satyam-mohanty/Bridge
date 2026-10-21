@@ -32,9 +32,16 @@ class BridgeAccessibilityService : AccessibilityService() {
     @Volatile
     private var isOverlayReading = false
 
+    private val syncRunnable = Runnable {
+        val bridge = BridgeService.instance ?: return@Runnable
+        bridge.handleClipboardChanged()
+    }
+
     private val clipListener = ClipboardManager.OnPrimaryClipChangedListener {
         LogManager.i("Accessibility: ClipboardManager onPrimaryClipChanged event detected")
-        scheduleSync()
+        // The clipboard actually changed in the system: execute promptly
+        mainHandler.removeCallbacks(syncRunnable)
+        mainHandler.postDelayed(syncRunnable, 50)
     }
 
     override fun onServiceConnected() {
@@ -135,21 +142,18 @@ class BridgeAccessibilityService : AccessibilityService() {
         }
 
         if (detectedCopyAction) {
-            scheduleSync()
+            scheduleSpeculativeSync()
         }
     }
 
-    private fun scheduleSync() {
+    private fun scheduleSpeculativeSync() {
         val now = System.currentTimeMillis()
         if (now - lastTriggerTime > 150) {
             lastTriggerTime = now
-            LogManager.i("Accessibility: Scheduling clipboard sync to Mac")
-            // Allow source app 60ms to commit data to system ClipboardService
-            mainHandler.postDelayed({
-                // Delegate to BridgeService which has the full fallback chain
-                val bridge = BridgeService.instance ?: return@postDelayed
-                bridge.handleClipboardChanged()
-            }, 60)
+            LogManager.i("Accessibility: Copy action clicked, scheduling sync in 120ms")
+            mainHandler.removeCallbacks(syncRunnable)
+            // Allow source app 120ms to commit data to system ClipboardService
+            mainHandler.postDelayed(syncRunnable, 120)
         }
     }
 
@@ -167,7 +171,14 @@ class BridgeAccessibilityService : AccessibilityService() {
         onResult: (Boolean) -> Unit
     ) {
         if (isOverlayReading) {
-            onResult(false)
+            // Already reading overlay; re-check in 150ms after current read completes
+            mainHandler.postDelayed({
+                if (!isOverlayReading) {
+                    readClipboardViaAccessibilityOverlay(client, syncManager, onResult)
+                } else {
+                    onResult(false)
+                }
+            }, 150)
             return
         }
         isOverlayReading = true

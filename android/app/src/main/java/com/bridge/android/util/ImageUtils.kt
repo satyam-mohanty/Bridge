@@ -20,11 +20,25 @@ object ImageUtils {
         val totalChunks: Int
     )
 
+    fun isImageUri(context: Context, uri: Uri): Boolean {
+        return try {
+            val actualUri = if (uri.scheme == null) Uri.fromFile(File(uri.path ?: uri.toString())) else uri
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            context.contentResolver.openInputStream(actualUri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, options)
+            }
+            options.outWidth > 0 && options.outHeight > 0
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
     fun processImageUri(context: Context, uri: Uri): ProcessedImage? {
         return try {
+            val actualUri = if (uri.scheme == null) Uri.fromFile(File(uri.path ?: uri.toString())) else uri
             val contentResolver = context.contentResolver
             val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            contentResolver.openInputStream(uri)?.use { stream ->
+            contentResolver.openInputStream(actualUri)?.use { stream ->
                 BitmapFactory.decodeStream(stream, null, options)
             }
 
@@ -42,7 +56,7 @@ object ImageUtils {
             }
 
             val decodeOptions = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-            val rawBitmap = contentResolver.openInputStream(uri)?.use { stream ->
+            val rawBitmap = contentResolver.openInputStream(actualUri)?.use { stream ->
                 BitmapFactory.decodeStream(stream, null, decodeOptions)
             } ?: return null
 

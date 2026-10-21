@@ -137,6 +137,19 @@
             </intent-filter>
         </receiver>
 
+        <!-- Home Screen App Widget -->
+        <receiver
+            android:name=".widget.BridgeWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.bridge.android.action.WIDGET_TOGGLE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/bridge_widget_info" />
+        </receiver>
+
         <!-- FileProvider for Sharing Received Images with System Apps -->
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -78,6 +78,8 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateConnectionStatus()
+        renderRecentTransfers()
+        renderRecentNotifications()
         BridgeService.instance?.syncAutoModeState()
         try {
             val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -152,6 +154,38 @@ class MainActivity : AppCompatActivity() {
         binding.btnQuickReconnect.setOnClickListener {
             BridgeService.instance?.triggerReconnect()
             Toast.makeText(this, "Reconnecting…", Toast.LENGTH_SHORT).show()
+        }
+
+        // Active Discovery & Sync Toggle
+        binding.switchSearchSync.setOnCheckedChangeListener { _, isChecked ->
+            keyStoreManager.setSearchingEnabled(isChecked)
+            val service = BridgeService.instance
+            if (isChecked) {
+                if (service != null) {
+                    service.resumeSearching()
+                } else {
+                    BridgeService.start(this)
+                }
+                Toast.makeText(this, "Discovery & sync resumed", Toast.LENGTH_SHORT).show()
+            } else {
+                service?.pauseSearching()
+                Toast.makeText(this, "Discovery & sync paused", Toast.LENGTH_SHORT).show()
+            }
+            updateConnectionStatus()
+        }
+
+        // Clear Recent Transfers
+        binding.btnRecentTransfersClear.setOnClickListener {
+            com.bridge.android.history.TransferHistoryManager(this).clearTransfers()
+            renderRecentTransfers()
+            Toast.makeText(this, "Transfer history cleared", Toast.LENGTH_SHORT).show()
+        }
+
+        // Clear Recent Notifications
+        binding.btnRecentNotificationsClear.setOnClickListener {
+            com.bridge.android.history.RecentNotificationHistoryManager(this).clearNotifications()
+            renderRecentNotifications()
+            Toast.makeText(this, "Notification history cleared", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -237,21 +271,45 @@ class MainActivity : AppCompatActivity() {
             service?.lastReceivedFileFlow?.collectLatest { fileName ->
                 if (!fileName.isNullOrBlank()) {
                     binding.tvLastReceivedInfo.text = "✓ Last received: $fileName (saved in Downloads)"
+                    renderRecentTransfers()
                 }
+            }
+        }
+
+        // Periodic refresh of recent lists
+        lifecycleScope.launch {
+            while (true) {
+                renderRecentTransfers()
+                renderRecentNotifications()
+                kotlinx.coroutines.delay(5000)
             }
         }
     }
 
     private fun updateConnectionStatus() {
         val service = BridgeService.instance
+        val isSearching = keyStoreManager.isSearchingEnabled()
         val isConnected = service?.isConnectedFlow?.value == true
-        val statusText = service?.statusFlow?.value ?: if (keyStoreManager.hasKey()) "Searching for Mac…" else "Not Paired"
+        val statusText = when {
+            !isSearching -> "Searching Paused"
+            isConnected -> service?.statusFlow?.value ?: "Connected"
+            keyStoreManager.hasKey() -> service?.statusFlow?.value ?: "Searching for Mac…"
+            else -> "Not Paired"
+        }
         val macName = keyStoreManager.getMacName() ?: "Mac"
 
         binding.tvConnectionStatus.text = statusText
+        if (binding.switchSearchSync.isChecked != isSearching) {
+            binding.switchSearchSync.isChecked = isSearching
+        }
         val dotDrawable = binding.statusIndicator.background as? GradientDrawable
 
-        if (isConnected) {
+        if (!isSearching) {
+            binding.tvDeviceName.text = macName
+            dotDrawable?.setColor(ContextCompat.getColor(this, R.color.status_gray))
+            binding.tvSecurityBadge.text = "Sync & Search paused to save battery"
+            binding.btnQuickReconnect.visibility = View.GONE
+        } else if (isConnected) {
             binding.tvDeviceName.text = macName
             dotDrawable?.setColor(ContextCompat.getColor(this, R.color.status_green))
             binding.tvSecurityBadge.text = "Active AES-256-GCM Session • Port 48250"
@@ -266,6 +324,193 @@ class MainActivity : AppCompatActivity() {
             dotDrawable?.setColor(ContextCompat.getColor(this, R.color.status_red))
             binding.tvSecurityBadge.text = "Tap Settings gear to pair with Mac"
             binding.btnQuickReconnect.visibility = View.GONE
+        }
+    }
+
+    private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
+
+    private fun renderRecentTransfers() {
+        val container = binding.llRecentTransfersContainer
+        container.removeAllViews()
+        val items = com.bridge.android.history.TransferHistoryManager(this).getTransfers()
+
+        if (items.isEmpty()) {
+            val emptyView = TextView(this).apply {
+                text = "No recent transfers"
+                textSize = 13f
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
+            }
+            container.addView(emptyView)
+            return
+        }
+
+        for ((index, item) in items.take(10).withIndex()) {
+            if (index > 0) {
+                val divider = View(this).apply {
+                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1
+                    ).apply {
+                        topMargin = 10.dp
+                        bottomMargin = 10.dp
+                    }
+                    setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.card_stroke))
+                }
+                container.addView(divider)
+            }
+
+            val row = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+
+            val icon = android.widget.ImageView(this).apply {
+                layoutParams = android.widget.LinearLayout.LayoutParams(24.dp, 24.dp).apply { marginEnd = 12.dp }
+                setImageResource(R.drawable.ic_file_upload)
+                rotation = if (item.isIncoming) 180f else 0f
+                setColorFilter(ContextCompat.getColor(this@MainActivity, R.color.accent))
+            }
+            row.addView(icon)
+
+            val textCol = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+
+            val nameView = TextView(this).apply {
+                text = item.name
+                textSize = 14f
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
+            }
+            textCol.addView(nameView)
+
+            val metaView = TextView(this).apply {
+                val action = if (item.isIncoming) "Received" else "Sent"
+                val sizeStr = android.text.format.Formatter.formatFileSize(this@MainActivity, item.size)
+                val timeStr = android.text.format.DateUtils.getRelativeTimeSpanString(
+                    item.timestamp, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS
+                )
+                text = "$action • $sizeStr • $timeStr"
+                textSize = 12f
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
+            }
+            textCol.addView(metaView)
+
+            row.addView(textCol)
+            container.addView(row)
+        }
+    }
+
+    private fun renderRecentNotifications() {
+        val container = binding.llRecentNotificationsContainer
+        container.removeAllViews()
+        val items = com.bridge.android.history.RecentNotificationHistoryManager(this).getNotifications()
+
+        if (items.isEmpty()) {
+            val emptyView = TextView(this).apply {
+                text = "No recent notifications"
+                textSize = 13f
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
+            }
+            container.addView(emptyView)
+            return
+        }
+
+        val pm = packageManager
+        for ((index, item) in items.take(10).withIndex()) {
+            if (index > 0) {
+                val divider = View(this).apply {
+                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1
+                    ).apply {
+                        topMargin = 10.dp
+                        bottomMargin = 10.dp
+                    }
+                    setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.card_stroke))
+                }
+                container.addView(divider)
+            }
+
+            val row = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+
+            val icon = android.widget.ImageView(this).apply {
+                layoutParams = android.widget.LinearLayout.LayoutParams(28.dp, 28.dp).apply { marginEnd = 12.dp }
+                try {
+                    val appIcon = pm.getApplicationIcon(item.pkg)
+                    setImageDrawable(appIcon)
+                } catch (_: Exception) {
+                    setImageResource(R.drawable.ic_bridge_notification)
+                }
+            }
+            row.addView(icon)
+
+            val textCol = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+
+            val titleRow = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+            }
+
+            val appNameView = TextView(this).apply {
+                text = item.app.ifEmpty { "Notification" }
+                textSize = 13f
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
+                layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            titleRow.addView(appNameView)
+
+            val timeView = TextView(this).apply {
+                val timeStr = android.text.format.DateUtils.getRelativeTimeSpanString(
+                    item.timestamp, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS
+                )
+                text = timeStr
+                textSize = 11f
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
+            }
+            titleRow.addView(timeView)
+            textCol.addView(titleRow)
+
+            if (item.title.isNotEmpty()) {
+                val titleView = TextView(this).apply {
+                    text = item.title
+                    textSize = 13f
+                    maxLines = 1
+                    ellipsize = TextUtils.TruncateAt.END
+                    setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
+                }
+                textCol.addView(titleView)
+            }
+
+            if (item.text.isNotEmpty()) {
+                val previewView = TextView(this).apply {
+                    text = item.text
+                    textSize = 12f
+                    maxLines = 2
+                    ellipsize = TextUtils.TruncateAt.END
+                    setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
+                }
+                textCol.addView(previewView)
+            }
+
+            row.addView(textCol)
+            container.addView(row)
         }
     }
 

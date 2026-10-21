@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
+import android.content.ComponentName
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Network
@@ -101,6 +102,9 @@ class BridgeService : Service(), BridgeClientListener {
         const val ACTION_START = "com.bridge.android.action.START"
         const val ACTION_RECONNECT = "com.bridge.android.action.RECONNECT"
         const val ACTION_SEND_CLIPBOARD = "com.bridge.android.action.SEND_CLIPBOARD"
+        const val ACTION_TOGGLE_SEARCH = "com.bridge.android.action.TOGGLE_SEARCH"
+        const val ACTION_STOP_SEARCH = "com.bridge.android.action.STOP_SEARCH"
+        const val ACTION_START_SEARCH = "com.bridge.android.action.START_SEARCH"
 
         @Volatile
         var instance: BridgeService? = null
@@ -145,6 +149,18 @@ class BridgeService : Service(), BridgeClientListener {
             ACTION_SEND_CLIPBOARD -> {
                 LogManager.i("Received send clipboard command")
                 sendCurrentClipboard()
+            }
+            ACTION_TOGGLE_SEARCH -> {
+                LogManager.i("Received toggle search command")
+                toggleSearching()
+            }
+            ACTION_STOP_SEARCH -> {
+                LogManager.i("Received stop search command")
+                pauseSearching()
+            }
+            ACTION_START_SEARCH -> {
+                LogManager.i("Received start search command")
+                resumeSearching()
             }
         }
         return START_STICKY
@@ -296,16 +312,65 @@ class BridgeService : Service(), BridgeClientListener {
             LogManager.i("Cannot send file: Mac is not connected")
             return
         }
+        com.bridge.android.history.TransferHistoryManager(this).addTransfer(
+            name = name,
+            size = bytes.size.toLong(),
+            isIncoming = false
+        )
         client.sendFile(name, bytes, mime, onProgress)
     }
 
     fun getClient(): BridgeClient = client
     fun getClipboardSyncManager(): ClipboardSyncManager = clipboardSyncManager
 
-    private fun startConnectionLoop() {
+    fun pauseSearching() {
+        keyStoreManager.setSearchingEnabled(false)
         loopJob?.cancel()
+        client.stop()
+        _statusFlow.value = "Searching Paused"
+        _isConnectedFlow.value = false
+        updateNotification("Searching Paused")
+        notifyWidgetUpdate()
+    }
+
+    fun resumeSearching() {
+        keyStoreManager.setSearchingEnabled(true)
+        backoffMs = 1000L
+        startConnectionLoop()
+        notifyWidgetUpdate()
+    }
+
+    fun toggleSearching() {
+        if (keyStoreManager.isSearchingEnabled()) {
+            pauseSearching()
+        } else {
+            resumeSearching()
+        }
+    }
+
+    fun notifyWidgetUpdate() {
+        try {
+            val intent = Intent(this, com.bridge.android.widget.BridgeWidgetProvider::class.java).apply {
+                action = android.appwidget.AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                val ids = android.appwidget.AppWidgetManager.getInstance(this@BridgeService)
+                    .getAppWidgetIds(ComponentName(this@BridgeService, com.bridge.android.widget.BridgeWidgetProvider::class.java))
+                putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+            }
+            sendBroadcast(intent)
+        } catch (_: Exception) {}
+    }
+
+    fun startConnectionLoop() {
+        loopJob?.cancel()
+        if (!keyStoreManager.isSearchingEnabled()) {
+            _statusFlow.value = "Searching Paused"
+            _isConnectedFlow.value = false
+            updateNotification("Searching Paused")
+            notifyWidgetUpdate()
+            return
+        }
         loopJob = serviceScope.launch(Dispatchers.IO) {
-            while (isActive) {
+            while (isActive && keyStoreManager.isSearchingEnabled()) {
                 val key = keyStoreManager.loadSharedKey()
                 if (key == null) {
                     _statusFlow.value = "Not Paired (Scan QR Code)"
@@ -327,7 +392,7 @@ class BridgeService : Service(), BridgeClientListener {
                 }
 
                 // 2. If last known IP failed or is not available, discover Mac
-                if (!sessionSucceeded && isActive) {
+                if (!sessionSucceeded && isActive && keyStoreManager.isSearchingEnabled()) {
                     _statusFlow.value = "Searching for Mac…"
                     _isConnectedFlow.value = false
                     updateNotification("Searching for Mac…")
@@ -343,7 +408,7 @@ class BridgeService : Service(), BridgeClientListener {
                 }
 
                 // 3. If still not connected, backoff before retry
-                if (!sessionSucceeded && isActive) {
+                if (!sessionSucceeded && isActive && keyStoreManager.isSearchingEnabled()) {
                     _statusFlow.value = "Mac not found. Retrying in ${backoffMs / 1000}s…"
                     _isConnectedFlow.value = false
                     updateNotification("Mac not found. Retrying in ${backoffMs / 1000}s…")
@@ -368,15 +433,17 @@ class BridgeService : Service(), BridgeClientListener {
             syncAutoModeState()
             com.bridge.android.notification.BridgeNotificationListenerService.rebind(this@BridgeService)
             com.bridge.android.notification.NotificationSyncManager.flushOfflineQueue(client)
+            notifyWidgetUpdate()
         }
     }
 
     override fun onDisconnected() {
         serviceScope.launch(Dispatchers.Main) {
             _isConnectedFlow.value = false
-            _statusFlow.value = "Disconnected"
-            updateNotification("Disconnected from Mac")
+            _statusFlow.value = if (keyStoreManager.isSearchingEnabled()) "Disconnected" else "Searching Paused"
+            updateNotification(_statusFlow.value)
             LogManager.i("BridgeService: Disconnected")
+            notifyWidgetUpdate()
         }
     }
 
@@ -403,6 +470,11 @@ class BridgeService : Service(), BridgeClientListener {
                 progress = 1.0f,
                 isIncoming = true,
                 isCompleted = true
+            )
+            com.bridge.android.history.TransferHistoryManager(this@BridgeService).addTransfer(
+                name = name,
+                size = data.size.toLong(),
+                isIncoming = true
             )
         }
     }
@@ -500,6 +572,19 @@ class BridgeService : Service(), BridgeClientListener {
         if (_isConnectedFlow.value) {
             builder.addAction(R.drawable.ic_clipboard, "Send to Mac", sendClipPendingIntent)
         }
+
+        val isSearching = keyStoreManager.isSearchingEnabled()
+        val toggleActionIntent = Intent(this, BridgeService::class.java).apply {
+            action = if (isSearching) ACTION_STOP_SEARCH else ACTION_START_SEARCH
+        }
+        val togglePendingIntent = PendingIntent.getService(
+            this,
+            2,
+            toggleActionIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val toggleLabel = if (isSearching) "Pause Search" else "Resume Search"
+        builder.addAction(R.drawable.circle_status, toggleLabel, togglePendingIntent)
 
         return builder.build()
     }
