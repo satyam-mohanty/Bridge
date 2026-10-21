@@ -1,0 +1,17 @@
+// Debug Configuration for local development
+#include? "Local.xcconfig"
+
+SWIFT_VERSION = 5.9
+MACOSX_DEPLOYMENT_TARGET = 13.0
+ENABLE_APP_SANDBOX = NO
+
+// Ad-hoc local code signing during development
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_IDENTITY = -
+ENABLE_HARDENED_RUNTIME = NO
+
+// Appcast Feed URL
+BRIDGE_FEED_URL = https://raw.githubusercontent.com/satyam-mohanty/Bridge/main/appcast.xml
+
+// EdDSA Public Key (can be provided via Local.xcconfig or environment variable)
+SPARKLE_PUBLIC_ED_KEY = $(inherited)

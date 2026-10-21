@@ -27,11 +27,13 @@ import androidx.lifecycle.lifecycleScope
 import com.bridge.android.R
 import com.bridge.android.crypto.KeyStoreManager
 import com.bridge.android.databinding.ActivityMainBinding
-import com.bridge.android.databinding.BottomSheetSettingsBinding
+import com.bridge.android.history.RecentNotificationHistoryManager
+import com.bridge.android.history.TransferHistoryManager
+import com.bridge.android.notification.NotificationPreferences
 import com.bridge.android.protocol.BridgeProtocol
+import com.bridge.android.service.BridgeAccessibilityService
 import com.bridge.android.service.BridgeService
 import com.bridge.android.util.LogManager
-import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
@@ -41,11 +43,28 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
+import com.bridge.android.update.UpdateManager
+import com.bridge.android.update.data.ManifestFetchResult
+import com.bridge.android.update.installer.InstallationResult
+import com.bridge.android.update.installer.UpdateInstaller
+import com.bridge.android.update.model.UpdateManifest
+import com.bridge.android.update.model.UpdateState
+import com.bridge.android.update.notification.UpdateNotificationHelper
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var keyStoreManager: KeyStoreManager
+    private lateinit var updateManager: UpdateManager
+    private var pendingInstallApk: File? = null
+
+    private val unknownSourcesLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        val apk = pendingInstallApk
+        if (apk != null && UpdateInstaller.canInstallPackages(this)) {
+            pendingInstallApk = null
+            triggerInstall(apk)
+        }
+    }
 
     private val pickFilesLauncher = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         if (!uris.isNullOrEmpty()) {
@@ -59,12 +78,41 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         keyStoreManager = KeyStoreManager(this)
+        updateManager = UpdateManager.getInstance(this)
 
+        setupNavigation()
         setupListeners()
+        setupUpdateListeners()
         observeServiceState()
+        observeUpdateState()
         checkAndRequestNotificationPermission()
 
         BridgeService.start(this)
+
+        // Handle opening directly from update notification
+        if (intent?.getBooleanExtra(UpdateNotificationHelper.EXTRA_OPEN_UPDATE, false) == true) {
+            handleNotificationLaunch()
+        }
+
+        // Check for updates on app launch in the background
+        lifecycleScope.launch {
+            updateManager.checkForUpdate(isManual = false)
+        }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent?.getBooleanExtra(UpdateNotificationHelper.EXTRA_OPEN_UPDATE, false) == true) {
+            handleNotificationLaunch()
+        }
+    }
+
+    private fun handleNotificationLaunch() {
+        val cached = updateManager.preferences.getCachedManifest()
+        if (cached != null && cached.versionCode > updateManager.getCurrentVersionCode()) {
+            showUpdateDialog(cached)
+        }
     }
 
     private val clipListener = ClipboardManager.OnPrimaryClipChangedListener {
@@ -73,11 +121,15 @@ class MainActivity : AppCompatActivity() {
             val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             service.getClipboardSyncManager().sendLocalClipboardToMac(service.getClient(), clipManager)
         }
+        updateClipboardPreview()
     }
 
     override fun onResume() {
         super.onResume()
         updateConnectionStatus()
+        updateContinuityPills()
+        updateSettingsValues()
+        updateClipboardPreview()
         renderRecentTransfers()
         renderRecentNotifications()
         BridgeService.instance?.syncAutoModeState()
@@ -101,6 +153,9 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 LogManager.e("Error reading clipboard in onWindowFocusChanged", e)
             }
+            updateClipboardPreview()
+            updateContinuityPills()
+            updateSettingsValues()
         }
     }
 
@@ -114,7 +169,57 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupNavigation() {
+        binding.bottomNav.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_home -> {
+                    binding.tabContentBridge.visibility = View.VISIBLE
+                    binding.tabContentActivity.visibility = View.GONE
+                    binding.tabContentSettings.visibility = View.GONE
+                    updateConnectionStatus()
+                    updateContinuityPills()
+                    true
+                }
+                R.id.nav_activity -> {
+                    binding.tabContentBridge.visibility = View.GONE
+                    binding.tabContentActivity.visibility = View.VISIBLE
+                    binding.tabContentSettings.visibility = View.GONE
+                    renderRecentTransfers()
+                    renderRecentNotifications()
+                    true
+                }
+                R.id.nav_settings -> {
+                    binding.tabContentBridge.visibility = View.GONE
+                    binding.tabContentActivity.visibility = View.GONE
+                    binding.tabContentSettings.visibility = View.VISIBLE
+                    updateSettingsValues()
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
     private fun setupListeners() {
+        // Header Reconnect Button
+        binding.btnHeaderReconnect.setOnClickListener {
+            triggerReconnect()
+        }
+
+        // ==================== UNPAIRED HERO ONBOARDING ====================
+        binding.btnPairScanQr.setOnClickListener {
+            startQrScanner()
+        }
+
+        binding.btnPairEnterCode.setOnClickListener {
+            showPastePairingDialog()
+        }
+
+        binding.btnPairManualIp.setOnClickListener {
+            showManualIpDialog()
+        }
+
+        // ==================== PAIRED DASHBOARD ====================
         // Send Files to Mac
         binding.btnSendFileToMac.setOnClickListener {
             val service = BridgeService.instance
@@ -145,15 +250,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Open Settings Bottom Sheet
-        binding.btnOpenSettings.setOnClickListener {
-            showSettingsBottomSheet()
-        }
-
-        // Quick Reconnect
+        // Quick Reconnect on card
         binding.btnQuickReconnect.setOnClickListener {
-            BridgeService.instance?.triggerReconnect()
-            Toast.makeText(this, "Reconnecting…", Toast.LENGTH_SHORT).show()
+            triggerReconnect()
         }
 
         // Active Discovery & Sync Toggle
@@ -174,19 +273,505 @@ class MainActivity : AppCompatActivity() {
             updateConnectionStatus()
         }
 
-        // Clear Recent Transfers
-        binding.btnRecentTransfersClear.setOnClickListener {
-            com.bridge.android.history.TransferHistoryManager(this).clearTransfers()
-            renderRecentTransfers()
-            Toast.makeText(this, "Transfer history cleared", Toast.LENGTH_SHORT).show()
+        // Continuity Services Shortcuts on Dashboard
+        binding.rowNotificationSync.setOnClickListener {
+            startActivity(Intent(this, NotificationSettingsActivity::class.java))
         }
 
-        // Clear Recent Notifications
-        binding.btnRecentNotificationsClear.setOnClickListener {
-            com.bridge.android.history.RecentNotificationHistoryManager(this).clearNotifications()
-            renderRecentNotifications()
-            Toast.makeText(this, "Notification history cleared", Toast.LENGTH_SHORT).show()
+        binding.rowClipboardSync.setOnClickListener {
+            showClipboardOptionsDialog()
         }
+
+        binding.rowBackgroundReliability.setOnClickListener {
+            showReliabilityOptionsDialog()
+        }
+
+        // ==================== ACTIVITY TAB ====================
+        binding.chipFilterAll.setOnClickListener {
+            binding.sectionTransfers.visibility = View.VISIBLE
+            binding.sectionNotifications.visibility = View.VISIBLE
+        }
+
+        binding.chipFilterTransfers.setOnClickListener {
+            binding.sectionTransfers.visibility = View.VISIBLE
+            binding.sectionNotifications.visibility = View.GONE
+        }
+
+        binding.chipFilterNotifications.setOnClickListener {
+            binding.sectionTransfers.visibility = View.GONE
+            binding.sectionNotifications.visibility = View.VISIBLE
+        }
+
+        // Clear Activity
+        binding.btnClearAllHistory.setOnClickListener {
+            val options = arrayOf("Clear All", "Clear Transfers Only", "Clear Notifications Only")
+            AlertDialog.Builder(this)
+                .setTitle("Clear History")
+                .setItems(options) { _, which ->
+                    when (which) {
+                        0 -> {
+                            TransferHistoryManager(this).clearTransfers()
+                            RecentNotificationHistoryManager(this).clearNotifications()
+                            Toast.makeText(this, "All history cleared", Toast.LENGTH_SHORT).show()
+                        }
+                        1 -> {
+                            TransferHistoryManager(this).clearTransfers()
+                            Toast.makeText(this, "Transfer history cleared", Toast.LENGTH_SHORT).show()
+                        }
+                        2 -> {
+                            RecentNotificationHistoryManager(this).clearNotifications()
+                            Toast.makeText(this, "Notification history cleared", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    renderRecentTransfers()
+                    renderRecentNotifications()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+
+        // ==================== SETTINGS TAB ====================
+        binding.rowSettingsScanQr.setOnClickListener {
+            startQrScanner()
+        }
+
+        binding.rowSettingsPastePairing.setOnClickListener {
+            showPastePairingDialog()
+        }
+
+        binding.rowSettingsManualIp.setOnClickListener {
+            showManualIpDialog()
+        }
+
+        binding.rowSettingsNotifications.setOnClickListener {
+            startActivity(Intent(this, NotificationSettingsActivity::class.java))
+        }
+
+        binding.rowSettingsBatteryOpt.setOnClickListener {
+            requestDisableBatteryOptimization()
+        }
+
+        binding.rowSettingsAutostart.setOnClickListener {
+            showOemInstructionsDialog()
+        }
+
+        binding.rowSettingsAccessibilityService.setOnClickListener {
+            openAccessibilitySettings()
+        }
+
+        binding.switchSettingsAutoMode.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                if (checkSelfPermission("android.permission.READ_LOGS") == PackageManager.PERMISSION_GRANTED) {
+                    keyStoreManager.setAutoModeEnabled(true)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+                        binding.switchSettingsAutoMode.isChecked = false
+                        showOverlayPermissionDialog()
+                        BridgeService.instance?.syncAutoModeState()
+                        return@setOnCheckedChangeListener
+                    }
+                    BridgeService.instance?.syncAutoModeState()
+                    Toast.makeText(this, "Auto-sync mode enabled", Toast.LENGTH_SHORT).show()
+                } else {
+                    binding.switchSettingsAutoMode.isChecked = false
+                    showAdbPermissionDialog()
+                }
+            } else {
+                keyStoreManager.setAutoModeEnabled(false)
+                BridgeService.instance?.syncAutoModeState()
+                Toast.makeText(this, "Auto-sync mode disabled", Toast.LENGTH_SHORT).show()
+            }
+            updateContinuityPills()
+        }
+
+        binding.rowSettingsCopyLogs.setOnClickListener {
+            val logs = LogManager.getDiagnostics()
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("Bridge Diagnostics", logs))
+            Toast.makeText(this, "Diagnostics copied to clipboard", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.rowSettingsUnpair.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Unpair Mac")
+                .setMessage("Are you sure you want to unpair from this Mac? You will need to scan a new QR code to reconnect.")
+                .setPositiveButton("Unpair") { _, _ ->
+                    keyStoreManager.clear()
+                    BridgeService.instance?.triggerReconnect()
+                    updateConnectionStatus()
+                    binding.bottomNav.selectedItemId = R.id.nav_home
+                    Toast.makeText(this, "Unpaired from Mac", Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+
+        // Footer Social Links & Attribution
+        setupFooterLinks()
+    }
+
+    private fun openUrl(url: String) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Could not open link", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun setupFooterLinks() {
+        val websiteUrl = "https://www.satyammohanty.com"
+        val xUrl = "https://x.com/isatymm"
+        val linkedinUrl = "https://www.linkedin.com/in/satyam-mohanty"
+        val githubUrl = "https://github.com/satyam-mohanty"
+        val instagramUrl = "https://www.instagram.com/isatymm"
+
+        // Dashboard footer
+        binding.btnSocialX.setOnClickListener { openUrl(xUrl) }
+        binding.btnSocialLinkedin.setOnClickListener { openUrl(linkedinUrl) }
+        binding.btnSocialGithub.setOnClickListener { openUrl(githubUrl) }
+        binding.btnSocialInstagram.setOnClickListener { openUrl(instagramUrl) }
+        binding.btnAuthorName.setOnClickListener { openUrl(websiteUrl) }
+
+        // Settings footer
+        binding.btnSocialXSettings.setOnClickListener { openUrl(xUrl) }
+        binding.btnSocialLinkedinSettings.setOnClickListener { openUrl(linkedinUrl) }
+        binding.btnSocialGithubSettings.setOnClickListener { openUrl(githubUrl) }
+        binding.btnSocialInstagramSettings.setOnClickListener { openUrl(instagramUrl) }
+        binding.btnAuthorNameSettings.setOnClickListener { openUrl(websiteUrl) }
+    }
+
+    private fun setupUpdateListeners() {
+        binding.btnUpdateBannerDismiss.setOnClickListener {
+            val state = updateManager.updateState.value
+            if (state is UpdateState.UpdateAvailable) {
+                updateManager.dismissUpdate(state.manifest.versionCode)
+            } else {
+                binding.cardUpdateBanner.visibility = View.GONE
+            }
+        }
+
+        binding.rowSettingsCheckUpdates.setOnClickListener {
+            performManualUpdateCheck()
+        }
+
+        binding.switchSettingsUpdateNotifications.setOnCheckedChangeListener { _, isChecked ->
+            updateManager.preferences.isNotificationEnabled = isChecked
+        }
+    }
+
+    private fun observeUpdateState() {
+        lifecycleScope.launch {
+            updateManager.updateState.collectLatest { state ->
+                when (state) {
+                    is UpdateState.Idle -> {
+                        binding.cardUpdateBanner.visibility = View.GONE
+                        binding.layoutUpdateProgress.visibility = View.GONE
+                    }
+                    is UpdateState.Checking -> {
+                        binding.tvSettingsUpdateStatus.text = "Checking…"
+                        binding.tvSettingsUpdateStatus.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.accent))
+                    }
+                    is UpdateState.UpdateAvailable -> {
+                        val manifest = state.manifest
+                        if (manifest.versionCode > updateManager.preferences.dismissedVersionCode) {
+                            binding.cardUpdateBanner.visibility = View.VISIBLE
+                            binding.tvUpdateBannerTitle.text = "Update Available: v${manifest.versionName}"
+                            binding.tvUpdateBannerNotes.text = manifest.releaseNotes
+                            binding.layoutUpdateProgress.visibility = View.GONE
+                            binding.btnUpdateBannerAction.text = "Download & Install"
+                            binding.btnUpdateBannerAction.isEnabled = true
+                            binding.btnUpdateBannerAction.setOnClickListener {
+                                updateManager.startDownload(manifest)
+                            }
+                        }
+                        binding.tvSettingsUpdateStatus.text = "v${manifest.versionName} Available"
+                        binding.tvSettingsUpdateStatus.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.accent))
+                    }
+                    is UpdateState.Downloading -> {
+                        binding.cardUpdateBanner.visibility = View.VISIBLE
+                        binding.layoutUpdateProgress.visibility = View.VISIBLE
+                        binding.progressUpdateDownload.isIndeterminate = state.progressPercent <= 0
+                        if (state.progressPercent > 0) {
+                            binding.progressUpdateDownload.progress = state.progressPercent
+                        }
+                        val mbDownloaded = state.bytesDownloaded.toDouble() / (1024 * 1024)
+                        val mbTotal = state.totalBytes.toDouble() / (1024 * 1024)
+                        binding.tvUpdateProgressStatus.text = if (state.totalBytes > 0) {
+                            String.format("Downloading... %d%% (%.1f MB / %.1f MB)", state.progressPercent, mbDownloaded, mbTotal)
+                        } else {
+                            String.format("Downloading... (%.1f MB)", mbDownloaded)
+                        }
+                        binding.btnUpdateBannerAction.isEnabled = false
+                        binding.btnUpdateBannerAction.text = "Downloading…"
+                    }
+                    is UpdateState.ReadyToInstall -> {
+                        binding.cardUpdateBanner.visibility = View.VISIBLE
+                        binding.layoutUpdateProgress.visibility = View.GONE
+                        binding.btnUpdateBannerAction.isEnabled = true
+                        binding.btnUpdateBannerAction.text = "Install Update"
+                        binding.btnUpdateBannerAction.setOnClickListener {
+                            triggerInstall(state.apkFile)
+                        }
+                        binding.tvSettingsUpdateStatus.text = "Ready to Install"
+                        binding.tvSettingsUpdateStatus.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.status_green))
+                    }
+                    is UpdateState.UpToDate -> {
+                        binding.cardUpdateBanner.visibility = View.GONE
+                        binding.tvSettingsUpdateStatus.text = "Latest ✓"
+                        binding.tvSettingsUpdateStatus.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.status_green))
+                    }
+                    is UpdateState.Error -> {
+                        binding.layoutUpdateProgress.visibility = View.GONE
+                        binding.btnUpdateBannerAction.isEnabled = true
+                        binding.btnUpdateBannerAction.text = "Retry"
+                        binding.btnUpdateBannerAction.setOnClickListener {
+                            val cached = updateManager.preferences.getCachedManifest()
+                            if (cached != null) updateManager.startDownload(cached)
+                            else performManualUpdateCheck()
+                        }
+                        binding.tvSettingsUpdateStatus.text = "Check"
+                        binding.tvSettingsUpdateStatus.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.accent))
+                    }
+                }
+            }
+        }
+    }
+
+    private fun performManualUpdateCheck() {
+        binding.tvSettingsUpdateStatus.text = "Checking…"
+        lifecycleScope.launch {
+            val result = updateManager.checkForUpdate(isManual = true)
+            when (result) {
+                is ManifestFetchResult.Success -> {
+                    val manifest = result.manifest
+                    if (manifest.versionCode > updateManager.getCurrentVersionCode()) {
+                        showUpdateDialog(manifest)
+                    } else {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Bridge is up to date (Version ${updateManager.getCurrentVersionName()})",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+                is ManifestFetchResult.Error -> {
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("Update Check")
+                        .setMessage(result.message)
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }
+        }
+    }
+
+    private fun showUpdateDialog(manifest: UpdateManifest) {
+        val sizeMb = manifest.apkSizeBytes.toDouble() / (1024 * 1024)
+        val sizeStr = if (sizeMb > 0) String.format(" (%.1f MB)", sizeMb) else ""
+        AlertDialog.Builder(this)
+            .setTitle("Bridge ${manifest.versionName} Available")
+            .setMessage("Release Notes:\n${manifest.releaseNotes.ifBlank { "Performance updates and security improvements." }}\n\nSize$sizeStr")
+            .setPositiveButton("Download & Install") { _, _ ->
+                binding.bottomNav.selectedItemId = R.id.nav_home
+                updateManager.startDownload(manifest)
+            }
+            .setNegativeButton("Later", null)
+            .show()
+    }
+
+    private fun triggerInstall(apkFile: File) {
+        if (!UpdateInstaller.canInstallPackages(this)) {
+            pendingInstallApk = apkFile
+            showUnknownSourcesDialog()
+            return
+        }
+
+        when (val result = updateManager.installUpdate(this, apkFile)) {
+            is InstallationResult.Success -> {
+                LogManager.i("Started APK installation flow")
+            }
+            is InstallationResult.RequiresPermission -> {
+                pendingInstallApk = apkFile
+                showUnknownSourcesDialog()
+            }
+            is InstallationResult.Error -> {
+                AlertDialog.Builder(this)
+                    .setTitle("Installation Error")
+                    .setMessage(result.message)
+                    .setPositiveButton("OK", null)
+                    .show()
+            }
+        }
+    }
+
+    private fun showUnknownSourcesDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Allow Bridge to Install Updates")
+            .setMessage("Android requires permission to install updates from within Bridge. Please enable 'Allow from this source' on the next screen.")
+            .setPositiveButton("Open Settings") { _, _ ->
+                val intent = UpdateInstaller.getUnknownSourcesPermissionIntent(this)
+                try {
+                    unknownSourcesLauncher.launch(intent)
+                } catch (e: Exception) {
+                    startActivity(intent)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun triggerReconnect() {
+        BridgeService.instance?.triggerReconnect()
+        Toast.makeText(this, "Reconnecting…", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun openAccessibilitySettings() {
+        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+        try {
+            startActivity(intent)
+            Toast.makeText(this, "Find 'Bridge' under Downloaded apps and turn it ON", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            LogManager.e("Failed to open accessibility settings", e)
+        }
+    }
+
+    private fun showClipboardOptionsDialog() {
+        val isA11y = isAccessibilityServiceEnabled()
+        val options = arrayOf(
+            if (isA11y) "Accessibility Service (Active ✓)" else "Enable Real-Time Sync (Accessibility)",
+            "Setup Foreground Auto-Sync (via ADB)",
+            "Cancel"
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle("Universal Clipboard Setup")
+            .setItems(options) { dialog, which ->
+                when (which) {
+                    0 -> openAccessibilitySettings()
+                    1 -> showAdbPermissionDialog()
+                    else -> dialog.dismiss()
+                }
+            }
+            .show()
+    }
+
+    private fun showReliabilityOptionsDialog() {
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val isIgnoring = pm.isIgnoringBatteryOptimizations(packageName)
+        val options = arrayOf(
+            if (isIgnoring) "Battery Optimization (Disabled ✓)" else "Disable Battery Optimization",
+            "OEM Background Autostart Guides",
+            "Cancel"
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle("Background Reliability")
+            .setItems(options) { dialog, which ->
+                when (which) {
+                    0 -> requestDisableBatteryOptimization()
+                    1 -> showOemInstructionsDialog()
+                    else -> dialog.dismiss()
+                }
+            }
+            .show()
+    }
+
+    private fun updateClipboardPreview() {
+        try {
+            val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = clipManager.primaryClip
+            if (clip != null && clip.itemCount > 0) {
+                val text = clip.getItemAt(0).text?.toString()?.trim()
+                if (!text.isNullOrBlank()) {
+                    val preview = if (text.length > 32) text.take(32) + "…" else text
+                    binding.tvClipboardPreview.text = "“$preview”"
+                    return
+                }
+            }
+            binding.tvClipboardPreview.text = "Push copied content"
+        } catch (_: Exception) {
+            binding.tvClipboardPreview.text = "Push copied content"
+        }
+    }
+
+    private fun updateContinuityPills() {
+        val secondaryColor = ContextCompat.getColor(this, R.color.text_secondary)
+        val orangeColor = ContextCompat.getColor(this, R.color.status_orange)
+
+        // Notification status text
+        val notifPrefs = NotificationPreferences(this)
+        val notifCount = notifPrefs.getEnabledPackages().size
+        binding.tvNotificationStatusPill.background = null
+        if (notifPrefs.isSyncEnabled) {
+            binding.tvNotificationStatusPill.text = if (notifCount == 1) "1 app" else "$notifCount apps"
+            binding.tvNotificationStatusPill.setTextColor(secondaryColor)
+        } else {
+            binding.tvNotificationStatusPill.text = "Off"
+            binding.tvNotificationStatusPill.setTextColor(secondaryColor)
+        }
+
+        // Clipboard status text
+        val isA11y = isAccessibilityServiceEnabled()
+        val isAuto = keyStoreManager.isAutoModeEnabled() && checkSelfPermission("android.permission.READ_LOGS") == PackageManager.PERMISSION_GRANTED
+        binding.tvClipboardStatusPill.background = null
+        if (isA11y) {
+            binding.tvClipboardStatusPill.text = "Real-time"
+            binding.tvClipboardStatusPill.setTextColor(secondaryColor)
+        } else if (isAuto) {
+            binding.tvClipboardStatusPill.text = "Foreground"
+            binding.tvClipboardStatusPill.setTextColor(secondaryColor)
+        } else {
+            binding.tvClipboardStatusPill.text = "Manual"
+            binding.tvClipboardStatusPill.setTextColor(secondaryColor)
+        }
+
+        // Battery status text
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val isIgnoring = pm.isIgnoringBatteryOptimizations(packageName)
+        binding.tvBatteryStatusPill.background = null
+        if (isIgnoring) {
+            binding.tvBatteryStatusPill.text = "Optimized"
+            binding.tvBatteryStatusPill.setTextColor(secondaryColor)
+        } else {
+            binding.tvBatteryStatusPill.text = "Restricted"
+            binding.tvBatteryStatusPill.setTextColor(orangeColor)
+        }
+    }
+
+    private fun updateSettingsValues() {
+        val currentIp = keyStoreManager.getLastKnownIp()
+        binding.tvSettingsCurrentIp.text = if (currentIp.isNullOrBlank()) "Auto" else currentIp
+
+        val notifPrefs = NotificationPreferences(this)
+        val notifCount = notifPrefs.getEnabledPackages().size
+        binding.tvSettingsNotificationStatus.text = if (notifPrefs.isSyncEnabled) "$notifCount active" else "Off"
+
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val isIgnoringBattery = pm.isIgnoringBatteryOptimizations(packageName)
+        if (isIgnoringBattery) {
+            binding.tvSettingsBatteryOptStatus.text = "Disabled ✓"
+            binding.tvSettingsBatteryOptStatus.setTextColor(ContextCompat.getColor(this, R.color.status_green))
+        } else {
+            binding.tvSettingsBatteryOptStatus.text = "Enable"
+            binding.tvSettingsBatteryOptStatus.setTextColor(ContextCompat.getColor(this, R.color.accent))
+        }
+
+        val isA11yEnabled = isAccessibilityServiceEnabled()
+        if (isA11yEnabled) {
+            binding.tvSettingsAccessibilityStatus.text = "Active ✓"
+            binding.tvSettingsAccessibilityStatus.setTextColor(ContextCompat.getColor(this, R.color.status_green))
+        } else {
+            binding.tvSettingsAccessibilityStatus.text = "Enable"
+            binding.tvSettingsAccessibilityStatus.setTextColor(ContextCompat.getColor(this, R.color.accent))
+        }
+
+        val hasReadLogs = checkSelfPermission("android.permission.READ_LOGS") == PackageManager.PERMISSION_GRANTED
+        val canLaunchReader = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
+        binding.switchSettingsAutoMode.isChecked = keyStoreManager.isAutoModeEnabled() && hasReadLogs && canLaunchReader
+
+        // Updates
+        binding.tvSettingsVersionCode.text = "Version ${updateManager.getCurrentVersionName()} (Build ${updateManager.getCurrentVersionCode()})"
+        binding.switchSettingsUpdateNotifications.isChecked = updateManager.preferences.isNotificationEnabled
     }
 
     private fun sendSelectedFiles(uris: List<Uri>) {
@@ -238,6 +823,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             while (true) {
                 updateConnectionStatus()
+                updateContinuityPills()
                 kotlinx.coroutines.delay(1000)
             }
         }
@@ -279,8 +865,10 @@ class MainActivity : AppCompatActivity() {
         // Periodic refresh of recent lists
         lifecycleScope.launch {
             while (true) {
-                renderRecentTransfers()
-                renderRecentNotifications()
+                if (binding.tabContentActivity.visibility == View.VISIBLE) {
+                    renderRecentTransfers()
+                    renderRecentNotifications()
+                }
                 kotlinx.coroutines.delay(5000)
             }
         }
@@ -290,40 +878,65 @@ class MainActivity : AppCompatActivity() {
         val service = BridgeService.instance
         val isSearching = keyStoreManager.isSearchingEnabled()
         val isConnected = service?.isConnectedFlow?.value == true
-        val statusText = when {
-            !isSearching -> "Searching Paused"
-            isConnected -> service?.statusFlow?.value ?: "Connected"
-            keyStoreManager.hasKey() -> service?.statusFlow?.value ?: "Searching for Mac…"
-            else -> "Not Paired"
-        }
+        val hasKey = keyStoreManager.hasKey()
         val macName = keyStoreManager.getMacName() ?: "Mac"
 
-        binding.tvConnectionStatus.text = statusText
-        if (binding.switchSearchSync.isChecked != isSearching) {
-            binding.switchSearchSync.isChecked = isSearching
+        val statusText = when {
+            !hasKey -> "Not Paired"
+            !isSearching -> "Paused"
+            isConnected -> service?.statusFlow?.value ?: "Connected"
+            else -> service?.statusFlow?.value ?: "Searching for Mac…"
         }
-        val dotDrawable = binding.statusIndicator.background as? GradientDrawable
 
-        if (!isSearching) {
-            binding.tvDeviceName.text = macName
-            dotDrawable?.setColor(ContextCompat.getColor(this, R.color.status_gray))
-            binding.tvSecurityBadge.text = "Sync & Search paused to save battery"
-            binding.btnQuickReconnect.visibility = View.GONE
-        } else if (isConnected) {
-            binding.tvDeviceName.text = macName
-            dotDrawable?.setColor(ContextCompat.getColor(this, R.color.status_green))
-            binding.tvSecurityBadge.text = "Active AES-256-GCM Session • Port 48250"
-            binding.btnQuickReconnect.visibility = View.GONE
-        } else if (keyStoreManager.hasKey()) {
-            binding.tvDeviceName.text = macName
-            dotDrawable?.setColor(ContextCompat.getColor(this, R.color.status_orange))
-            binding.tvSecurityBadge.text = "Local Network Discovery Active"
-            binding.btnQuickReconnect.visibility = View.VISIBLE
+        // Top Status Dot and indicator styling
+        val topDot = binding.topStatusDot.background as? GradientDrawable
+        val cardDot = binding.statusIndicator.background as? GradientDrawable
+
+        if (!hasKey) {
+            // UNPAIRED STATE
+            binding.cardUnpaired.visibility = View.VISIBLE
+            binding.layoutPaired.visibility = View.GONE
+
+            binding.tvTopStatusText.text = "Not Paired"
+            binding.tvTopStatusText.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+            topDot?.setColor(ContextCompat.getColor(this, R.color.status_red))
+            binding.btnHeaderReconnect.visibility = View.GONE
         } else {
-            binding.tvDeviceName.text = "Not Paired"
-            dotDrawable?.setColor(ContextCompat.getColor(this, R.color.status_red))
-            binding.tvSecurityBadge.text = "Tap Settings gear to pair with Mac"
-            binding.btnQuickReconnect.visibility = View.GONE
+            // PAIRED STATE
+            binding.cardUnpaired.visibility = View.GONE
+            binding.layoutPaired.visibility = View.VISIBLE
+
+            binding.tvDeviceName.text = macName
+            binding.tvConnectionStatus.text = statusText
+            if (binding.switchSearchSync.isChecked != isSearching) {
+                binding.switchSearchSync.isChecked = isSearching
+            }
+
+            if (!isSearching) {
+                topDot?.setColor(ContextCompat.getColor(this, R.color.status_gray))
+                cardDot?.setColor(ContextCompat.getColor(this, R.color.status_gray))
+                binding.tvTopStatusText.text = "Paused"
+                binding.tvTopStatusText.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+                binding.tvSecurityBadge.text = "Discovery paused"
+                binding.btnQuickReconnect.visibility = View.GONE
+                binding.btnHeaderReconnect.visibility = View.GONE
+            } else if (isConnected) {
+                topDot?.setColor(ContextCompat.getColor(this, R.color.status_green))
+                cardDot?.setColor(ContextCompat.getColor(this, R.color.status_green))
+                binding.tvTopStatusText.text = "Connected"
+                binding.tvTopStatusText.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+                binding.tvSecurityBadge.text = "Encrypted • Port 48250"
+                binding.btnQuickReconnect.visibility = View.GONE
+                binding.btnHeaderReconnect.visibility = View.GONE
+            } else {
+                topDot?.setColor(ContextCompat.getColor(this, R.color.status_orange))
+                cardDot?.setColor(ContextCompat.getColor(this, R.color.status_orange))
+                binding.tvTopStatusText.text = "Searching…"
+                binding.tvTopStatusText.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+                binding.tvSecurityBadge.text = "Searching on local network"
+                binding.btnQuickReconnect.visibility = View.VISIBLE
+                binding.btnHeaderReconnect.visibility = View.VISIBLE
+            }
         }
     }
 
@@ -332,11 +945,11 @@ class MainActivity : AppCompatActivity() {
     private fun renderRecentTransfers() {
         val container = binding.llRecentTransfersContainer
         container.removeAllViews()
-        val items = com.bridge.android.history.TransferHistoryManager(this).getTransfers()
+        val items = TransferHistoryManager(this).getTransfers()
 
         if (items.isEmpty()) {
             val emptyView = TextView(this).apply {
-                text = "No recent transfers"
+                text = "No transfers yet"
                 textSize = 13f
                 setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
             }
@@ -344,7 +957,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        for ((index, item) in items.take(10).withIndex()) {
+        for ((index, item) in items.take(15).withIndex()) {
             if (index > 0) {
                 val divider = View(this).apply {
                     layoutParams = android.widget.LinearLayout.LayoutParams(
@@ -410,11 +1023,11 @@ class MainActivity : AppCompatActivity() {
     private fun renderRecentNotifications() {
         val container = binding.llRecentNotificationsContainer
         container.removeAllViews()
-        val items = com.bridge.android.history.RecentNotificationHistoryManager(this).getNotifications()
+        val items = RecentNotificationHistoryManager(this).getNotifications()
 
         if (items.isEmpty()) {
             val emptyView = TextView(this).apply {
-                text = "No recent notifications"
+                text = "No recent notifications forwarded"
                 textSize = 13f
                 setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
             }
@@ -423,7 +1036,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val pm = packageManager
-        for ((index, item) in items.take(10).withIndex()) {
+        for ((index, item) in items.take(15).withIndex()) {
             if (index > 0) {
                 val divider = View(this).apply {
                     layoutParams = android.widget.LinearLayout.LayoutParams(
@@ -514,131 +1127,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // MARK: - Settings Bottom Sheet
-    private fun showSettingsBottomSheet() {
-        val sheetDialog = BottomSheetDialog(this)
-        val sheetBinding = BottomSheetSettingsBinding.inflate(layoutInflater)
-        sheetDialog.setContentView(sheetBinding.root)
-
-        // IP Display
-        val currentIp = keyStoreManager.getLastKnownIp()
-        sheetBinding.tvCurrentIpSetting.text = if (currentIp.isNullOrBlank()) "Auto" else currentIp
-
-        // Notification Settings Display
-        val notifPrefs = com.bridge.android.notification.NotificationPreferences(this)
-        val isNotifEnabled = notifPrefs.isSyncEnabled
-        val enabledAppCount = notifPrefs.getEnabledPackages().size
-        sheetBinding.tvNotificationStatusSheet.text = if (isNotifEnabled) "$enabledAppCount active" else "Off"
-        sheetBinding.rowNotificationsSettings.setOnClickListener {
-            sheetDialog.dismiss()
-            startActivity(Intent(this, NotificationSettingsActivity::class.java))
-        }
-
-        // Battery Status Display
-        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-        val isIgnoringBattery = pm.isIgnoringBatteryOptimizations(packageName)
-        if (isIgnoringBattery) {
-            sheetBinding.tvBatteryOptStatus.text = "Disabled ✓"
-            sheetBinding.tvBatteryOptStatus.setTextColor(ContextCompat.getColor(this, R.color.status_green))
-        } else {
-            sheetBinding.tvBatteryOptStatus.text = "Enable"
-            sheetBinding.tvBatteryOptStatus.setTextColor(ContextCompat.getColor(this, R.color.accent))
-        }
-
-        // Accessibility Service Status
-        val isA11yEnabled = isAccessibilityServiceEnabled()
-        if (isA11yEnabled) {
-            sheetBinding.tvAccessibilityStatus.text = "Active ✓"
-            sheetBinding.tvAccessibilityStatus.setTextColor(ContextCompat.getColor(this, R.color.status_green))
-        } else {
-            sheetBinding.tvAccessibilityStatus.text = "Enable"
-            sheetBinding.tvAccessibilityStatus.setTextColor(ContextCompat.getColor(this, R.color.accent))
-        }
-
-        sheetBinding.rowAccessibilityService.setOnClickListener {
-            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-            startActivity(intent)
-            Toast.makeText(this, "Find 'Bridge' under Downloaded apps and turn it ON", Toast.LENGTH_LONG).show()
-        }
-
-        // Auto Mode Switch
-        val hasReadLogs = checkSelfPermission("android.permission.READ_LOGS") == PackageManager.PERMISSION_GRANTED
-        val canLaunchReader = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
-        val isAutoEnabled = keyStoreManager.isAutoModeEnabled() && hasReadLogs && canLaunchReader
-        sheetBinding.switchAutoModeSheet.isChecked = isAutoEnabled
-
-        sheetBinding.switchAutoModeSheet.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                if (checkSelfPermission("android.permission.READ_LOGS") == PackageManager.PERMISSION_GRANTED) {
-                    keyStoreManager.setAutoModeEnabled(true)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-                        sheetBinding.switchAutoModeSheet.isChecked = false
-                        showOverlayPermissionDialog()
-                        BridgeService.instance?.syncAutoModeState()
-                        return@setOnCheckedChangeListener
-                    }
-                    BridgeService.instance?.syncAutoModeState()
-                    Toast.makeText(this, "Auto-sync mode enabled", Toast.LENGTH_SHORT).show()
-                } else {
-                    sheetBinding.switchAutoModeSheet.isChecked = false
-                    showAdbPermissionDialog()
-                }
-            } else {
-                keyStoreManager.setAutoModeEnabled(false)
-                BridgeService.instance?.syncAutoModeState()
-                Toast.makeText(this, "Auto-sync mode disabled", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        // Actions
-        sheetBinding.rowScanQr.setOnClickListener {
-            sheetDialog.dismiss()
-            startQrScanner()
-        }
-
-        sheetBinding.rowPastePairing.setOnClickListener {
-            sheetDialog.dismiss()
-            showPastePairingDialog()
-        }
-
-        sheetBinding.rowManualIp.setOnClickListener {
-            sheetDialog.dismiss()
-            showManualIpDialog()
-        }
-
-        sheetBinding.rowBatteryOpt.setOnClickListener {
-            requestDisableBatteryOptimization()
-        }
-
-        sheetBinding.rowAutostart.setOnClickListener {
-            showOemInstructionsDialog()
-        }
-
-        sheetBinding.rowCopyLogs.setOnClickListener {
-            val logs = LogManager.getDiagnostics()
-            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("Bridge Diagnostics", logs))
-            Toast.makeText(this, "Diagnostics copied to clipboard", Toast.LENGTH_SHORT).show()
-        }
-
-        sheetBinding.rowUnpair.setOnClickListener {
-            AlertDialog.Builder(this)
-                .setTitle("Unpair Mac")
-                .setMessage("Are you sure you want to unpair from this Mac?")
-                .setPositiveButton("Unpair") { _, _ ->
-                    keyStoreManager.clear()
-                    BridgeService.instance?.triggerReconnect()
-                    updateConnectionStatus()
-                    sheetDialog.dismiss()
-                    Toast.makeText(this, "Unpaired from Mac", Toast.LENGTH_SHORT).show()
-                }
-                .setNegativeButton("Cancel", null)
-                .show()
-        }
-
-        sheetDialog.show()
-    }
-
     private fun startQrScanner() {
         val options = GmsBarcodeScannerOptions.Builder()
             .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
@@ -676,6 +1164,8 @@ class MainActivity : AppCompatActivity() {
             BridgeService.start(this)
             BridgeService.instance?.triggerReconnect()
             updateConnectionStatus()
+            updateContinuityPills()
+            binding.bottomNav.selectedItemId = R.id.nav_home
         } catch (e: Exception) {
             LogManager.e("Failed to process pairing payload", e)
             Toast.makeText(this, "Invalid Bridge pairing code format", Toast.LENGTH_LONG).show()
@@ -719,11 +1209,14 @@ class MainActivity : AppCompatActivity() {
                 if (ip.isNotEmpty()) {
                     keyStoreManager.saveLastKnownIp(ip)
                     BridgeService.instance?.triggerReconnect()
+                    updateSettingsValues()
                     Toast.makeText(this, "Saved IP: $ip", Toast.LENGTH_SHORT).show()
                 }
             }
             .setNeutralButton("Clear IP") { _, _ ->
                 keyStoreManager.saveLastKnownIp("")
+                BridgeService.instance?.triggerReconnect()
+                updateSettingsValues()
                 Toast.makeText(this, "Cleared manual IP", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Cancel", null)
@@ -817,10 +1310,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
-        if (com.bridge.android.service.BridgeAccessibilityService.isRunning) {
+        if (BridgeAccessibilityService.isRunning) {
             return true
         }
-        val expectedComponentName = ComponentName(this, com.bridge.android.service.BridgeAccessibilityService::class.java).flattenToString()
+        val expectedComponentName = ComponentName(this, BridgeAccessibilityService::class.java).flattenToString()
         val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
         val colonSplitter = TextUtils.SimpleStringSplitter(':')
         colonSplitter.setString(enabledServices)

@@ -285,4 +285,49 @@ final class BridgeTests: XCTestCase {
             XCTAssertEqual(posix?.intValue, 0o600, "Fallback key must have 0600 permissions")
         }
     }
+    
+    @MainActor
+    func testUpdateManagerInitializationAndDefaults() throws {
+        let manager = UpdateManager.shared
+        XCTAssertNotNil(manager, "UpdateManager singleton should be initialized")
+        XCTAssertFalse(manager.currentVersionString.isEmpty, "Current version string should not be empty")
+        XCTAssertTrue(manager.currentVersionString.contains("Version"), "Current version should contain 'Version'")
+        XCTAssertNotNil(manager.statusMessage)
+    }
+    
+    @MainActor
+    func testUpdateManagerFeedURLConfigured() throws {
+        let manager = UpdateManager.shared
+        let feed = manager.feedURLString
+        XCTAssertTrue(feed.hasPrefix("https://"), "Feed URL must be served securely over HTTPS")
+        XCTAssertTrue(feed.contains("appcast.xml"), "Feed URL should point to appcast.xml")
+    }
+    
+    func testAppcastXMLStructure() throws {
+        let sampleAppcast = """
+        <?xml version="1.0" encoding="utf-8"?>
+        <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+          <channel>
+            <title>Bridge Changelog</title>
+            <link>https://github.com/satyam-mohanty/Bridge</link>
+            <item>
+              <title>Version 1.0.1</title>
+              <description><![CDATA[<h2>What's New</h2><ul><li>Performance improvements</li></ul>]]></description>
+              <enclosure url="https://github.com/satyam-mohanty/Bridge/releases/download/v1.0.1/Bridge-1.0.1.zip"
+                         sparkle:version="2"
+                         sparkle:shortVersionString="1.0.1"
+                         sparkle:edSignature="c2FtcGxlX2VkMjU1MTlfc2lnbmF0dXJlX2Zvcl90ZXN0aW5n"
+                         length="1234567"
+                         type="application/octet-stream" />
+            </item>
+          </channel>
+        </rss>
+        """
+        guard let data = sampleAppcast.data(using: .utf8) else {
+            XCTFail("Failed to convert XML string to Data")
+            return
+        }
+        let parser = XMLParser(data: data)
+        XCTAssertTrue(parser.parse(), "Sample appcast XML must parse cleanly")
+    }
 }

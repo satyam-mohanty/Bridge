@@ -210,3 +210,14 @@ If you ever encounter an issue:
 - **On Mac**: Click Bridge menu bar icon ➔ **Copy Diagnostics**.
 - **On Android**: Open Bridge ➔ Tap **Copy Diagnostics**.
 Both copy a timestamped log of the last 200 connection, encryption, discovery, and transfer events.
+
+---
+
+## 8. macOS Auto-Updates & Production Releases
+
+Bridge integrates Sparkle 2.x for cryptographic, zero-user-friction auto-updates over HTTPS backed by GitHub Releases:
+- **Automatic Background Checks**: Bridge checks for updates every 24 hours.
+- **Manual Checks**: Click **Check for Updates…** from the menu bar extra, Settings window, or Application menu.
+- **Security**: Updates are signed with EdDSA (Ed25519) and verified before extraction.
+- **Distribution Pipeline**: See [AUTO_UPDATES.md](file:///Users/satyam/Satyam/passion%20projects/Bridge/mac/AUTO_UPDATES.md) for full documentation on Developer ID signing, Apple Notarization, and `./mac/scripts/package_release.sh`.
+

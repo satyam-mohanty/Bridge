@@ -2,6 +2,7 @@ import SwiftUI
 
 public struct SettingsView: View {
     @ObservedObject var model: AppModel
+    @ObservedObject private var updateManager = UpdateManager.shared
     
     public init(model: AppModel) {
         self.model = model
@@ -147,6 +148,49 @@ public struct SettingsView: View {
                 ))
             } header: {
                 Text("Application")
+            }
+            
+            Section {
+                Toggle("Automatically check for updates", isOn: $updateManager.automaticallyChecksForUpdates)
+                Toggle("Automatically download updates", isOn: $updateManager.automaticallyDownloadsUpdates)
+                    .disabled(!updateManager.automaticallyChecksForUpdates)
+                
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(updateManager.currentVersionString)
+                            .font(.subheadline)
+                            .foregroundColor(.primary)
+                        if let date = updateManager.lastCheckDate {
+                            Text("Last checked: \(date, style: .date) \(date, style: .time)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text("Status: \(updateManager.statusMessage)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        updateManager.checkForUpdates()
+                    }) {
+                        if updateManager.isChecking {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Text("Check Now")
+                        }
+                    }
+                    .disabled(!updateManager.canCheckForUpdates || updateManager.isChecking)
+                }
+            } header: {
+                Text("Software Updates")
+            } footer: {
+                Text("Updates are delivered over secure HTTPS and verified cryptographically with EdDSA signatures.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
         .formStyle(.grouped)

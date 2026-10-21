@@ -1,0 +1,21 @@
+// Release Configuration for Public Distribution
+#include? "Local.xcconfig"
+
+SWIFT_VERSION = 5.9
+MACOSX_DEPLOYMENT_TARGET = 13.0
+ENABLE_APP_SANDBOX = NO
+
+// Developer ID signing for Gatekeeper & Apple Notarization
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_IDENTITY = Developer ID Application
+OTHER_CODE_SIGN_FLAGS = --timestamp
+ENABLE_HARDENED_RUNTIME = YES
+
+// Set your 10-character Apple Developer Team ID (e.g. via Local.xcconfig or CI secret)
+DEVELOPMENT_TEAM = $(DEVELOPMENT_TEAM)
+
+// Production Appcast Feed URL
+BRIDGE_FEED_URL = https://raw.githubusercontent.com/satyam-mohanty/Bridge/main/appcast.xml
+
+// Sparkle EdDSA Public Key for update verification
+SPARKLE_PUBLIC_ED_KEY = $(SPARKLE_PUBLIC_ED_KEY)

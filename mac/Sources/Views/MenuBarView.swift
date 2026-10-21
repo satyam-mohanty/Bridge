@@ -2,6 +2,7 @@ import SwiftUI
 
 public struct MenuBarView: View {
     @ObservedObject var model: AppModel
+    @ObservedObject private var updateManager = UpdateManager.shared
     @State private var diagnosticsCopied = false
     
     public init(model: AppModel) {
@@ -59,6 +60,14 @@ public struct MenuBarView: View {
                 Label("Settings…", systemImage: "gear")
             }
             .buttonStyle(.plain)
+            
+            Button(action: {
+                updateManager.checkForUpdates()
+            }) {
+                Label("Check for Updates…", systemImage: "arrow.triangle.2.circlepath")
+            }
+            .buttonStyle(.plain)
+            .disabled(!updateManager.canCheckForUpdates)
             
             Button(action: {
                 model.selectAndSendFiles()

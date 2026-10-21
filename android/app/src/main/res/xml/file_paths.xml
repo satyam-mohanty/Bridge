@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="bridge_images" path="bridge_images/" />
+    <cache-path name="bridge_updates" path="updates/" />
 </paths>

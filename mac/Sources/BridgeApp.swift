@@ -37,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct BridgeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var model = AppModel()
+    @StateObject private var updateManager = UpdateManager.shared
     
     var body: some Scene {
         WindowGroup("Bridge", id: "main") {
@@ -53,6 +54,14 @@ struct BridgeApp: App {
         .windowToolbarStyle(.unified)
         .windowResizability(.contentMinSize)
         .defaultSize(width: 680, height: 640)
+        .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    updateManager.checkForUpdates()
+                }
+                .disabled(!updateManager.canCheckForUpdates)
+            }
+        }
         
         MenuBarExtra("Bridge", systemImage: model.isConnected ? "link.circle.fill" : "link.circle") {
             MenuBarView(model: model)

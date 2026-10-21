@@ -1,0 +1,12 @@
+// Local developer overrides
+// Copy this file to "Local.xcconfig" in this same directory.
+// Never commit Local.xcconfig to version control!
+
+// Apple Developer Team ID (found at developer.apple.com/account or from your certificate)
+// DEVELOPMENT_TEAM = ABCDE12345
+
+// Sparkle EdDSA Public Key (generated via: ./scripts/generate_keys.sh)
+// SPARKLE_PUBLIC_ED_KEY = your_base64_public_key_here
+
+// Optional explicit signing identity override
+// CODE_SIGN_IDENTITY = Developer ID Application: Your Name (ABCDE12345)

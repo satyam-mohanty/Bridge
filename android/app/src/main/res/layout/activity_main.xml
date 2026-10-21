@@ -1,576 +1,1823 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/surface"
-    android:fillViewport="true">
+    android:orientation="vertical">
 
-    <LinearLayout
+    <!-- Top App Bar -->
+    <RelativeLayout
+        android:id="@+id/layoutTopBar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp">
+        android:layout_height="56dp"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="20dp">
 
-        <!-- Top App Bar -->
-        <RelativeLayout
-            android:layout_width="match_parent"
+        <LinearLayout
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp">
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-            <LinearLayout
+            <ImageView
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:contentDescription="Bridge Logo"
+                android:src="@drawable/ic_bridge_logo" />
+
+            <TextView
+                android:id="@+id/tvAppTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_alignParentStart="true"
-                android:layout_centerVertical="true"
+                android:layout_marginStart="10dp"
+                android:text="Bridge"
+                android:textColor="@color/text_primary"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Right: Status Indicator Pill -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/btnHeaderReconnect"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:layout_marginEnd="6dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Reconnect"
+                android:src="@drawable/ic_refresh"
+                android:visibility="gone"
+                app:tint="@color/accent" />
+
+            <LinearLayout
+                android:id="@+id/layoutTopStatusPill"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:paddingStart="4dp"
+                android:paddingEnd="2dp">
 
-                <ImageView
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:src="@drawable/ic_bridge_logo"
-                    android:contentDescription="Bridge Logo" />
+                <View
+                    android:id="@+id/topStatusDot"
+                    android:layout_width="7dp"
+                    android:layout_height="7dp"
+                    android:background="@drawable/circle_status" />
 
-                <LinearLayout
+                <TextView
+                    android:id="@+id/tvTopStatusText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Bridge"
-                        android:textSize="24sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="AirDrop &amp; Clipboard Continuity"
-                        android:textSize="12sp"
-                        android:textColor="@color/text_secondary" />
-                </LinearLayout>
+                    android:layout_marginStart="6dp"
+                    android:text="Searching"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp" />
             </LinearLayout>
+        </LinearLayout>
+    </RelativeLayout>
 
-            <!-- Settings Button -->
-            <ImageButton
-                android:id="@+id/btnOpenSettings"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@drawable/ic_settings"
-                android:contentDescription="Settings" />
-        </RelativeLayout>
+    <!-- Main Content Container with 3 Destinations -->
+    <FrameLayout
+        android:id="@+id/layoutContentContainer"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
-        <!-- Connected Device Card (AirDrop / Apple Continuity Style) -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardDeviceStatus"
+        <!-- ============================================================= -->
+        <!-- TAB 1: BRIDGE DASHBOARD                                       -->
+        <!-- ============================================================= -->
+        <ScrollView
+            android:id="@+id/tabContentBridge"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardBackgroundColor="@color/card_background"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="2dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="@color/card_stroke">
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:overScrollMode="never"
+            android:visibility="visible">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="20dp">
+                android:paddingHorizontal="18dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="24dp">
 
-                <LinearLayout
+                <!-- UPDATE AVAILABLE BANNER CARD -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardUpdateBanner"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <!-- Mac Laptop Device Icon with Status Indicator -->
-                    <FrameLayout
-                        android:layout_width="54dp"
-                        android:layout_height="54dp">
-
-                        <View
-                            android:layout_width="54dp"
-                            android:layout_height="54dp"
-                            android:background="@drawable/circle_status"
-                            android:backgroundTint="@color/card_highlight" />
-
-                        <ImageView
-                            android:layout_width="28dp"
-                            android:layout_height="28dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_mac_device"
-                            android:contentDescription="Mac" />
-
-                        <View
-                            android:id="@+id/statusIndicator"
-                            android:layout_width="12dp"
-                            android:layout_height="12dp"
-                            android:layout_gravity="bottom|end"
-                            android:layout_margin="2dp"
-                            android:background="@drawable/circle_status" />
-                    </FrameLayout>
+                    android:layout_marginBottom="14dp"
+                    android:visibility="gone"
+                    app:cardBackgroundColor="@color/card_background"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/accent"
+                    app:strokeWidth="1.5dp">
 
                     <LinearLayout
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="16dp"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <ImageView
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:src="@drawable/ic_refresh"
+                                app:tint="@color/accent" />
+
+                            <TextView
+                                android:id="@+id/tvUpdateBannerTitle"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="10dp"
+                                android:layout_weight="1"
+                                android:text="Update Available"
+                                android:textColor="@color/text_primary"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+
+                            <ImageButton
+                                android:id="@+id/btnUpdateBannerDismiss"
+                                android:layout_width="28dp"
+                                android:layout_height="28dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="Dismiss"
+                                android:src="@drawable/ic_delete"
+                                app:tint="@color/text_secondary" />
+                        </LinearLayout>
 
                         <TextView
-                            android:id="@+id/tvDeviceName"
+                            android:id="@+id/tvUpdateBannerNotes"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:ellipsize="end"
+                            android:maxLines="3"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="13sp" />
+
+                        <!-- Progress Section -->
+                        <LinearLayout
+                            android:id="@+id/layoutUpdateProgress"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:orientation="vertical"
+                            android:visibility="gone">
+
+                            <com.google.android.material.progressindicator.LinearProgressIndicator
+                                android:id="@+id/progressUpdateDownload"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                app:indicatorColor="@color/accent"
+                                app:trackColor="@color/card_stroke"
+                                app:trackCornerRadius="4dp"
+                                app:trackThickness="6dp" />
+
+                            <TextView
+                                android:id="@+id/tvUpdateProgressStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Downloading update..."
+                                android:textColor="@color/text_secondary"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <!-- Action Buttons -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:gravity="end"
+                            android:orientation="horizontal">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnUpdateBannerAction"
+                                android:layout_width="wrap_content"
+                                android:layout_height="38dp"
+                                android:backgroundTint="@color/accent"
+                                android:text="Download &amp; Install"
+                                android:textColor="#FFFFFF"
+                                android:textSize="13sp"
+                                app:cornerRadius="10dp"
+                                app:elevation="0dp" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- STATE A: UNPAIRED HERO ONBOARDING CARD -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardUnpaired"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    app:cardBackgroundColor="@color/card_background"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/card_stroke"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical"
+                        android:padding="24dp">
+
+                        <FrameLayout
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            android:layout_marginBottom="16dp">
+
+                            <View
+                                android:layout_width="56dp"
+                                android:layout_height="56dp"
+                                android:background="@drawable/circle_status"
+                                android:backgroundTint="@color/pill_blue_bg" />
+
+                            <ImageView
+                                android:layout_width="28dp"
+                                android:layout_height="28dp"
+                                android:layout_gravity="center"
+                                android:contentDescription="Mac"
+                                android:src="@drawable/ic_mac_device"
+                                app:tint="@color/accent" />
+                        </FrameLayout>
+
+                        <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Mac"
-                            android:textSize="18sp"
+                            android:text="Pair with your Mac"
+                            android:textColor="@color/text_primary"
+                            android:textSize="19sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:gravity="center"
+                            android:lineSpacingExtra="2dp"
+                            android:text="Wirelessly AirDrop files, share clipboard in real-time, and forward notifications to your Mac."
+                            android:textColor="@color/text_secondary"
+                            android:textSize="13sp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            android:layout_marginBottom="18dp"
+                            android:background="@drawable/bg_pill"
+                            android:gravity="center"
+                            android:paddingHorizontal="14dp"
+                            android:paddingVertical="9dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:text="Open Bridge on Mac → Click 'Pair Device'"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <!-- Primary: Scan QR -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPairScanQr"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:backgroundTint="@color/accent"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:text="Scan Mac QR Code"
+                            android:textColor="@android:color/white"
+                            android:textSize="14sp"
                             android:textStyle="bold"
-                            android:textColor="@color/text_primary" />
+                            app:cornerRadius="12dp"
+                            app:elevation="0dp"
+                            app:icon="@drawable/ic_qr_code"
+                            app:iconGravity="textStart"
+                            app:iconPadding="8dp"
+                            app:iconTint="@android:color/white" />
+
+                        <!-- Secondary: Enter Code -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPairEnterCode"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="match_parent"
+                            android:layout_height="46dp"
+                            android:layout_marginTop="10dp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:text="Enter Pairing Code"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp"
+                            app:cornerRadius="12dp"
+                            app:icon="@drawable/ic_key"
+                            app:iconGravity="textStart"
+                            app:iconPadding="8dp"
+                            app:iconTint="@color/text_primary"
+                            app:strokeColor="@color/card_stroke"
+                            app:strokeWidth="1dp" />
 
                         <TextView
-                            android:id="@+id/tvConnectionStatus"
+                            android:id="@+id/btnPairManualIp"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Searching on local network…"
-                            android:textSize="13sp"
-                            android:textColor="@color/text_secondary" />
+                            android:layout_marginTop="14dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:padding="6dp"
+                            android:text="Connect by IP Address ›"
+                            android:textColor="@color/accent"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
 
-                        <TextView
-                            android:id="@+id/tvSecurityBadge"
-                            android:layout_width="wrap_content"
+                <!-- STATE B: PAIRED DASHBOARD LAYOUT -->
+                <LinearLayout
+                    android:id="@+id/layoutPaired"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- Connected Device Card -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardDeviceStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:cardBackgroundColor="@color/card_background"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/card_stroke"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:text="AES-256-GCM • Port 48250"
-                            android:textSize="11sp"
-                            android:textColor="@color/accent" />
+                            android:orientation="vertical"
+                            android:padding="16dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <FrameLayout
+                                    android:layout_width="44dp"
+                                    android:layout_height="44dp">
+
+                                    <View
+                                        android:layout_width="44dp"
+                                        android:layout_height="44dp"
+                                        android:background="@drawable/circle_status"
+                                        android:backgroundTint="@color/pill_blue_bg" />
+
+                                    <ImageView
+                                        android:layout_width="22dp"
+                                        android:layout_height="22dp"
+                                        android:layout_gravity="center"
+                                        android:contentDescription="Mac"
+                                        android:src="@drawable/ic_mac_device"
+                                        app:tint="@color/accent" />
+
+                                    <View
+                                        android:id="@+id/statusIndicator"
+                                        android:layout_width="10dp"
+                                        android:layout_height="10dp"
+                                        android:layout_gravity="bottom|end"
+                                        android:layout_margin="1dp"
+                                        android:background="@drawable/circle_status" />
+                                </FrameLayout>
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="14dp"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:id="@+id/tvDeviceName"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Mac"
+                                        android:textColor="@color/text_primary"
+                                        android:textSize="16sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tvConnectionStatus"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="1dp"
+                                        android:text="Searching on local network…"
+                                        android:textColor="@color/text_secondary"
+                                        android:textSize="13sp" />
+
+                                    <TextView
+                                        android:id="@+id/tvSecurityBadge"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:text="AES-256-GCM Session • Port 48250"
+                                        android:textColor="@color/accent"
+                                        android:textSize="11sp" />
+                                </LinearLayout>
+
+                                <com.google.android.material.button.MaterialButton
+                                    android:id="@+id/btnQuickReconnect"
+                                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:minWidth="0dp"
+                                    android:paddingHorizontal="10dp"
+                                    android:text="Reconnect"
+                                    android:textColor="@color/accent"
+                                    android:textSize="12sp"
+                                    android:visibility="gone" />
+                            </LinearLayout>
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:layout_marginTop="14dp"
+                                android:layout_marginBottom="12dp"
+                                android:background="@color/card_stroke" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Local Discovery &amp; Sync"
+                                        android:textColor="@color/text_primary"
+                                        android:textSize="13sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tvSearchingSubtitle"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Keep connection alive in background"
+                                        android:textColor="@color/text_secondary"
+                                        android:textSize="11sp" />
+                                </LinearLayout>
+
+                                <com.google.android.material.switchmaterial.SwitchMaterial
+                                    android:id="@+id/switchSearchSync"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:checked="true" />
+                            </LinearLayout>
+
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Active File Transfer Progress Card -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardActiveTransfer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:visibility="gone"
+                        app:cardBackgroundColor="@color/card_background"
+                        app:cardCornerRadius="14dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/card_stroke"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="14dp">
+
+                            <TextView
+                                android:id="@+id/tvTransferLabel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Transferring file…"
+                                android:textColor="@color/text_primary"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <ProgressBar
+                                android:id="@+id/progressBarTransfer"
+                                style="?android:attr/progressBarStyleHorizontal"
+                                android:layout_width="match_parent"
+                                android:layout_height="6dp"
+                                android:layout_marginTop="8dp"
+                                android:max="100"
+                                android:progress="0"
+                                android:progressTint="@color/accent" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Section: Quick Actions -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="18dp"
+                        android:layout_marginBottom="8dp"
+                        android:text="Quick Actions"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <!-- Side-by-Side 2-Column Action Cards -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <!-- Action 1: Send Files -->
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/btnSendFileToMac"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="6dp"
+                            android:layout_weight="1"
+                            android:clickable="true"
+                            android:focusable="true"
+                            app:cardBackgroundColor="@color/card_background"
+                            app:cardCornerRadius="14dp"
+                            app:cardElevation="0dp"
+                            app:strokeColor="@color/card_stroke"
+                            app:strokeWidth="1dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:padding="14dp">
+
+                                <FrameLayout
+                                    android:layout_width="38dp"
+                                    android:layout_height="38dp"
+                                    android:layout_marginBottom="10dp">
+
+                                    <View
+                                        android:layout_width="38dp"
+                                        android:layout_height="38dp"
+                                        android:background="@drawable/circle_status"
+                                        android:backgroundTint="@color/pill_blue_bg" />
+
+                                    <ImageView
+                                        android:layout_width="20dp"
+                                        android:layout_height="20dp"
+                                        android:layout_gravity="center"
+                                        android:contentDescription="Send Files"
+                                        android:src="@drawable/ic_file_upload"
+                                        app:tint="@color/accent" />
+                                </FrameLayout>
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Send Files"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="14sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="Photos, videos, docs"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="11sp" />
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <!-- Action 2: Send Clipboard -->
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/btnSendClipboardToMac"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:layout_weight="1"
+                            android:clickable="true"
+                            android:focusable="true"
+                            app:cardBackgroundColor="@color/card_background"
+                            app:cardCornerRadius="14dp"
+                            app:cardElevation="0dp"
+                            app:strokeColor="@color/card_stroke"
+                            app:strokeWidth="1dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:padding="14dp">
+
+                                <FrameLayout
+                                    android:layout_width="38dp"
+                                    android:layout_height="38dp"
+                                    android:layout_marginBottom="10dp">
+
+                                    <View
+                                        android:layout_width="38dp"
+                                        android:layout_height="38dp"
+                                        android:background="@drawable/circle_status"
+                                        android:backgroundTint="@color/pill_blue_bg" />
+
+                                    <ImageView
+                                        android:layout_width="18dp"
+                                        android:layout_height="18dp"
+                                        android:layout_gravity="center"
+                                        android:contentDescription="Clipboard"
+                                        android:src="@drawable/ic_clipboard"
+                                        app:tint="@color/accent" />
+                                </FrameLayout>
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Push Clipboard"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="14sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:id="@+id/tvClipboardPreview"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:ellipsize="end"
+                                    android:maxLines="1"
+                                    android:text="Push copied content"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="11sp" />
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
                     </LinearLayout>
 
-                    <Button
-                        android:id="@+id/btnQuickReconnect"
+                    <!-- Section: Services -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="18dp"
+                        android:layout_marginBottom="8dp"
+                        android:text="Services"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <!-- Continuity Services Grouped Card -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:cardBackgroundColor="@color/card_background"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/card_stroke"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical">
+
+                            <!-- Row 1: Notifications -->
+                            <LinearLayout
+                                android:id="@+id/rowNotificationSync"
+                                android:layout_width="match_parent"
+                                android:layout_height="50dp"
+                                android:background="?attr/selectableItemBackground"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal"
+                                android:paddingHorizontal="16dp">
+
+                                <ImageView
+                                    android:layout_width="20dp"
+                                    android:layout_height="20dp"
+                                    android:src="@drawable/ic_notification_bell"
+                                    app:tint="@color/icon_tint" />
+
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="14dp"
+                                    android:layout_weight="1"
+                                    android:text="Notifications"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:id="@+id/tvNotificationStatusPill"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Configure"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="13sp" />
+
+                                <ImageView
+                                    android:layout_width="16dp"
+                                    android:layout_height="16dp"
+                                    android:layout_marginStart="4dp"
+                                    android:src="@drawable/ic_arrow_forward" />
+                            </LinearLayout>
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:layout_marginStart="50dp"
+                                android:background="@color/card_stroke" />
+
+                            <!-- Row 2: Universal Clipboard -->
+                            <LinearLayout
+                                android:id="@+id/rowClipboardSync"
+                                android:layout_width="match_parent"
+                                android:layout_height="50dp"
+                                android:background="?attr/selectableItemBackground"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal"
+                                android:paddingHorizontal="16dp">
+
+                                <ImageView
+                                    android:layout_width="20dp"
+                                    android:layout_height="20dp"
+                                    android:src="@drawable/ic_clipboard"
+                                    app:tint="@color/icon_tint" />
+
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="14dp"
+                                    android:layout_weight="1"
+                                    android:text="Universal Clipboard"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:id="@+id/tvClipboardStatusPill"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Real-time"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="13sp" />
+
+                                <ImageView
+                                    android:layout_width="16dp"
+                                    android:layout_height="16dp"
+                                    android:layout_marginStart="4dp"
+                                    android:src="@drawable/ic_arrow_forward" />
+                            </LinearLayout>
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:layout_marginStart="50dp"
+                                android:background="@color/card_stroke" />
+
+                            <!-- Row 3: Background Reliability -->
+                            <LinearLayout
+                                android:id="@+id/rowBackgroundReliability"
+                                android:layout_width="match_parent"
+                                android:layout_height="50dp"
+                                android:background="?attr/selectableItemBackground"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal"
+                                android:paddingHorizontal="16dp">
+
+                                <ImageView
+                                    android:layout_width="20dp"
+                                    android:layout_height="20dp"
+                                    android:src="@drawable/ic_battery_opt"
+                                    app:tint="@color/icon_tint" />
+
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="14dp"
+                                    android:layout_weight="1"
+                                    android:text="Background Reliability"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:id="@+id/tvBatteryStatusPill"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Optimized"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="13sp" />
+
+                                <ImageView
+                                    android:layout_width="16dp"
+                                    android:layout_height="16dp"
+                                    android:layout_marginStart="4dp"
+                                    android:src="@drawable/ic_arrow_forward" />
+                            </LinearLayout>
+
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Subtle Footer Tip Card -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        app:cardBackgroundColor="@color/card_background"
+                        app:cardCornerRadius="14dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/card_stroke"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="14dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="AirDrop Anywhere"
+                                android:textColor="@color/text_primary"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="3dp"
+                                android:lineSpacingExtra="2dp"
+                                android:text="Select Bridge from the Android Share Sheet in Gallery, Files, or Chrome to send directly to your Mac."
+                                android:textColor="@color/text_secondary"
+                                android:textSize="12sp" />
+
+                            <TextView
+                                android:id="@+id/tvLastReceivedInfo"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:text="Incoming files are saved to your Downloads folder."
+                                android:textColor="@color/accent"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                <!-- Footer Attribution & Socials -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="28dp"
+                        android:layout_marginBottom="16dp"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical">
+
+                        <!-- Social Icons Row -->
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <ImageButton
+                                android:id="@+id/btnSocialX"
+                                android:layout_width="38dp"
+                                android:layout_height="38dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="X"
+                                android:src="@drawable/ic_social_x"
+                                app:tint="@color/text_secondary" />
+
+                            <ImageButton
+                                android:id="@+id/btnSocialLinkedin"
+                                android:layout_width="38dp"
+                                android:layout_height="38dp"
+                                android:layout_marginStart="8dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="LinkedIn"
+                                android:src="@drawable/ic_social_linkedin"
+                                app:tint="@color/text_secondary" />
+
+                            <ImageButton
+                                android:id="@+id/btnSocialGithub"
+                                android:layout_width="38dp"
+                                android:layout_height="38dp"
+                                android:layout_marginStart="8dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="GitHub"
+                                android:src="@drawable/ic_social_github"
+                                app:tint="@color/text_secondary" />
+
+                            <ImageButton
+                                android:id="@+id/btnSocialInstagram"
+                                android:layout_width="38dp"
+                                android:layout_height="38dp"
+                                android:layout_marginStart="8dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="Instagram"
+                                android:src="@drawable/ic_social_instagram"
+                                app:tint="@color/text_secondary" />
+                        </LinearLayout>
+
+                        <!-- Copyright & Author -->
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="© 2026 Bridge • Built by "
+                                android:textColor="@color/text_secondary"
+                                android:textSize="12sp" />
+
+                            <TextView
+                                android:id="@+id/btnAuthorName"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:text="Satyam Mohanty"
+                                android:textColor="@color/accent"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- ============================================================= -->
+        <!-- TAB 2: ACTIVITY & HISTORY                                     -->
+        <!-- ============================================================= -->
+        <ScrollView
+            android:id="@+id/tabContentActivity"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:overScrollMode="never"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="18dp"
+                android:paddingTop="12dp"
+                android:paddingBottom="24dp">
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true"
+                        android:text="Activity"
+                        android:textColor="@color/text_primary"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnClearAllHistory"
                         style="@style/Widget.MaterialComponents.Button.TextButton"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Reconnect"
-                        android:textSize="12sp"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:minWidth="0dp"
+                        android:paddingHorizontal="8dp"
+                        android:text="Clear"
                         android:textColor="@color/accent"
-                        android:visibility="gone" />
-                </LinearLayout>
+                        android:textSize="13sp" />
+                </RelativeLayout>
 
-                <!-- Search / Discovery Toggle Divider -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="16dp"
-                    android:layout_marginBottom="14dp"
-                    android:background="@color/card_stroke" />
-
-                <LinearLayout
+                <!-- Filter Chips -->
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/chipGroupActivity"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:layout_marginBottom="14dp"
+                    app:singleSelection="true">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipFilterAll"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        android:text="All" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipFilterTransfers"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Files" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipFilterNotifications"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Notifications" />
+                </com.google.android.material.chip.ChipGroup>
+
+                <!-- SECTION: TRANSFERS -->
+                <LinearLayout
+                    android:id="@+id/sectionTransfers"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:text="File Transfers"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:cardBackgroundColor="@color/card_background"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/card_stroke"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:id="@+id/llRecentTransfersContainer"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp">
+
+                            <TextView
+                                android:id="@+id/tvNoRecentTransfers"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="No transfers yet"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="13sp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
+
+                <!-- SECTION: NOTIFICATIONS -->
+                <LinearLayout
+                    android:id="@+id/sectionNotifications"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:text="Notifications"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:cardBackgroundColor="@color/card_background"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/card_stroke"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:id="@+id/llRecentNotificationsContainer"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp">
+
+                            <TextView
+                                android:id="@+id/tvNoRecentNotifications"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="No notifications forwarded yet"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="13sp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
+
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- ============================================================= -->
+        <!-- TAB 3: SETTINGS & CONFIGURATION                               -->
+        <!-- ============================================================= -->
+        <ScrollView
+            android:id="@+id/tabContentSettings"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:overScrollMode="never"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="18dp"
+                android:paddingTop="12dp"
+                android:paddingBottom="24dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="14dp"
+                    android:text="Settings"
+                    android:textColor="@color/text_primary"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <!-- Group 1: Connection -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:text="Connection"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardBackgroundColor="@color/card_background"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/card_stroke"
+                    app:strokeWidth="1dp">
 
                     <LinearLayout
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
                         android:orientation="vertical">
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Active Discovery &amp; Sync"
-                            android:textSize="14sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/text_primary" />
+                        <LinearLayout
+                            android:id="@+id/rowSettingsManualIp"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:background="?attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="16dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Mac LAN IP Override"
+                                android:textColor="@color/text_primary"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/tvSettingsCurrentIp"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Auto"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="13sp" />
+
+                            <ImageView
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:layout_marginStart="6dp"
+                                android:src="@drawable/ic_arrow_forward" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginStart="16dp"
+                            android:background="@color/card_stroke" />
+
+                        <LinearLayout
+                            android:id="@+id/rowSettingsScanQr"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:background="?attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="16dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Scan Mac QR Code"
+                                android:textColor="@color/text_primary"
+                                android:textSize="14sp" />
+
+                            <ImageView
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:src="@drawable/ic_arrow_forward" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginStart="16dp"
+                            android:background="@color/card_stroke" />
+
+                        <LinearLayout
+                            android:id="@+id/rowSettingsPastePairing"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:background="?attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="16dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Paste Pairing Code"
+                                android:textColor="@color/text_primary"
+                                android:textSize="14sp" />
+
+                            <ImageView
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:src="@drawable/ic_arrow_forward" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Group 2: Notifications -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="Notifications"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardBackgroundColor="@color/card_background"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/card_stroke"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:id="@+id/rowSettingsNotifications"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:paddingHorizontal="16dp">
 
                         <TextView
-                            android:id="@+id/tvSearchingSubtitle"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Notification Sync Preferences"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp" />
+
+                        <TextView
+                            android:id="@+id/tvSettingsNotificationStatus"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Search for Mac and maintain sync"
-                            android:textSize="12sp"
-                            android:textColor="@color/text_secondary" />
+                            android:text="Configure"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="13sp" />
+
+                        <ImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:layout_marginStart="6dp"
+                            android:src="@drawable/ic_arrow_forward" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Group 3: Background & Reliability -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="Background &amp; Reliability"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardBackgroundColor="@color/card_background"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/card_stroke"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:id="@+id/rowSettingsBatteryOpt"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:background="?attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="16dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Battery Optimization"
+                                android:textColor="@color/text_primary"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/tvSettingsBatteryOptStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Check"
+                                android:textColor="@color/accent"
+                                android:textSize="13sp" />
+
+                            <ImageView
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:layout_marginStart="6dp"
+                                android:src="@drawable/ic_arrow_forward" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginStart="16dp"
+                            android:background="@color/card_stroke" />
+
+                        <LinearLayout
+                            android:id="@+id/rowSettingsAutostart"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:background="?attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="16dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="OEM Autostart Instructions"
+                                android:textColor="@color/text_primary"
+                                android:textSize="14sp" />
+
+                            <ImageView
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:src="@drawable/ic_arrow_forward" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginStart="16dp"
+                            android:background="@color/card_stroke" />
+
+                        <LinearLayout
+                            android:id="@+id/rowSettingsAccessibilityService"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:background="?attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="16dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Real-Time Sync (Accessibility)"
+                                android:textColor="@color/text_primary"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/tvSettingsAccessibilityStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Enable"
+                                android:textColor="@color/accent"
+                                android:textSize="13sp" />
+
+                            <ImageView
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:layout_marginStart="6dp"
+                                android:src="@drawable/ic_arrow_forward" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginStart="16dp"
+                            android:background="@color/card_stroke" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="16dp"
+                            android:paddingVertical="10dp">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Foreground Auto-Sync"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Background capture via adb"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="11sp" />
+                            </LinearLayout>
+
+                            <com.google.android.material.switchmaterial.SwitchMaterial
+                                android:id="@+id/switchSettingsAutoMode"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Group 4: Diagnostics & Danger -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="Diagnostics &amp; Reset"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardBackgroundColor="@color/card_background"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/card_stroke"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:id="@+id/rowSettingsCopyLogs"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:background="?attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="16dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Copy Diagnostics Logs"
+                                android:textColor="@color/text_primary"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Copy"
+                                android:textColor="@color/accent"
+                                android:textSize="13sp" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginStart="16dp"
+                            android:background="@color/card_stroke" />
+
+                        <LinearLayout
+                            android:id="@+id/rowSettingsUnpair"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:background="?attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="16dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Unpair Mac"
+                                android:textColor="@color/status_red"
+                                android:textSize="14sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Group 5: Updates -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="Updates"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardBackgroundColor="@color/card_background"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/card_stroke"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:id="@+id/rowSettingsCheckUpdates"
+                            android:layout_width="match_parent"
+                            android:layout_height="52dp"
+                            android:background="?attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="16dp">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Check for Updates"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:id="@+id/tvSettingsVersionCode"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Version 1.0 (Build 1)"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/tvSettingsUpdateStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Check"
+                                android:textColor="@color/accent"
+                                android:textSize="13sp" />
+
+                            <ImageView
+                                android:id="@+id/ivSettingsUpdateArrow"
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:layout_marginStart="6dp"
+                                android:src="@drawable/ic_arrow_forward" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginStart="16dp"
+                            android:background="@color/card_stroke" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="16dp"
+                            android:paddingVertical="10dp">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Update Notifications"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Alert when new versions are available"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="11sp" />
+                            </LinearLayout>
+
+                            <com.google.android.material.switchmaterial.SwitchMaterial
+                                android:id="@+id/switchSettingsUpdateNotifications"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Footer Attribution & Socials -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="28dp"
+                    android:layout_marginBottom="16dp"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical">
+
+                    <!-- Social Icons Row -->
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageButton
+                            android:id="@+id/btnSocialXSettings"
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="X"
+                            android:src="@drawable/ic_social_x"
+                            app:tint="@color/text_secondary" />
+
+                        <ImageButton
+                            android:id="@+id/btnSocialLinkedinSettings"
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:layout_marginStart="8dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="LinkedIn"
+                            android:src="@drawable/ic_social_linkedin"
+                            app:tint="@color/text_secondary" />
+
+                        <ImageButton
+                            android:id="@+id/btnSocialGithubSettings"
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:layout_marginStart="8dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="GitHub"
+                            android:src="@drawable/ic_social_github"
+                            app:tint="@color/text_secondary" />
+
+                        <ImageButton
+                            android:id="@+id/btnSocialInstagramSettings"
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:layout_marginStart="8dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Instagram"
+                            android:src="@drawable/ic_social_instagram"
+                            app:tint="@color/text_secondary" />
                     </LinearLayout>
 
-                    <com.google.android.material.switchmaterial.SwitchMaterial
-                        android:id="@+id/switchSearchSync"
+                    <!-- Copyright & Author -->
+                    <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:checked="true" />
+                        android:layout_marginTop="8dp"
+                        android:gravity="center"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="© 2026 Bridge • Built by "
+                            android:textColor="@color/text_secondary"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/btnAuthorNameSettings"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:text="Satyam Mohanty"
+                            android:textColor="@color/accent"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
                 </LinearLayout>
 
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+        </ScrollView>
 
-        <!-- Active Transfer Progress Card (Dynamic) -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardActiveTransfer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:visibility="gone"
-            app:cardBackgroundColor="@color/card_background"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="1dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="@color/card_stroke">
+    </FrameLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+    <!-- Bottom Navigation Bar -->
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottomNav"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/card_background"
+        app:elevation="6dp"
+        app:itemIconTint="@color/nav_item_color"
+        app:itemTextColor="@color/nav_item_color"
+        app:labelVisibilityMode="labeled"
+        app:menu="@menu/bottom_nav_menu" />
 
-                <TextView
-                    android:id="@+id/tvTransferLabel"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Transferring file…"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/text_primary" />
-
-                <ProgressBar
-                    android:id="@+id/progressBarTransfer"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="match_parent"
-                    android:layout_height="8dp"
-                    android:layout_marginTop="10dp"
-                    android:max="100"
-                    android:progress="0"
-                    android:progressTint="@color/accent" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Recent Transfers Header -->
-        <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:layout_marginBottom="10dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_alignParentStart="true"
-                android:layout_centerVertical="true"
-                android:text="RECENT TRANSFERS"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_secondary" />
-
-            <TextView
-                android:id="@+id/btnRecentTransfersClear"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="4dp"
-                android:text="Clear"
-                android:textSize="13sp"
-                android:textColor="@color/accent" />
-        </RelativeLayout>
-
-        <!-- Recent Transfers Card -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardBackgroundColor="@color/card_background"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="1dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="@color/card_stroke">
-
-            <LinearLayout
-                android:id="@+id/llRecentTransfersContainer"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:id="@+id/tvNoRecentTransfers"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="No recent transfers"
-                    android:textSize="13sp"
-                    android:textColor="@color/text_secondary" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Recent Notifications Header -->
-        <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:layout_marginBottom="10dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_alignParentStart="true"
-                android:layout_centerVertical="true"
-                android:text="RECENT NOTIFICATIONS"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_secondary" />
-
-            <TextView
-                android:id="@+id/btnRecentNotificationsClear"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="4dp"
-                android:text="Clear"
-                android:textSize="13sp"
-                android:textColor="@color/accent" />
-        </RelativeLayout>
-
-        <!-- Recent Notifications Card -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardBackgroundColor="@color/card_background"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="1dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="@color/card_stroke">
-
-            <LinearLayout
-                android:id="@+id/llRecentNotificationsContainer"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:id="@+id/tvNoRecentNotifications"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="No recent notifications"
-                    android:textSize="13sp"
-                    android:textColor="@color/text_secondary" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Quick Transfer Actions Header -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="26dp"
-            android:layout_marginBottom="12dp"
-            android:text="TRANSFER ACTIONS"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:textColor="@color/text_secondary" />
-
-        <!-- Primary Action Card: Send Files to Mac -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/btnSendFileToMac"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true"
-            app:cardBackgroundColor="@color/card_background"
-            app:cardCornerRadius="18dp"
-            app:cardElevation="2dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="@color/card_stroke">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="18dp">
-
-                <FrameLayout
-                    android:layout_width="48dp"
-                    android:layout_height="48dp">
-
-                    <View
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:background="@drawable/circle_status"
-                        android:backgroundTint="@color/card_highlight" />
-
-                    <ImageView
-                        android:layout_width="26dp"
-                        android:layout_height="26dp"
-                        android:layout_gravity="center"
-                        android:src="@drawable/ic_file_upload"
-                        android:contentDescription="Upload File" />
-                </FrameLayout>
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Send Files to Mac"
-                        android:textSize="17sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="Pick any document, image, or video"
-                        android:textSize="13sp"
-                        android:textColor="@color/text_secondary" />
-                </LinearLayout>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="›"
-                    android:textSize="24sp"
-                    android:textColor="@color/chevron_color" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Secondary Action Card: Send Clipboard to Mac -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/btnSendClipboardToMac"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true"
-            app:cardBackgroundColor="@color/card_background"
-            app:cardCornerRadius="18dp"
-            app:cardElevation="1dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="@color/card_stroke">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="18dp">
-
-                <FrameLayout
-                    android:layout_width="48dp"
-                    android:layout_height="48dp">
-
-                    <View
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:background="@drawable/circle_status"
-                        android:backgroundTint="@color/card_highlight" />
-
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_gravity="center"
-                        android:src="@drawable/ic_clipboard"
-                        android:contentDescription="Clipboard" />
-                </FrameLayout>
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Send Current Clipboard"
-                        android:textSize="16sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="Push copied text or image to Mac now"
-                        android:textSize="13sp"
-                        android:textColor="@color/text_secondary" />
-                </LinearLayout>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="›"
-                    android:textSize="24sp"
-                    android:textColor="@color/chevron_color" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Information / AirDrop Tip Card -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            app:cardBackgroundColor="@color/card_background"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="@color/card_stroke">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:id="@+id/tvRecentInfoTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="AirDrop Anywhere"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/text_primary" />
-
-                <TextView
-                    android:id="@+id/tvRecentInfoDesc"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Select Bridge from the Android Share Sheet in any app (Gallery, Photos, Files, Chrome) to send instantly to your Mac."
-                    android:textSize="12sp"
-                    android:lineSpacingExtra="2dp"
-                    android:textColor="@color/text_secondary" />
-
-                <TextView
-                    android:id="@+id/tvLastReceivedInfo"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="Incoming files from Mac will be saved to your Downloads folder."
-                    android:textSize="12sp"
-                    android:textColor="@color/accent" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-    </LinearLayout>
-</ScrollView>
+</LinearLayout>

@@ -47,5 +47,15 @@
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Bridge connects to your Android phone on your local network to synchronize clipboard content securely.</string>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/satyam-mohanty/Bridge/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>$(SPARKLE_PUBLIC_ED_KEY)</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
+	<key>SUAllowsAutomaticUpdates</key>
+	<true/>
 </dict>
 </plist>

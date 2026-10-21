@@ -8,7 +8,8 @@ graphify-out/
 .LSOverride
 ._*
 
-# Xcode / macOS dev
+# Swift / SPM
+.build/
 mac/**/xcuserdata/
 mac/**/DerivedData/
 mac/**/.build/
@@ -24,3 +25,15 @@ android/.idea/
 *.iml
 .gradle/
 build/
+
+# Release Signing Secrets (Never commit private keys!)
+*.pem
+*.key
+*.p12
+*.cer
+*.provisionprofile
+*_private_key.*
+mac/Config/Local.xcconfig
+scripts/release/keys/
+secrets/
+

@@ -10,6 +10,7 @@
 		4D55FBCBD7A3E849B87D730A /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 1C0540D877E4AB8B698A831D /* AppIcon.icns */; };
 		606DF41014DA4AC0F0F4C560 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B0D6028B1CBCA5FFD068D2F /* AppModel.swift */; };
 		699B096B598B1AE489493168 /* BridgeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CD8AD5AFC4BB1DE37370387 /* BridgeApp.swift */; };
+		6B619FF376AFABCC3E5DBB32 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 951E570BC26EECB562BFBAE4 /* Sparkle */; };
 		6B6C38677354E62C493336C3 /* MacNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0C2E971B392E7C1FA3F224F /* MacNotificationManager.swift */; };
 		6D6D0127B8FA20C325902C36 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20EF774C4A758C61BE0B277A /* MenuBarView.swift */; };
 		6E3263BA1FDAD4F0D1FE1202 /* PairingQRView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73D38E121A6338F9EF13F37C /* PairingQRView.swift */; };
@@ -26,6 +27,7 @@
 		CA907200ADD712268C7B7B66 /* BridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ABCFAC55FD0CC1EEB55C910 /* BridgeTests.swift */; };
 		CC51719394F1612E7B4FAF93 /* BridgeCrypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3270689A78F9754D6706AC5C /* BridgeCrypto.swift */; };
 		D0B78115E842AE6532B8A2A2 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA9608ED9644ABCECD06B58 /* NetworkMonitor.swift */; };
+		D575CA859C89FBFCFF806065 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80B60C1D82FC8580B36639BA /* UpdateManager.swift */; };
 		E0468EDBE9E4363CA8B37071 /* MainWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DB2E16F39BBFF1609F8CA66 /* MainWindowView.swift */; };
 		EF2B90761ECDB02DF41E7B13 /* MenuBarIcon.png in Resources */ = {isa = PBXBuildFile; fileRef = CA8411C590DC5D1A34EF78D7 /* MenuBarIcon.png */; };
 		FB966711E568191CC2D858D4 /* BridgeLogo.png in Resources */ = {isa = PBXBuildFile; fileRef = 5C97E3A63B80162C763EEF65 /* BridgeLogo.png */; };
@@ -57,6 +59,9 @@
 		58E003C57BDD9F417908C0C4 /* Bridge.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Bridge.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C97E3A63B80162C763EEF65 /* BridgeLogo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = BridgeLogo.png; sourceTree = "<group>"; };
 		73D38E121A6338F9EF13F37C /* PairingQRView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingQRView.swift; sourceTree = "<group>"; };
+		78251410F8CAFC32A793DAC3 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		80B60C1D82FC8580B36639BA /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
+		829715E8C5AE1DC1D6687CDB /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		8AA9608ED9644ABCECD06B58 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		8DB2E16F39BBFF1609F8CA66 /* MainWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowView.swift; sourceTree = "<group>"; };
 		A1A9DEBA6DE0C2D234F09A1E /* BridgeProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeProtocol.swift; sourceTree = "<group>"; };
@@ -67,6 +72,17 @@
 		F0E5200946959496DF4D7339 /* ClipboardManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardManager.swift; sourceTree = "<group>"; };
 		FBCF51E7727DB59DFCDB4D77 /* DiscoveryBeacon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryBeacon.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		E57B7B6DC6FEFD0CD8E051DF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6B619FF376AFABCC3E5DBB32 /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		0541ED32DEA2C83C2DF572BE /* Views */ = {
@@ -99,6 +115,15 @@
 			path = Tests;
 			sourceTree = "<group>";
 		};
+		360F26E12BDD3747CF4F976B /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				78251410F8CAFC32A793DAC3 /* Debug.xcconfig */,
+				829715E8C5AE1DC1D6687CDB /* Release.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
 		A39A5B27ABBC0B7C59E187AF /* Sources */ = {
 			isa = PBXGroup;
 			children = (
@@ -125,6 +150,7 @@
 				C0C2E971B392E7C1FA3F224F /* MacNotificationManager.swift */,
 				8AA9608ED9644ABCECD06B58 /* NetworkMonitor.swift */,
 				D8147949D8E42727719261CE /* NetworkServer.swift */,
+				80B60C1D82FC8580B36639BA /* UpdateManager.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -132,6 +158,7 @@
 		C69B5C8EE7DF00C23A7FE005 = {
 			isa = PBXGroup;
 			children = (
+				360F26E12BDD3747CF4F976B /* Config */,
 				A39A5B27ABBC0B7C59E187AF /* Sources */,
 				30180C882885BECE38045F79 /* Tests */,
 				F32ABBBD9A860137980279A0 /* Products */,
@@ -156,6 +183,7 @@
 			buildPhases = (
 				B7ACD7B96F68BDDDA4EF2E93 /* Sources */,
 				0A4D4B35D24B404F1BF6D859 /* Resources */,
+				E57B7B6DC6FEFD0CD8E051DF /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -163,6 +191,7 @@
 			);
 			name = Bridge;
 			packageProductDependencies = (
+				951E570BC26EECB562BFBAE4 /* Sparkle */,
 			);
 			productName = Bridge;
 			productReference = 58E003C57BDD9F417908C0C4 /* Bridge.app */;
@@ -212,6 +241,9 @@
 			);
 			mainGroup = C69B5C8EE7DF00C23A7FE005;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				2B7932F52F66C932BCBBD021 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F32ABBBD9A860137980279A0 /* Products */;
 			projectDirPath = "";
@@ -267,6 +299,7 @@
 				86F00F27FA2E616940DEE049 /* NetworkServer.swift in Sources */,
 				6E3263BA1FDAD4F0D1FE1202 /* PairingQRView.swift in Sources */,
 				9DF074947B790BD276B6CAA9 /* SettingsView.swift in Sources */,
+				D575CA859C89FBFCFF806065 /* UpdateManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -285,8 +318,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_ENTITLEMENTS = Bridge.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_APP_SANDBOX = NO;
 				INFOPLIST_FILE = Info.plist;
@@ -296,11 +328,13 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.bridge.mac;
 				SDKROOT = macosx;
+				SPARKLE_PUBLIC_ED_KEY = "";
 			};
 			name = Debug;
 		};
 		653A598D55A9F41E7CF72598 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 78251410F8CAFC32A793DAC3 /* Debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -389,8 +423,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_ENTITLEMENTS = Bridge.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_APP_SANDBOX = NO;
 				INFOPLIST_FILE = Info.plist;
@@ -400,6 +433,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.bridge.mac;
 				SDKROOT = macosx;
+				SPARKLE_PUBLIC_ED_KEY = "";
 			};
 			name = Release;
 		};
@@ -425,6 +459,7 @@
 		};
 		F89E7130B9329B368646360F /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 829715E8C5AE1DC1D6687CDB /* Release.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -513,6 +548,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		2B7932F52F66C932BCBBD021 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.6.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		951E570BC26EECB562BFBAE4 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2B7932F52F66C932BCBBD021 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 7AA7E210DD876E232348332D /* Project object */;
 }

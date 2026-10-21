@@ -1,18 +1,29 @@
 <resources>
+    <!-- Brand & Accent (macOS system accent blue) -->
     <color name="primary">#0A84FF</color>
     <color name="primary_dark">#0051A8</color>
     <color name="accent">#0A84FF</color>
+    
+    <!-- Status Colors (macOS system status colors) -->
     <color name="status_green">#30D158</color>
     <color name="status_orange">#FF9F0A</color>
     <color name="status_red">#FF453A</color>
+    <color name="status_gray">#8E8E93</color>
     
-    <!-- Dark Mode Surfaces & Text (Apple Dark) -->
-    <color name="surface">#000000</color>
-    <color name="card_background">#1C1C1E</color>
-    <color name="card_stroke">#2C2C2E</color>
-    <color name="card_highlight">#2C2C2E</color>
+    <!-- Dark Mode Surfaces & Text (Matching macOS app: bgCanvas #0D0D0D, glassFill cards #1A1A1A, glassBorder #262626) -->
+    <color name="surface">#0D0D0D</color>
+    <color name="card_background">#171717</color>
+    <color name="card_stroke">#282828</color>
+    <color name="card_highlight">#202020</color>
     <color name="icon_tint">#FFFFFF</color>
     <color name="text_primary">#FFFFFF</color>
-    <color name="text_secondary">#AEAEB2</color>
-    <color name="chevron_color">#48484A</color>
+    <color name="text_secondary">#8E8E93</color>
+    <color name="chevron_color">#545458</color>
+
+    <!-- Subtle Tinted Status Pill Backgrounds (Dark Mode) -->
+    <color name="pill_green_bg">#142E1B</color>
+    <color name="pill_orange_bg">#33220A</color>
+    <color name="pill_blue_bg">#0F2542</color>
+    <color name="pill_red_bg">#341514</color>
+    <color name="pill_gray_bg">#202020</color>
 </resources>

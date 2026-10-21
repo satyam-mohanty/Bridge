@@ -71,6 +71,7 @@ Pairing takes less than 5 seconds using an encrypted local QR code exchange:
 - **Authenticated Encryption**: Every transmission is encrypted with `AES-256-GCM` using ephemeral session keys derived from pairing secrets.
 - **Local Network Only**: Bridge operates strictly on your LAN (TCP port 48250 with UDP discovery). No packets leave your local network.
 - **Privacy First**: Zero telemetry, zero analytics, and zero external network calls.
+- **Secure Self-Update**: Android releases feature production-grade self-updates with Ed25519 digitally signed manifests, SHA-256 checksums, signing certificate pinning, and background WorkManager checks. See [Release & Update Guide](docs/RELEASE_UPDATE_GUIDE.md).
 
 ---
 

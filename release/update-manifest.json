@@ -1,0 +1,12 @@
+{
+  "versionCode": 2,
+  "versionName": "1.1.0",
+  "minSupportedVersionCode": 0,
+  "apkUrl": "https://github.com/satyam-mohanty/Bridge/releases/download/v1.1.0/bridge-v1.1.0.apk",
+  "apkSha256": "65d9c4e316eaeeb27f2742b4d455e607b7022c910752f32b5317df9b3d18322d",
+  "apkSizeBytes": 15765954,
+  "releaseNotes": "• Production-grade self-update system with Ed25519 digital signatures\n• SHA-256 and package signature certificate verification\n• Background periodic checks via WorkManager\n• Performance and stability enhancements",
+  "publishedAt": "2026-10-21T11:42:04.459044+00:00",
+  "mandatory": false,
+  "signature": "MyF2Zo1I3aGTQ7PF4b2kQF6xwj1MvAV+DVL6e2ccmdlKTQ1rJ3faZdK8PinnWnVCtIQm4KynsDnFNilID02aBw=="
+}
