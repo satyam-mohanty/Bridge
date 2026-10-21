@@ -1,5 +1,6 @@
 package com.bridge.android.service
 
+import java.io.File
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -12,6 +13,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.net.wifi.WifiManager
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
@@ -32,6 +34,7 @@ import android.widget.Toast
 import com.bridge.android.ui.LogcatWatcherService
 import com.bridge.android.ui.MainActivity
 import com.bridge.android.util.AndroidFileManager
+import com.bridge.android.util.ConnectivityHelper
 import com.bridge.android.util.LogManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -77,6 +80,16 @@ class BridgeService : Service(), BridgeClientListener {
         }
     }
 
+    private val connectivityReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == WifiManager.WIFI_STATE_CHANGED_ACTION) {
+                val state = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_UNKNOWN)
+                ConnectivityHelper.updateWifiState(state)
+                handleConnectivityChange()
+            }
+        }
+    }
+
     data class FileTransferInfo(
         val transferId: String,
         val fileName: String,
@@ -84,18 +97,6 @@ class BridgeService : Service(), BridgeClientListener {
         val isIncoming: Boolean,
         val isCompleted: Boolean = false
     )
-
-    private val _statusFlow = MutableStateFlow("Initializing…")
-    val statusFlow: StateFlow<String> = _statusFlow.asStateFlow()
-
-    private val _isConnectedFlow = MutableStateFlow(false)
-    val isConnectedFlow: StateFlow<Boolean> = _isConnectedFlow.asStateFlow()
-
-    private val _transferFlow = MutableStateFlow<FileTransferInfo?>(null)
-    val transferFlow: StateFlow<FileTransferInfo?> = _transferFlow.asStateFlow()
-
-    private val _lastReceivedFileFlow = MutableStateFlow<String?>(null)
-    val lastReceivedFileFlow: StateFlow<String?> = _lastReceivedFileFlow.asStateFlow()
 
     companion object {
         const val CHANNEL_ID = "bridge_service_channel"
@@ -107,6 +108,21 @@ class BridgeService : Service(), BridgeClientListener {
         const val ACTION_STOP_SEARCH = "com.bridge.android.action.STOP_SEARCH"
         const val ACTION_START_SEARCH = "com.bridge.android.action.START_SEARCH"
         const val ACTION_LOCK_MAC = "com.bridge.android.action.LOCK_MAC"
+
+        private val _statusFlow = MutableStateFlow("Initializing…")
+        val statusFlow: StateFlow<String> = _statusFlow.asStateFlow()
+
+        private val _isConnectedFlow = MutableStateFlow(false)
+        val isConnectedFlow: StateFlow<Boolean> = _isConnectedFlow.asStateFlow()
+
+        private val _transferFlow = MutableStateFlow<FileTransferInfo?>(null)
+        val transferFlow: StateFlow<FileTransferInfo?> = _transferFlow.asStateFlow()
+
+        private val _lastReceivedFileFlow = MutableStateFlow<String?>(null)
+        val lastReceivedFileFlow: StateFlow<String?> = _lastReceivedFileFlow.asStateFlow()
+
+        private val _peerBatteryFlow = MutableStateFlow<Pair<Int, Boolean>?>(null)
+        val peerBatteryFlow: StateFlow<Pair<Int, Boolean>?> = _peerBatteryFlow.asStateFlow()
 
         @Volatile
         var instance: BridgeService? = null
@@ -122,6 +138,11 @@ class BridgeService : Service(), BridgeClientListener {
         }
     }
 
+    val statusFlow: StateFlow<String> get() = Companion.statusFlow
+    val isConnectedFlow: StateFlow<Boolean> get() = Companion.isConnectedFlow
+    val transferFlow: StateFlow<FileTransferInfo?> get() = Companion.transferFlow
+    val lastReceivedFileFlow: StateFlow<String?> get() = Companion.lastReceivedFileFlow
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -134,10 +155,12 @@ class BridgeService : Service(), BridgeClientListener {
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification("Starting Bridge service…"))
 
+        registerConnectivityReceiver()
         registerNetworkCallback()
         startConnectionLoop()
         syncAutoModeState()
         registerClipboardListeners()
+        registerBatteryReceiver()
         com.bridge.android.notification.CallSyncManager.register(this)
         LogManager.i("BridgeService created")
     }
@@ -183,13 +206,39 @@ class BridgeService : Service(), BridgeClientListener {
 
     override fun onBind(intent: Intent?): IBinder = binder
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        val keyStoreManager = KeyStoreManager(this)
+        if (keyStoreManager.isSearchingEnabled()) {
+            LogManager.i("App task removed from recents, but search/sync is enabled -> keeping BridgeService running in background")
+        } else {
+            LogManager.i("App task removed from recents and search/sync is disabled -> stopping BridgeService")
+            loopJob?.cancel()
+            loopJob = null
+            client.stop()
+            _isConnectedFlow.value = false
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+            stopSelf()
+        }
+    }
+
     override fun onDestroy() {
         instance = null
+        _isConnectedFlow.value = false
+        _peerBatteryFlow.value = null
         com.bridge.android.notification.CallSyncManager.unregister(this)
+        unregisterBatteryReceiver()
         unregisterClipboardListeners()
+        unregisterConnectivityReceiver()
         LogcatWatcherService.stopWatching()
         unregisterNetworkCallback()
         loopJob?.cancel()
+        loopJob = null
         client.stop()
         serviceScope.cancel()
         LogManager.i("BridgeService destroyed")
@@ -220,6 +269,45 @@ class BridgeService : Service(), BridgeClientListener {
         } catch (_: Exception) {}
     }
 
+    private var batteryReceiver: BroadcastReceiver? = null
+
+    private fun registerBatteryReceiver() {
+        if (batteryReceiver == null) {
+            batteryReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    if (_isConnectedFlow.value) {
+                        sendLocalBatteryStatus()
+                    }
+                }
+            }
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_BATTERY_CHANGED)
+                addAction(Intent.ACTION_POWER_CONNECTED)
+                addAction(Intent.ACTION_POWER_DISCONNECTED)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(batteryReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                registerReceiver(batteryReceiver, filter)
+            }
+            LogManager.i("Registered battery status receiver in BridgeService")
+        }
+    }
+
+    private fun unregisterBatteryReceiver() {
+        batteryReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (_: Exception) {}
+            batteryReceiver = null
+        }
+    }
+
+    fun sendLocalBatteryStatus() {
+        val info = com.bridge.android.util.BatterySyncHelper.getCurrentBattery(this) ?: return
+        client.sendBatteryStatus(info.level, info.isCharging)
+    }
+
     fun handleClipboardChanged(force: Boolean = false) {
         if (!_isConnectedFlow.value) return
 
@@ -245,8 +333,12 @@ class BridgeService : Service(), BridgeClientListener {
             if (sent) return
         } catch (_: Throwable) {}
 
-        // 3. Launch TransparentClipReaderActivity to gain momentary focus and capture the clip cleanly
-        triggerTransparentClipReader(force = force)
+        // 3. ONLY launch TransparentClipReaderActivity if this was an EXPLICIT user action (force == true),
+        // such as tapping "Send to Mac" in notification or widget.
+        // NEVER launch it in the background during passive events, as doing so steals focus from Recent Apps and foreground activities.
+        if (force) {
+            triggerTransparentClipReader(force = true)
+        }
     }
 
     fun triggerTransparentClipReader(force: Boolean = false) {
@@ -363,17 +455,46 @@ class BridgeService : Service(), BridgeClientListener {
         client.sendFile(name, bytes, mime, onProgress)
     }
 
+    fun sendFile(
+        file: File,
+        displayName: String = file.name,
+        mime: String,
+        onProgress: ((Float) -> Unit)? = null,
+        deleteOnComplete: Boolean = false
+    ) {
+        if (!_isConnectedFlow.value) {
+            LogManager.i("Cannot send file: Mac is not connected")
+            if (deleteOnComplete) {
+                try { file.delete() } catch (_: Exception) {}
+            }
+            return
+        }
+        com.bridge.android.history.TransferHistoryManager(this).addTransfer(
+            name = displayName,
+            size = file.length(),
+            isIncoming = false
+        )
+        client.sendFile(file, displayName, mime, onProgress, deleteOnComplete)
+    }
+
     fun getClient(): BridgeClient = client
     fun getClipboardSyncManager(): ClipboardSyncManager = clipboardSyncManager
 
     fun pauseSearching() {
         keyStoreManager.setSearchingEnabled(false)
         loopJob?.cancel()
+        loopJob = null
         client.stop()
         _statusFlow.value = "Searching Paused"
         _isConnectedFlow.value = false
-        updateNotification("Searching Paused")
         notifyWidgetUpdate()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
+        stopSelf()
     }
 
     fun resumeSearching() {
@@ -403,17 +524,73 @@ class BridgeService : Service(), BridgeClientListener {
         } catch (_: Exception) {}
     }
 
+    private fun handleConnectivityChange() {
+        val wifiOn = ConnectivityHelper.isWifiEnabled(this)
+        LogManager.i("BridgeService: Connectivity change (Wi-Fi=$wifiOn)")
+
+        if (!wifiOn) {
+            loopJob?.cancel()
+            loopJob = null
+            client.stop()
+            _isConnectedFlow.value = false
+            val reason = "Wi-Fi is Off"
+            _statusFlow.value = reason
+            updateNotification(reason)
+            notifyWidgetUpdate()
+        } else {
+            if (keyStoreManager.isSearchingEnabled() && !_isConnectedFlow.value && (loopJob == null || !loopJob!!.isActive)) {
+                LogManager.i("BridgeService: Wi-Fi is ON. Starting connection loop.")
+                startConnectionLoop()
+            }
+        }
+    }
+
+    private fun registerConnectivityReceiver() {
+        try {
+            val filter = IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(connectivityReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                registerReceiver(connectivityReceiver, filter)
+            }
+        } catch (e: Exception) {
+            LogManager.e("Failed to register connectivity receiver", e)
+        }
+    }
+
+    private fun unregisterConnectivityReceiver() {
+        try {
+            unregisterReceiver(connectivityReceiver)
+        } catch (_: Exception) {}
+    }
+
     fun startConnectionLoop() {
         loopJob?.cancel()
         if (!keyStoreManager.isSearchingEnabled()) {
             _statusFlow.value = "Searching Paused"
             _isConnectedFlow.value = false
-            updateNotification("Searching Paused")
+            notifyWidgetUpdate()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+            stopSelf()
+            return
+        }
+
+        if (!ConnectivityHelper.isWifiEnabled(this)) {
+            val reason = "Wi-Fi is Off"
+            _statusFlow.value = reason
+            _isConnectedFlow.value = false
+            updateNotification(reason)
             notifyWidgetUpdate()
             return
         }
+
         loopJob = serviceScope.launch(Dispatchers.IO) {
-            while (isActive && keyStoreManager.isSearchingEnabled()) {
+            while (isActive && keyStoreManager.isSearchingEnabled() && ConnectivityHelper.isWifiEnabled(this@BridgeService)) {
                 val key = keyStoreManager.loadSharedKey()
                 if (key == null) {
                     _statusFlow.value = "Not Paired (Scan QR Code)"
@@ -435,7 +612,7 @@ class BridgeService : Service(), BridgeClientListener {
                 }
 
                 // 2. If last known IP failed or is not available, discover Mac
-                if (!sessionSucceeded && isActive && keyStoreManager.isSearchingEnabled()) {
+                if (!sessionSucceeded && isActive && keyStoreManager.isSearchingEnabled() && ConnectivityHelper.isWifiEnabled(this@BridgeService)) {
                     _statusFlow.value = "Searching for Mac…"
                     _isConnectedFlow.value = false
                     updateNotification("Searching for Mac…")
@@ -451,14 +628,14 @@ class BridgeService : Service(), BridgeClientListener {
                 }
 
                 // 3. If still not connected, backoff before retry
-                if (!sessionSucceeded && isActive && keyStoreManager.isSearchingEnabled()) {
+                if (!sessionSucceeded && isActive && keyStoreManager.isSearchingEnabled() && ConnectivityHelper.isWifiEnabled(this@BridgeService)) {
                     _statusFlow.value = "Mac not found. Retrying in ${backoffMs / 1000}s…"
                     _isConnectedFlow.value = false
                     updateNotification("Mac not found. Retrying in ${backoffMs / 1000}s…")
                     delay(backoffMs)
-                    backoffMs = minOf(backoffMs * 2, 15000L)
+                    backoffMs = minOf(backoffMs * 2, 30000L)
                 } else {
-                    backoffMs = 1000L
+                    backoffMs = 5000L
                 }
             }
         }
@@ -473,6 +650,7 @@ class BridgeService : Service(), BridgeClientListener {
             _isConnectedFlow.value = true
             updateNotification("Connected to $macName")
             LogManager.i("BridgeService: Link established with $ip")
+            sendLocalBatteryStatus()
             syncAutoModeState()
             com.bridge.android.notification.BridgeNotificationListenerService.rebind(this@BridgeService)
             com.bridge.android.notification.NotificationSyncManager.flushOfflineQueue(client)
@@ -483,10 +661,18 @@ class BridgeService : Service(), BridgeClientListener {
     override fun onDisconnected() {
         serviceScope.launch(Dispatchers.Main) {
             _isConnectedFlow.value = false
+            _peerBatteryFlow.value = null
             _statusFlow.value = if (keyStoreManager.isSearchingEnabled()) "Disconnected" else "Searching Paused"
             updateNotification(_statusFlow.value)
             LogManager.i("BridgeService: Disconnected")
             notifyWidgetUpdate()
+        }
+    }
+
+    override fun onBatteryStatusReceived(level: Int, isCharging: Boolean) {
+        serviceScope.launch(Dispatchers.Main) {
+            _peerBatteryFlow.value = Pair(level, isCharging)
+            LogManager.i("BridgeService: Received Mac battery status: $level%, isCharging=$isCharging")
         }
     }
 
@@ -546,8 +732,12 @@ class BridgeService : Service(), BridgeClientListener {
         }
 
         override fun onLost(network: Network) {
-            LogManager.i("Network lost: resetting client")
-            client.stop()
+            if (!ConnectivityHelper.isWifiEnabled(this@BridgeService)) {
+                LogManager.i("Wi-Fi network lost: resetting client")
+                client.stop()
+            } else {
+                LogManager.d("Non-Wi-Fi network lost, Wi-Fi is still active -> keeping connection intact")
+            }
         }
     }
 

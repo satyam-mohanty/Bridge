@@ -7,8 +7,8 @@ import Darwin
 public struct FileTransferItem: Identifiable, Equatable {
     public let id: String
     public let name: String
-    public let size: Int
-    public let url: URL?
+    public var size: Int
+    public var url: URL?
     public let isIncoming: Bool
     public var progress: Double
     public var status: String
@@ -73,6 +73,10 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
             UserDefaults.standard.set(showNotificationPreviews, forKey: "showNotificationPreviews")
         }
     }
+    @Published public var peerBatteryLevel: Int? = nil
+    @Published public var isPeerCharging: Bool = false
+    
+    private var batteryTimer: Timer?
     
     private let server = NetworkServer.shared
     private let beacon = DiscoveryBeacon()
@@ -291,8 +295,13 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
             
             if isConnected {
                 self.beacon.stop()
+                self.sendLocalBatteryStatus()
+                self.startBatterySyncTimer()
             } else {
                 self.beacon.start()
+                self.stopBatterySyncTimer()
+                self.peerBatteryLevel = nil
+                self.isPeerCharging = false
             }
         }
     }
@@ -307,15 +316,22 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
     
     public nonisolated func serverDidReceiveFile(name: String, savedUrl: URL, size: Int) {
         Task { @MainActor in
-            let item = FileTransferItem(
-                name: name,
-                size: size,
-                url: savedUrl,
-                isIncoming: true,
-                progress: 1.0,
-                status: "Saved to Downloads"
-            )
-            self.recentTransfers.insert(item, at: 0)
+            if let idx = self.recentTransfers.firstIndex(where: { $0.name == name && $0.isIncoming }) {
+                self.recentTransfers[idx].size = size
+                self.recentTransfers[idx].url = savedUrl
+                self.recentTransfers[idx].progress = 1.0
+                self.recentTransfers[idx].status = "Saved to Downloads"
+            } else {
+                let item = FileTransferItem(
+                    name: name,
+                    size: size,
+                    url: savedUrl,
+                    isIncoming: true,
+                    progress: 1.0,
+                    status: "Saved to Downloads"
+                )
+                self.recentTransfers.insert(item, at: 0)
+            }
             self.isTransferring = false
         }
     }
@@ -411,6 +427,37 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
             LogManager.shared.log("Executing remote lock screen request")
             self.lockMac()
         }
+    }
+    
+    public nonisolated func serverDidReceiveBatteryStatus(_ msg: BatteryStatusMessage) {
+        Task { @MainActor in
+            self.peerBatteryLevel = msg.level
+            self.isPeerCharging = msg.isCharging
+            LogManager.shared.log("Received phone battery status: \(msg.level)%, isCharging=\(msg.isCharging)")
+        }
+    }
+    
+    public func sendLocalBatteryStatus() {
+        guard isConnected else { return }
+        if let info = MacBatteryMonitor.getCurrentBatteryInfo() {
+            let msg = BatteryStatusMessage(level: info.level, isCharging: info.isCharging)
+            server.send(type: .batteryStatus, value: msg)
+            LogManager.shared.log("Sent Mac battery to Android: \(info.level)%, isCharging=\(info.isCharging)")
+        }
+    }
+    
+    private func startBatterySyncTimer() {
+        batteryTimer?.invalidate()
+        batteryTimer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.sendLocalBatteryStatus()
+            }
+        }
+    }
+    
+    private func stopBatterySyncTimer() {
+        batteryTimer?.invalidate()
+        batteryTimer = nil
     }
     
     public func lockMac() {

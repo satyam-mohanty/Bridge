@@ -9,6 +9,8 @@ public struct MainWindowView: View {
     @State private var showPairingSheet: Bool = false
     @State private var showClearConfirm: Bool = false
     @State private var settingsTab: Int = 0
+    @State private var showAllTransfers: Bool = false
+    @State private var showAllNotifications: Bool = false
     
     // Liquid glass / Apple Design System Palette
     private let glassMaterial = Material.ultraThinMaterial
@@ -180,6 +182,21 @@ public struct MainWindowView: View {
                 Text(model.isConnected ? "Connected" : "Listening…")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundColor(.primary)
+                
+                if model.isConnected, let phoneBattery = model.peerBatteryLevel {
+                    Text("•")
+                        .foregroundColor(.secondary.opacity(0.4))
+                    
+                    HStack(spacing: 3) {
+                        Image(systemName: model.isPeerCharging ? "battery.100.bolt" : (phoneBattery > 20 ? "battery.75" : "battery.25"))
+                            .font(.system(size: 12))
+                            .foregroundColor(model.isPeerCharging ? .green : (phoneBattery <= 20 ? .orange : .secondary))
+                        
+                        Text("\(phoneBattery)%")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 7)
@@ -326,13 +343,34 @@ public struct MainWindowView: View {
                 
                 Spacer()
                 
+                if model.recentTransfers.count > 2 {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showAllTransfers.toggle()
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Text(showAllTransfers ? "Show Less" : "Show All (\(model.recentTransfers.count))")
+                            Image(systemName: showAllTransfers ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 9, weight: .semibold))
+                        }
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.accentColor)
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Text("•")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary.opacity(0.3))
+                }
+                
                 if !model.recentTransfers.isEmpty {
                     Button(action: {
                         model.clearRecentTransfers()
                     }) {
                         Text("Clear")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
                 }
@@ -356,9 +394,33 @@ public struct MainWindowView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(glassBorderSubtle, lineWidth: 1))
             } else {
+                let displayedTransfers = showAllTransfers ? model.recentTransfers : Array(model.recentTransfers.prefix(2))
                 VStack(spacing: 8) {
-                    ForEach(model.recentTransfers.prefix(6)) { item in
+                    ForEach(displayedTransfers) { item in
                         transferRow(item: item)
+                    }
+                    
+                    if model.recentTransfers.count > 2 {
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showAllTransfers.toggle()
+                            }
+                        }) {
+                            HStack(spacing: 6) {
+                                Text(showAllTransfers ? "Show Less" : "Show All (\(model.recentTransfers.count))")
+                                    .font(.system(size: 11, weight: .medium))
+                                Image(systemName: showAllTransfers ? "chevron.up" : "chevron.down")
+                                    .font(.system(size: 9, weight: .semibold))
+                            }
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(glassFill)
+                            .clipShape(Capsule())
+                            .overlay(Capsule().stroke(glassBorder, lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 2)
                     }
                 }
             }
@@ -430,13 +492,34 @@ public struct MainWindowView: View {
                 
                 Spacer()
                 
+                if model.recentNotifications.count > 2 {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showAllNotifications.toggle()
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Text(showAllNotifications ? "Show Less" : "Show All (\(model.recentNotifications.count))")
+                            Image(systemName: showAllNotifications ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 9, weight: .semibold))
+                        }
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.accentColor)
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Text("•")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary.opacity(0.3))
+                }
+                
                 if !model.recentNotifications.isEmpty {
                     Button(action: {
                         model.clearNotificationHistory()
                     }) {
                         Text("Clear")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
                 }
@@ -460,9 +543,33 @@ public struct MainWindowView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(glassBorderSubtle, lineWidth: 1))
             } else {
+                let displayedNotifications = showAllNotifications ? model.recentNotifications : Array(model.recentNotifications.prefix(2))
                 VStack(spacing: 8) {
-                    ForEach(model.recentNotifications.prefix(6)) { notif in
+                    ForEach(displayedNotifications) { notif in
                         notificationRow(item: notif)
+                    }
+                    
+                    if model.recentNotifications.count > 2 {
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showAllNotifications.toggle()
+                            }
+                        }) {
+                            HStack(spacing: 6) {
+                                Text(showAllNotifications ? "Show Less" : "Show All (\(model.recentNotifications.count))")
+                                    .font(.system(size: 11, weight: .medium))
+                                Image(systemName: showAllNotifications ? "chevron.up" : "chevron.down")
+                                    .font(.system(size: 9, weight: .semibold))
+                            }
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(glassFill)
+                            .clipShape(Capsule())
+                            .overlay(Capsule().stroke(glassBorder, lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 2)
                     }
                 }
             }
@@ -470,48 +577,54 @@ public struct MainWindowView: View {
     }
     
     private func notificationRow(item: NotificationHistoryItem) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(Color.accentColor.opacity(0.16))
-                    .frame(width: 32, height: 32)
-                
-                Image(systemName: "bell.fill")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.accentColor)
-            }
-            .padding(.top, 2)
-            
-            VStack(alignment: .leading, spacing: 3) {
-                HStack {
-                    Text(item.app)
+        Button {
+            MacNotificationManager.shared.handleNotificationClick(pkg: item.pkg, appName: item.app)
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.accentColor.opacity(0.16))
+                        .frame(width: 32, height: 32)
+                    
+                    Image(systemName: "bell.fill")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.primary)
-                    Spacer()
-                    Text(item.date, style: .time)
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.accentColor)
                 }
+                .padding(.top, 2)
                 
-                if !item.title.isEmpty {
-                    Text(item.title)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.primary)
-                        .lineLimit(1)
-                }
-                
-                if !item.body.isEmpty {
-                    Text(item.body)
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack {
+                        Text(item.app)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.primary)
+                        Spacer()
+                        Text(item.date, style: .time)
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    if !item.title.isEmpty {
+                        Text(item.title)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                    }
+                    
+                    if !item.body.isEmpty {
+                        Text(item.body)
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                            .lineLimit(2)
+                    }
                 }
             }
+            .contentShape(Rectangle())
+            .padding(12)
+            .background(glassMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(glassBorderSubtle, lineWidth: 1))
         }
-        .padding(12)
-        .background(glassMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(glassBorderSubtle, lineWidth: 1))
+        .buttonStyle(.plain)
     }
     
     // MARK: - Settings Section

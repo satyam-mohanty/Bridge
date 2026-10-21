@@ -25,6 +25,7 @@ object BridgeProtocol {
     const val TYPE_NOTIF_REMOVE: Byte = 0x0E
     const val TYPE_CALL_EVENT: Byte = 0x0F
     const val TYPE_LOCK_MAC: Byte = 0x10
+    const val TYPE_BATTERY_STATUS: Byte = 0x11
 
     data class TextMessage(
         val id: String,
@@ -398,6 +399,31 @@ object BridgeProtocol {
                 val json = JSONObject(jsonStr)
                 return LockMacMessage(
                     t = json.optLong("t", System.currentTimeMillis())
+                )
+            }
+        }
+    }
+
+    data class BatteryStatusMessage(
+        val level: Int,
+        val isCharging: Boolean,
+        val ts: Long = System.currentTimeMillis()
+    ) {
+        fun toJson(): String {
+            val json = JSONObject()
+            json.put("level", level)
+            json.put("isCharging", isCharging)
+            json.put("ts", ts)
+            return json.toString()
+        }
+
+        companion object {
+            fun fromJson(jsonStr: String): BatteryStatusMessage {
+                val json = JSONObject(jsonStr)
+                return BatteryStatusMessage(
+                    level = json.getInt("level"),
+                    isCharging = json.optBoolean("isCharging", false),
+                    ts = json.optLong("ts", System.currentTimeMillis())
                 )
             }
         }

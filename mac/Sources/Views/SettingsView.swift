@@ -49,36 +49,42 @@ public struct SettingsView: View {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 8) {
                             ForEach(model.recentNotifications) { notif in
-                                HStack(alignment: .top, spacing: 10) {
-                                    Image(systemName: "app.badge.fill")
-                                        .foregroundColor(.accentColor)
-                                        .font(.subheadline)
-                                        .padding(.top, 2)
-                                    
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        HStack {
-                                            Text(notif.app)
-                                                .font(.caption)
-                                                .fontWeight(.semibold)
-                                                .foregroundColor(.primary)
-                                            Spacer()
-                                            Text(notif.date, style: .time)
-                                                .font(.caption2)
-                                                .foregroundColor(.secondary)
-                                        }
-                                        Text(notif.title)
+                                Button {
+                                    MacNotificationManager.shared.handleNotificationClick(pkg: notif.pkg, appName: notif.app)
+                                } label: {
+                                    HStack(alignment: .top, spacing: 10) {
+                                        Image(systemName: "app.badge.fill")
+                                            .foregroundColor(.accentColor)
                                             .font(.subheadline)
-                                            .fontWeight(.medium)
-                                            .lineLimit(1)
-                                        if !notif.body.isEmpty {
-                                            Text(notif.body)
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                                .lineLimit(2)
+                                            .padding(.top, 2)
+                                        
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            HStack {
+                                                Text(notif.app)
+                                                    .font(.caption)
+                                                    .fontWeight(.semibold)
+                                                    .foregroundColor(.primary)
+                                                Spacer()
+                                                Text(notif.date, style: .time)
+                                                    .font(.caption2)
+                                                    .foregroundColor(.secondary)
+                                            }
+                                            Text(notif.title)
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                                .lineLimit(1)
+                                            if !notif.body.isEmpty {
+                                                Text(notif.body)
+                                                    .font(.caption)
+                                                    .foregroundColor(.secondary)
+                                                    .lineLimit(2)
+                                            }
                                         }
                                     }
+                                    .contentShape(Rectangle())
+                                    .padding(.vertical, 3)
                                 }
-                                .padding(.vertical, 3)
+                                .buttonStyle(.plain)
                                 
                                 if notif.id != model.recentNotifications.last?.id {
                                     Divider()

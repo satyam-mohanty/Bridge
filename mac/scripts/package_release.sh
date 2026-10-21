@@ -96,6 +96,18 @@ if [[ -z "${NOTARY_PROFILE}" && -n "${NOTARY_KEYCHAIN_PROFILE:-}" ]]; then
     NOTARY_PROFILE="${NOTARY_KEYCHAIN_PROFILE}"
 fi
 
+# Detect available code signing identity if not explicitly specified
+if [[ -z "${CODE_SIGN_IDENTITY:-}" ]]; then
+    if security find-identity -v -p codesigning 2>/dev/null | grep -q "Developer ID Application"; then
+        CODE_SIGN_IDENTITY="$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -n 1 | awk -F '"' '{print $2}')"
+        echo "--> Using detected Developer ID identity: ${CODE_SIGN_IDENTITY}"
+    else
+        CODE_SIGN_IDENTITY="-"
+        SKIP_NOTARIZATION=true
+        echo "--> No Developer ID identity found in Keychain. Using ad-hoc signing ('-') and skipping notarization for local build."
+    fi
+fi
+
 echo "=========================================================="
 echo " Packaging Bridge for macOS"
 echo " Version: ${VERSION} (Build ${BUILD_NUM})"
@@ -204,12 +216,45 @@ else
     echo "--> Skipping Apple Notarization (--skip-notarization flag present)."
 fi
 
-# 6. Compress App into distribution ZIP
+# 6. Compress App into distribution ZIP (for Sparkle auto-updates)
 FINAL_ZIP="${OUTPUT_DIR}/Bridge-${VERSION}.zip"
 echo "--> Compressing Bridge.app into ${FINAL_ZIP}..."
 rm -f "${FINAL_ZIP}"
 # Use ditto to preserve symlinks, code signatures, resource forks, and extended attributes
 ditto -c -k --keepParent "${APP_PATH}" "${FINAL_ZIP}"
+
+# 6b. Create Drag-to-Applications DMG Installer
+FINAL_DMG="${OUTPUT_DIR}/Bridge-${VERSION}.dmg"
+echo "--> Creating Drag-to-Applications DMG at ${FINAL_DMG}..."
+rm -f "${FINAL_DMG}"
+
+DMG_STAGING="${BUILD_TMP}/dmg_staging"
+rm -rf "${DMG_STAGING}"
+mkdir -p "${DMG_STAGING}"
+
+ditto "${APP_PATH}" "${DMG_STAGING}/Bridge.app"
+ln -s /Applications "${DMG_STAGING}/Applications"
+
+chmod 755 "${DMG_STAGING}"
+chmod -R u+rwX,go+rX "${DMG_STAGING}"
+
+hdiutil create \
+    -volname "Bridge" \
+    -srcfolder "${DMG_STAGING}" \
+    -ov \
+    -format UDZO \
+    -fs HFS+ \
+    "${FINAL_DMG}"
+
+if [[ "${SIGN_ID}" != "-" ]]; then
+    codesign --force --sign "${SIGN_ID}" --timestamp "${FINAL_DMG}" 2>/dev/null || true
+else
+    codesign --force --sign - "${FINAL_DMG}" 2>/dev/null || true
+fi
+
+if [[ "${SKIP_NOTARIZATION}" == false && -n "${NOTARY_PROFILE}" ]]; then
+    xcrun stapler staple "${FINAL_DMG}" 2>/dev/null || true
+fi
 
 # 7. Prepare Release Notes
 NOTES_DEST="${OUTPUT_DIR}/Bridge-${VERSION}.md"
@@ -255,7 +300,8 @@ echo ""
 echo "=========================================================="
 echo " SUCCESS: Release assets generated!"
 echo " Assets located in: ${OUTPUT_DIR}"
-echo "   - ${FINAL_ZIP}"
+echo "   - ${FINAL_DMG} (Drag-to-Applications installer)"
+echo "   - ${FINAL_ZIP} (Sparkle update archive)"
 echo "   - ${NOTES_DEST}"
 echo "   - ${OUTPUT_DIR}/appcast.xml"
 echo ""
@@ -263,7 +309,7 @@ echo " Publishing Steps:"
 echo " 1. Create a Git tag and release on GitHub:"
 echo "      git tag v${VERSION}"
 echo "      git push origin v${VERSION}"
-echo " 2. Upload ${FINAL_ZIP} as a binary asset to GitHub Release v${VERSION}."
+echo " 2. Upload ${FINAL_DMG} and ${FINAL_ZIP} as binary assets to GitHub Release v${VERSION}."
 echo " 3. Commit and push the updated appcast.xml to the main branch:"
 echo "      git add appcast.xml"
 echo "      git commit -m 'release: update appcast for v${VERSION}'"

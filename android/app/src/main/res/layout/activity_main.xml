@@ -23,8 +23,8 @@
             android:orientation="horizontal">
 
             <ImageView
-                android:layout_width="30dp"
-                android:layout_height="30dp"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
                 android:contentDescription="Bridge Logo"
                 android:src="@drawable/ic_bridge_logo" />
 
@@ -35,11 +35,11 @@
                 android:layout_marginStart="10dp"
                 android:text="Bridge"
                 android:textColor="@color/text_primary"
-                android:textSize="20sp"
+                android:textSize="19sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Right: Status Indicator Pill -->
+        <!-- Right: Status Indicator Pill & Reconnect -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -50,28 +50,28 @@
 
             <ImageButton
                 android:id="@+id/btnHeaderReconnect"
-                android:layout_width="34dp"
-                android:layout_height="34dp"
-                android:layout_marginEnd="6dp"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginEnd="4dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Reconnect"
                 android:src="@drawable/ic_refresh"
                 android:visibility="gone"
-                app:tint="@color/accent" />
+                app:tint="@color/text_secondary" />
 
             <LinearLayout
                 android:id="@+id/layoutTopStatusPill"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="28dp"
+                android:background="@drawable/bg_pill"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="4dp"
-                android:paddingEnd="2dp">
+                android:paddingHorizontal="10dp">
 
                 <View
                     android:id="@+id/topStatusDot"
-                    android:layout_width="7dp"
-                    android:layout_height="7dp"
+                    android:layout_width="6dp"
+                    android:layout_height="6dp"
                     android:background="@drawable/circle_status" />
 
                 <TextView
@@ -81,7 +81,7 @@
                     android:layout_marginStart="6dp"
                     android:text="Searching"
                     android:textColor="@color/text_secondary"
-                    android:textSize="13sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
         </LinearLayout>
     </RelativeLayout>
@@ -108,8 +108,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingHorizontal="18dp"
-                android:paddingTop="8dp"
+                android:paddingHorizontal="20dp"
+                android:paddingTop="6dp"
                 android:paddingBottom="24dp">
 
                 <!-- UPDATE AVAILABLE BANNER CARD -->
@@ -123,7 +123,7 @@
                     app:cardCornerRadius="16dp"
                     app:cardElevation="0dp"
                     app:strokeColor="@color/accent"
-                    app:strokeWidth="1.5dp">
+                    app:strokeWidth="1dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -137,17 +137,10 @@
                             android:gravity="center_vertical"
                             android:orientation="horizontal">
 
-                            <ImageView
-                                android:layout_width="22dp"
-                                android:layout_height="22dp"
-                                android:src="@drawable/ic_refresh"
-                                app:tint="@color/accent" />
-
                             <TextView
                                 android:id="@+id/tvUpdateBannerTitle"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
-                                android:layout_marginStart="10dp"
                                 android:layout_weight="1"
                                 android:text="Update Available"
                                 android:textColor="@color/text_primary"
@@ -168,7 +161,7 @@
                             android:id="@+id/tvUpdateBannerNotes"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
+                            android:layout_marginTop="6dp"
                             android:ellipsize="end"
                             android:maxLines="3"
                             android:textColor="@color/text_secondary"
@@ -189,8 +182,8 @@
                                 android:layout_height="wrap_content"
                                 app:indicatorColor="@color/accent"
                                 app:trackColor="@color/card_stroke"
-                                app:trackCornerRadius="4dp"
-                                app:trackThickness="6dp" />
+                                app:trackCornerRadius="3dp"
+                                app:trackThickness="4dp" />
 
                             <TextView
                                 android:id="@+id/tvUpdateProgressStatus"
@@ -202,7 +195,6 @@
                                 android:textSize="12sp" />
                         </LinearLayout>
 
-                        <!-- Action Buttons -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
@@ -215,7 +207,9 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="38dp"
                                 android:backgroundTint="@color/accent"
-                                android:text="Download &amp; Install"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                android:text="Install"
                                 android:textColor="#FFFFFF"
                                 android:textSize="13sp"
                                 app:cornerRadius="10dp"
@@ -231,7 +225,7 @@
                     android:layout_height="wrap_content"
                     android:visibility="gone"
                     app:cardBackgroundColor="@color/card_background"
-                    app:cardCornerRadius="16dp"
+                    app:cardCornerRadius="20dp"
                     app:cardElevation="0dp"
                     app:strokeColor="@color/card_stroke"
                     app:strokeWidth="1dp">
@@ -241,32 +235,28 @@
                         android:layout_height="wrap_content"
                         android:gravity="center_horizontal"
                         android:orientation="vertical"
-                        android:padding="24dp">
+                        android:padding="28dp">
 
                         <FrameLayout
-                            android:layout_width="56dp"
-                            android:layout_height="56dp"
-                            android:layout_marginBottom="16dp">
-
-                            <View
-                                android:layout_width="56dp"
-                                android:layout_height="56dp"
-                                android:background="@drawable/circle_status"
-                                android:backgroundTint="@color/pill_blue_bg" />
+                            android:layout_width="52dp"
+                            android:layout_height="52dp"
+                            android:layout_marginBottom="16dp"
+                            android:background="@drawable/bg_pill"
+                            android:backgroundTint="@color/neutral_icon_bg">
 
                             <ImageView
-                                android:layout_width="28dp"
-                                android:layout_height="28dp"
+                                android:layout_width="26dp"
+                                android:layout_height="26dp"
                                 android:layout_gravity="center"
                                 android:contentDescription="Mac"
                                 android:src="@drawable/ic_mac_device"
-                                app:tint="@color/accent" />
+                                app:tint="@color/icon_tint" />
                         </FrameLayout>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Pair with your Mac"
+                            android:text="Connect to Mac"
                             android:textColor="@color/text_primary"
                             android:textSize="19sp"
                             android:textStyle="bold" />
@@ -277,79 +267,52 @@
                             android:layout_marginTop="6dp"
                             android:gravity="center"
                             android:lineSpacingExtra="2dp"
-                            android:text="Wirelessly AirDrop files, share clipboard in real-time, and forward notifications to your Mac."
+                            android:text="Scan the pairing QR code shown in Bridge on your Mac."
                             android:textColor="@color/text_secondary"
                             android:textSize="13sp" />
 
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="16dp"
-                            android:layout_marginBottom="18dp"
-                            android:background="@drawable/bg_pill"
-                            android:gravity="center"
-                            android:paddingHorizontal="14dp"
-                            android:paddingVertical="9dp">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:gravity="center"
-                                android:text="Open Bridge on Mac → Click 'Pair Device'"
-                                android:textColor="@color/text_secondary"
-                                android:textSize="12sp" />
-                        </LinearLayout>
-
-                        <!-- Primary: Scan QR -->
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnPairScanQr"
                             android:layout_width="match_parent"
                             android:layout_height="48dp"
+                            android:layout_marginTop="20dp"
                             android:backgroundTint="@color/accent"
                             android:insetTop="0dp"
                             android:insetBottom="0dp"
-                            android:text="Scan Mac QR Code"
+                            android:text="Scan QR Code"
                             android:textColor="@android:color/white"
                             android:textSize="14sp"
                             android:textStyle="bold"
-                            app:cornerRadius="12dp"
+                            app:cornerRadius="14dp"
                             app:elevation="0dp"
                             app:icon="@drawable/ic_qr_code"
                             app:iconGravity="textStart"
                             app:iconPadding="8dp"
                             app:iconTint="@android:color/white" />
 
-                        <!-- Secondary: Enter Code -->
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnPairEnterCode"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            style="@style/Widget.MaterialComponents.Button.TextButton"
                             android:layout_width="match_parent"
-                            android:layout_height="46dp"
-                            android:layout_marginTop="10dp"
+                            android:layout_height="42dp"
+                            android:layout_marginTop="6dp"
                             android:insetTop="0dp"
                             android:insetBottom="0dp"
-                            android:text="Enter Pairing Code"
+                            android:text="Enter code manually"
                             android:textColor="@color/text_primary"
-                            android:textSize="14sp"
-                            app:cornerRadius="12dp"
-                            app:icon="@drawable/ic_key"
-                            app:iconGravity="textStart"
-                            app:iconPadding="8dp"
-                            app:iconTint="@color/text_primary"
-                            app:strokeColor="@color/card_stroke"
-                            app:strokeWidth="1dp" />
+                            android:textSize="13sp" />
 
                         <TextView
                             android:id="@+id/btnPairManualIp"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="14dp"
+                            android:layout_marginTop="4dp"
                             android:background="?attr/selectableItemBackgroundBorderless"
                             android:clickable="true"
                             android:focusable="true"
                             android:padding="6dp"
-                            android:text="Connect by IP Address ›"
-                            android:textColor="@color/accent"
+                            android:text="Connect by IP"
+                            android:textColor="@color/text_secondary"
                             android:textSize="12sp" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -367,7 +330,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         app:cardBackgroundColor="@color/card_background"
-                        app:cardCornerRadius="16dp"
+                        app:cardCornerRadius="18dp"
                         app:cardElevation="0dp"
                         app:strokeColor="@color/card_stroke"
                         app:strokeWidth="1dp">
@@ -386,13 +349,9 @@
 
                                 <FrameLayout
                                     android:layout_width="44dp"
-                                    android:layout_height="44dp">
-
-                                    <View
-                                        android:layout_width="44dp"
-                                        android:layout_height="44dp"
-                                        android:background="@drawable/circle_status"
-                                        android:backgroundTint="@color/pill_blue_bg" />
+                                    android:layout_height="44dp"
+                                    android:background="@drawable/bg_pill"
+                                    android:backgroundTint="@color/neutral_icon_bg">
 
                                     <ImageView
                                         android:layout_width="22dp"
@@ -400,15 +359,7 @@
                                         android:layout_gravity="center"
                                         android:contentDescription="Mac"
                                         android:src="@drawable/ic_mac_device"
-                                        app:tint="@color/accent" />
-
-                                    <View
-                                        android:id="@+id/statusIndicator"
-                                        android:layout_width="10dp"
-                                        android:layout_height="10dp"
-                                        android:layout_gravity="bottom|end"
-                                        android:layout_margin="1dp"
-                                        android:background="@drawable/circle_status" />
+                                        app:tint="@color/icon_tint" />
                                 </FrameLayout>
 
                                 <LinearLayout
@@ -427,23 +378,35 @@
                                         android:textSize="16sp"
                                         android:textStyle="bold" />
 
-                                    <TextView
-                                        android:id="@+id/tvConnectionStatus"
+                                    <LinearLayout
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:layout_marginTop="1dp"
-                                        android:text="Searching on local network…"
-                                        android:textColor="@color/text_secondary"
-                                        android:textSize="13sp" />
+                                        android:layout_marginTop="3dp"
+                                        android:gravity="center_vertical"
+                                        android:orientation="horizontal">
 
+                                        <View
+                                            android:id="@+id/statusIndicator"
+                                            android:layout_width="7dp"
+                                            android:layout_height="7dp"
+                                            android:background="@drawable/circle_status" />
+
+                                        <TextView
+                                            android:id="@+id/tvConnectionStatus"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginStart="6dp"
+                                            android:text="Searching…"
+                                            android:textColor="@color/text_secondary"
+                                            android:textSize="13sp" />
+                                    </LinearLayout>
+
+                                    <!-- Security badge hidden to prevent clutter / buzzwords -->
                                     <TextView
                                         android:id="@+id/tvSecurityBadge"
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:layout_marginTop="2dp"
-                                        android:text="AES-256-GCM Session • Port 48250"
-                                        android:textColor="@color/accent"
-                                        android:textSize="11sp" />
+                                        android:visibility="gone" />
                                 </LinearLayout>
 
                                 <com.google.android.material.button.MaterialButton
@@ -455,8 +418,39 @@
                                     android:paddingHorizontal="10dp"
                                     android:text="Reconnect"
                                     android:textColor="@color/accent"
-                                    android:textSize="12sp"
+                                    android:textSize="13sp"
                                     android:visibility="gone" />
+
+                                <LinearLayout
+                                    android:id="@+id/layoutMacBattery"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:background="@drawable/bg_pill"
+                                    android:backgroundTint="@color/neutral_icon_bg"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal"
+                                    android:paddingHorizontal="9dp"
+                                    android:paddingVertical="5dp"
+                                    android:visibility="gone">
+
+                                    <ImageView
+                                        android:id="@+id/ivMacBattery"
+                                        android:layout_width="14dp"
+                                        android:layout_height="14dp"
+                                        android:contentDescription="Mac Battery"
+                                        android:src="@drawable/ic_battery_full"
+                                        app:tint="@color/text_secondary" />
+
+                                    <TextView
+                                        android:id="@+id/tvMacBattery"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginStart="5dp"
+                                        android:text="85%"
+                                        android:textColor="@color/text_secondary"
+                                        android:textSize="12sp"
+                                        android:textStyle="bold" />
+                                </LinearLayout>
                             </LinearLayout>
 
                             <View
@@ -483,16 +477,17 @@
                                         android:layout_height="wrap_content"
                                         android:text="Local Discovery &amp; Sync"
                                         android:textColor="@color/text_primary"
-                                        android:textSize="13sp"
+                                        android:textSize="14sp"
                                         android:textStyle="bold" />
 
                                     <TextView
                                         android:id="@+id/tvSearchingSubtitle"
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="Keep connection alive in background"
+                                        android:layout_marginTop="2dp"
+                                        android:text="Search for Mac and maintain sync"
                                         android:textColor="@color/text_secondary"
-                                        android:textSize="11sp" />
+                                        android:textSize="12sp" />
                                 </LinearLayout>
 
                                 <com.google.android.material.switchmaterial.SwitchMaterial
@@ -501,7 +496,6 @@
                                     android:layout_height="wrap_content"
                                     android:checked="true" />
                             </LinearLayout>
-
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
@@ -537,7 +531,7 @@
                                 android:id="@+id/progressBarTransfer"
                                 style="?android:attr/progressBarStyleHorizontal"
                                 android:layout_width="match_parent"
-                                android:layout_height="6dp"
+                                android:layout_height="4dp"
                                 android:layout_marginTop="8dp"
                                 android:max="100"
                                 android:progress="0"
@@ -545,77 +539,77 @@
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
-                    <!-- Section: Quick Actions -->
+                    <!-- Section: Actions -->
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="18dp"
+                        android:layout_marginTop="20dp"
                         android:layout_marginBottom="8dp"
-                        android:text="Quick Actions"
+                        android:text="Actions"
                         android:textColor="@color/text_secondary"
-                        android:textSize="13sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
 
-                    <!-- Side-by-Side 2-Column Action Cards -->
+                    <!-- Side-by-Side Action Cards -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:baselineAligned="false"
                         android:orientation="horizontal">
 
                         <!-- Action 1: Send Files -->
                         <com.google.android.material.card.MaterialCardView
                             android:id="@+id/btnSendFileToMac"
                             android:layout_width="0dp"
-                            android:layout_height="wrap_content"
+                            android:layout_height="match_parent"
                             android:layout_marginEnd="6dp"
                             android:layout_weight="1"
                             android:clickable="true"
                             android:focusable="true"
                             app:cardBackgroundColor="@color/card_background"
-                            app:cardCornerRadius="14dp"
+                            app:cardCornerRadius="16dp"
                             app:cardElevation="0dp"
                             app:strokeColor="@color/card_stroke"
                             app:strokeWidth="1dp">
 
                             <LinearLayout
                                 android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
+                                android:layout_height="match_parent"
                                 android:orientation="vertical"
-                                android:padding="14dp">
+                                android:padding="16dp">
 
                                 <FrameLayout
                                     android:layout_width="38dp"
                                     android:layout_height="38dp"
-                                    android:layout_marginBottom="10dp">
-
-                                    <View
-                                        android:layout_width="38dp"
-                                        android:layout_height="38dp"
-                                        android:background="@drawable/circle_status"
-                                        android:backgroundTint="@color/pill_blue_bg" />
+                                    android:background="@drawable/bg_pill"
+                                    android:backgroundTint="@color/neutral_icon_bg">
 
                                     <ImageView
-                                        android:layout_width="20dp"
-                                        android:layout_height="20dp"
+                                        android:layout_width="18dp"
+                                        android:layout_height="18dp"
                                         android:layout_gravity="center"
                                         android:contentDescription="Send Files"
                                         android:src="@drawable/ic_file_upload"
-                                        app:tint="@color/accent" />
+                                        app:tint="@color/icon_tint" />
                                 </FrameLayout>
 
                                 <TextView
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="Send Files"
+                                    android:layout_marginTop="12dp"
+                                    android:text="Send files"
                                     android:textColor="@color/text_primary"
                                     android:textSize="14sp"
                                     android:textStyle="bold" />
 
                                 <TextView
+                                    android:id="@+id/tvSendFilesSubtitle"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:layout_marginTop="2dp"
-                                    android:text="Photos, videos, docs"
+                                    android:ellipsize="end"
+                                    android:maxLines="1"
+                                    android:text="Photos &amp; docs"
                                     android:textColor="@color/text_secondary"
                                     android:textSize="11sp" />
                             </LinearLayout>
@@ -625,33 +619,28 @@
                         <com.google.android.material.card.MaterialCardView
                             android:id="@+id/btnSendClipboardToMac"
                             android:layout_width="0dp"
-                            android:layout_height="wrap_content"
+                            android:layout_height="match_parent"
                             android:layout_marginStart="6dp"
                             android:layout_weight="1"
                             android:clickable="true"
                             android:focusable="true"
                             app:cardBackgroundColor="@color/card_background"
-                            app:cardCornerRadius="14dp"
+                            app:cardCornerRadius="16dp"
                             app:cardElevation="0dp"
                             app:strokeColor="@color/card_stroke"
                             app:strokeWidth="1dp">
 
                             <LinearLayout
                                 android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
+                                android:layout_height="match_parent"
                                 android:orientation="vertical"
-                                android:padding="14dp">
+                                android:padding="16dp">
 
                                 <FrameLayout
                                     android:layout_width="38dp"
                                     android:layout_height="38dp"
-                                    android:layout_marginBottom="10dp">
-
-                                    <View
-                                        android:layout_width="38dp"
-                                        android:layout_height="38dp"
-                                        android:background="@drawable/circle_status"
-                                        android:backgroundTint="@color/pill_blue_bg" />
+                                    android:background="@drawable/bg_pill"
+                                    android:backgroundTint="@color/neutral_icon_bg">
 
                                     <ImageView
                                         android:layout_width="18dp"
@@ -659,13 +648,14 @@
                                         android:layout_gravity="center"
                                         android:contentDescription="Clipboard"
                                         android:src="@drawable/ic_clipboard"
-                                        app:tint="@color/accent" />
+                                        app:tint="@color/icon_tint" />
                                 </FrameLayout>
 
                                 <TextView
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="Push Clipboard"
+                                    android:layout_marginTop="12dp"
+                                    android:text="Send clipboard"
                                     android:textColor="@color/text_primary"
                                     android:textSize="14sp"
                                     android:textStyle="bold" />
@@ -677,7 +667,6 @@
                                     android:layout_marginTop="2dp"
                                     android:ellipsize="end"
                                     android:maxLines="1"
-                                    android:text="Push copied content"
                                     android:textColor="@color/text_secondary"
                                     android:textSize="11sp" />
                             </LinearLayout>
@@ -693,7 +682,7 @@
                         android:clickable="true"
                         android:focusable="true"
                         app:cardBackgroundColor="@color/card_background"
-                        app:cardCornerRadius="14dp"
+                        app:cardCornerRadius="16dp"
                         app:cardElevation="0dp"
                         app:strokeColor="@color/card_stroke"
                         app:strokeWidth="1dp">
@@ -703,54 +692,37 @@
                             android:layout_height="wrap_content"
                             android:gravity="center_vertical"
                             android:orientation="horizontal"
-                            android:padding="14dp">
+                            android:paddingHorizontal="16dp"
+                            android:paddingVertical="12dp">
 
                             <FrameLayout
-                                android:layout_width="38dp"
-                                android:layout_height="38dp"
-                                android:layout_marginEnd="12dp">
-
-                                <View
-                                    android:layout_width="38dp"
-                                    android:layout_height="38dp"
-                                    android:background="@drawable/circle_status"
-                                    android:backgroundTint="@color/pill_blue_bg" />
+                                android:layout_width="36dp"
+                                android:layout_height="36dp"
+                                android:layout_marginEnd="12dp"
+                                android:background="@drawable/bg_pill"
+                                android:backgroundTint="@color/neutral_icon_bg">
 
                                 <ImageView
-                                    android:layout_width="18dp"
-                                    android:layout_height="18dp"
+                                    android:layout_width="17dp"
+                                    android:layout_height="17dp"
                                     android:layout_gravity="center"
                                     android:contentDescription="Lock Mac"
                                     android:src="@drawable/ic_lock"
-                                    app:tint="@color/accent" />
+                                    app:tint="@color/icon_tint" />
                             </FrameLayout>
 
-                            <LinearLayout
+                            <TextView
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:orientation="vertical">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Lock Mac"
-                                    android:textColor="@color/text_primary"
-                                    android:textSize="14sp"
-                                    android:textStyle="bold" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginTop="2dp"
-                                    android:text="Instantly lock Mac screen remotely"
-                                    android:textColor="@color/text_secondary"
-                                    android:textSize="11sp" />
-                            </LinearLayout>
+                                android:text="Lock Mac"
+                                android:textColor="@color/text_primary"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
 
                             <ImageView
-                                android:layout_width="16dp"
-                                android:layout_height="16dp"
+                                android:layout_width="14dp"
+                                android:layout_height="14dp"
                                 android:contentDescription="Lock"
                                 android:src="@drawable/ic_arrow_forward"
                                 app:tint="@color/chevron_color" />
@@ -761,14 +733,14 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="18dp"
+                        android:layout_marginTop="20dp"
                         android:layout_marginBottom="8dp"
                         android:text="Services"
                         android:textColor="@color/text_secondary"
-                        android:textSize="13sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
 
-                    <!-- Continuity Services Grouped Card -->
+                    <!-- Services Grouped Card -->
                     <com.google.android.material.card.MaterialCardView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -787,7 +759,7 @@
                             <LinearLayout
                                 android:id="@+id/rowNotificationSync"
                                 android:layout_width="match_parent"
-                                android:layout_height="50dp"
+                                android:layout_height="48dp"
                                 android:background="?attr/selectableItemBackground"
                                 android:clickable="true"
                                 android:focusable="true"
@@ -796,15 +768,15 @@
                                 android:paddingHorizontal="16dp">
 
                                 <ImageView
-                                    android:layout_width="20dp"
-                                    android:layout_height="20dp"
+                                    android:layout_width="18dp"
+                                    android:layout_height="18dp"
                                     android:src="@drawable/ic_notification_bell"
-                                    app:tint="@color/icon_tint" />
+                                    app:tint="@color/text_secondary" />
 
                                 <TextView
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginStart="14dp"
+                                    android:layout_marginStart="12dp"
                                     android:layout_weight="1"
                                     android:text="Notifications"
                                     android:textColor="@color/text_primary"
@@ -819,23 +791,24 @@
                                     android:textSize="13sp" />
 
                                 <ImageView
-                                    android:layout_width="16dp"
-                                    android:layout_height="16dp"
+                                    android:layout_width="14dp"
+                                    android:layout_height="14dp"
                                     android:layout_marginStart="4dp"
-                                    android:src="@drawable/ic_arrow_forward" />
+                                    android:src="@drawable/ic_arrow_forward"
+                                    app:tint="@color/chevron_color" />
                             </LinearLayout>
 
                             <View
                                 android:layout_width="match_parent"
                                 android:layout_height="1dp"
-                                android:layout_marginStart="50dp"
+                                android:layout_marginStart="46dp"
                                 android:background="@color/card_stroke" />
 
                             <!-- Row 2: Universal Clipboard -->
                             <LinearLayout
                                 android:id="@+id/rowClipboardSync"
                                 android:layout_width="match_parent"
-                                android:layout_height="50dp"
+                                android:layout_height="48dp"
                                 android:background="?attr/selectableItemBackground"
                                 android:clickable="true"
                                 android:focusable="true"
@@ -844,17 +817,17 @@
                                 android:paddingHorizontal="16dp">
 
                                 <ImageView
-                                    android:layout_width="20dp"
-                                    android:layout_height="20dp"
+                                    android:layout_width="18dp"
+                                    android:layout_height="18dp"
                                     android:src="@drawable/ic_clipboard"
-                                    app:tint="@color/icon_tint" />
+                                    app:tint="@color/text_secondary" />
 
                                 <TextView
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginStart="14dp"
+                                    android:layout_marginStart="12dp"
                                     android:layout_weight="1"
-                                    android:text="Universal Clipboard"
+                                    android:text="Clipboard sync"
                                     android:textColor="@color/text_primary"
                                     android:textSize="14sp" />
 
@@ -867,23 +840,24 @@
                                     android:textSize="13sp" />
 
                                 <ImageView
-                                    android:layout_width="16dp"
-                                    android:layout_height="16dp"
+                                    android:layout_width="14dp"
+                                    android:layout_height="14dp"
                                     android:layout_marginStart="4dp"
-                                    android:src="@drawable/ic_arrow_forward" />
+                                    android:src="@drawable/ic_arrow_forward"
+                                    app:tint="@color/chevron_color" />
                             </LinearLayout>
 
                             <View
                                 android:layout_width="match_parent"
                                 android:layout_height="1dp"
-                                android:layout_marginStart="50dp"
+                                android:layout_marginStart="46dp"
                                 android:background="@color/card_stroke" />
 
                             <!-- Row 3: Background Reliability -->
                             <LinearLayout
                                 android:id="@+id/rowBackgroundReliability"
                                 android:layout_width="match_parent"
-                                android:layout_height="50dp"
+                                android:layout_height="48dp"
                                 android:background="?attr/selectableItemBackground"
                                 android:clickable="true"
                                 android:focusable="true"
@@ -892,17 +866,17 @@
                                 android:paddingHorizontal="16dp">
 
                                 <ImageView
-                                    android:layout_width="20dp"
-                                    android:layout_height="20dp"
+                                    android:layout_width="18dp"
+                                    android:layout_height="18dp"
                                     android:src="@drawable/ic_battery_opt"
-                                    app:tint="@color/icon_tint" />
+                                    app:tint="@color/text_secondary" />
 
                                 <TextView
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginStart="14dp"
+                                    android:layout_marginStart="12dp"
                                     android:layout_weight="1"
-                                    android:text="Background Reliability"
+                                    android:text="Background sync"
                                     android:textColor="@color/text_primary"
                                     android:textSize="14sp" />
 
@@ -915,143 +889,37 @@
                                     android:textSize="13sp" />
 
                                 <ImageView
-                                    android:layout_width="16dp"
-                                    android:layout_height="16dp"
+                                    android:layout_width="14dp"
+                                    android:layout_height="14dp"
                                     android:layout_marginStart="4dp"
-                                    android:src="@drawable/ic_arrow_forward" />
+                                    android:src="@drawable/ic_arrow_forward"
+                                    app:tint="@color/chevron_color" />
                             </LinearLayout>
 
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
-                    <!-- Subtle Footer Tip Card -->
-                    <com.google.android.material.card.MaterialCardView
-                        android:layout_width="match_parent"
+                    <!-- Subtle Received File Status -->
+                    <TextView
+                        android:id="@+id/tvLastReceivedInfo"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_horizontal"
                         android:layout_marginTop="16dp"
-                        app:cardBackgroundColor="@color/card_background"
-                        app:cardCornerRadius="14dp"
-                        app:cardElevation="0dp"
-                        app:strokeColor="@color/card_stroke"
-                        app:strokeWidth="1dp">
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
 
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:padding="14dp">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="AirDrop Anywhere"
-                                android:textColor="@color/text_primary"
-                                android:textSize="13sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="3dp"
-                                android:lineSpacingExtra="2dp"
-                                android:text="Select Bridge from the Android Share Sheet in Gallery, Files, or Chrome to send directly to your Mac."
-                                android:textColor="@color/text_secondary"
-                                android:textSize="12sp" />
-
-                            <TextView
-                                android:id="@+id/tvLastReceivedInfo"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="6dp"
-                                android:text="Incoming files are saved to your Downloads folder."
-                                android:textColor="@color/accent"
-                                android:textSize="11sp" />
-                        </LinearLayout>
-                    </com.google.android.material.card.MaterialCardView>
-
-                <!-- Footer Attribution & Socials -->
+                    <!-- Hidden container to keep listeners bound without cluttering dashboard -->
                     <LinearLayout
-                        android:layout_width="match_parent"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="28dp"
-                        android:layout_marginBottom="16dp"
-                        android:gravity="center_horizontal"
-                        android:orientation="vertical">
+                        android:visibility="gone">
 
-                        <!-- Social Icons Row -->
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal">
-
-                            <ImageButton
-                                android:id="@+id/btnSocialX"
-                                android:layout_width="38dp"
-                                android:layout_height="38dp"
-                                android:background="?attr/selectableItemBackgroundBorderless"
-                                android:contentDescription="X"
-                                android:src="@drawable/ic_social_x"
-                                app:tint="@color/text_secondary" />
-
-                            <ImageButton
-                                android:id="@+id/btnSocialLinkedin"
-                                android:layout_width="38dp"
-                                android:layout_height="38dp"
-                                android:layout_marginStart="8dp"
-                                android:background="?attr/selectableItemBackgroundBorderless"
-                                android:contentDescription="LinkedIn"
-                                android:src="@drawable/ic_social_linkedin"
-                                app:tint="@color/text_secondary" />
-
-                            <ImageButton
-                                android:id="@+id/btnSocialGithub"
-                                android:layout_width="38dp"
-                                android:layout_height="38dp"
-                                android:layout_marginStart="8dp"
-                                android:background="?attr/selectableItemBackgroundBorderless"
-                                android:contentDescription="GitHub"
-                                android:src="@drawable/ic_social_github"
-                                app:tint="@color/text_secondary" />
-
-                            <ImageButton
-                                android:id="@+id/btnSocialInstagram"
-                                android:layout_width="38dp"
-                                android:layout_height="38dp"
-                                android:layout_marginStart="8dp"
-                                android:background="?attr/selectableItemBackgroundBorderless"
-                                android:contentDescription="Instagram"
-                                android:src="@drawable/ic_social_instagram"
-                                app:tint="@color/text_secondary" />
-                        </LinearLayout>
-
-                        <!-- Copyright & Author -->
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:gravity="center"
-                            android:orientation="horizontal">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="© 2026 Bridge • Built by "
-                                android:textColor="@color/text_secondary"
-                                android:textSize="12sp" />
-
-                            <TextView
-                                android:id="@+id/btnAuthorName"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:background="?attr/selectableItemBackgroundBorderless"
-                                android:clickable="true"
-                                android:focusable="true"
-                                android:text="Satyam Mohanty"
-                                android:textColor="@color/accent"
-                                android:textSize="12sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
+                        <ImageButton android:id="@+id/btnSocialX" android:layout_width="0dp" android:layout_height="0dp" />
+                        <ImageButton android:id="@+id/btnSocialLinkedin" android:layout_width="0dp" android:layout_height="0dp" />
+                        <ImageButton android:id="@+id/btnSocialGithub" android:layout_width="0dp" android:layout_height="0dp" />
+                        <ImageButton android:id="@+id/btnSocialInstagram" android:layout_width="0dp" android:layout_height="0dp" />
+                        <TextView android:id="@+id/btnAuthorName" android:layout_width="0dp" android:layout_height="0dp" />
                     </LinearLayout>
 
                 </LinearLayout>
@@ -1074,7 +942,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingHorizontal="18dp"
+                android:paddingHorizontal="20dp"
                 android:paddingTop="12dp"
                 android:paddingBottom="24dp">
 
@@ -1149,9 +1017,9 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="8dp"
-                        android:text="File Transfers"
+                        android:text="Transfers"
                         android:textColor="@color/text_secondary"
-                        android:textSize="13sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
 
                     <com.google.android.material.card.MaterialCardView
@@ -1195,7 +1063,7 @@
                         android:layout_marginBottom="8dp"
                         android:text="Notifications"
                         android:textColor="@color/text_secondary"
-                        android:textSize="13sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
 
                     <com.google.android.material.card.MaterialCardView
@@ -1243,14 +1111,14 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingHorizontal="18dp"
+                android:paddingHorizontal="20dp"
                 android:paddingTop="12dp"
-                android:paddingBottom="24dp">
+                android:paddingBottom="28dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="14dp"
+                    android:layout_marginBottom="16dp"
                     android:text="Settings"
                     android:textColor="@color/text_primary"
                     android:textSize="20sp"
@@ -1263,7 +1131,7 @@
                     android:layout_marginBottom="8dp"
                     android:text="Connection"
                     android:textColor="@color/text_secondary"
-                    android:textSize="13sp"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
 
                 <com.google.android.material.card.MaterialCardView
@@ -1280,6 +1148,48 @@
                         android:layout_height="wrap_content"
                         android:orientation="vertical">
 
+                        <!-- Background Sync Switch -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="16dp"
+                            android:paddingVertical="12dp">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Background sync"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Keep connection alive in background"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="11sp" />
+                            </LinearLayout>
+
+                            <com.google.android.material.switchmaterial.SwitchMaterial
+                                android:id="@+id/switchSettingsSearchSync"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:checked="true" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginStart="16dp"
+                            android:background="@color/card_stroke" />
+
                         <LinearLayout
                             android:id="@+id/rowSettingsManualIp"
                             android:layout_width="match_parent"
@@ -1294,7 +1204,7 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="Mac LAN IP Override"
+                                android:text="Manual IP address"
                                 android:textColor="@color/text_primary"
                                 android:textSize="14sp" />
 
@@ -1307,10 +1217,11 @@
                                 android:textSize="13sp" />
 
                             <ImageView
-                                android:layout_width="16dp"
-                                android:layout_height="16dp"
+                                android:layout_width="14dp"
+                                android:layout_height="14dp"
                                 android:layout_marginStart="6dp"
-                                android:src="@drawable/ic_arrow_forward" />
+                                android:src="@drawable/ic_arrow_forward"
+                                app:tint="@color/chevron_color" />
                         </LinearLayout>
 
                         <View
@@ -1333,14 +1244,15 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="Scan Mac QR Code"
+                                android:text="Scan Mac QR code"
                                 android:textColor="@color/text_primary"
                                 android:textSize="14sp" />
 
                             <ImageView
-                                android:layout_width="16dp"
-                                android:layout_height="16dp"
-                                android:src="@drawable/ic_arrow_forward" />
+                                android:layout_width="14dp"
+                                android:layout_height="14dp"
+                                android:src="@drawable/ic_arrow_forward"
+                                app:tint="@color/chevron_color" />
                         </LinearLayout>
 
                         <View
@@ -1363,14 +1275,15 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="Paste Pairing Code"
+                                android:text="Enter pairing code"
                                 android:textColor="@color/text_primary"
                                 android:textSize="14sp" />
 
                             <ImageView
-                                android:layout_width="16dp"
-                                android:layout_height="16dp"
-                                android:src="@drawable/ic_arrow_forward" />
+                                android:layout_width="14dp"
+                                android:layout_height="14dp"
+                                android:src="@drawable/ic_arrow_forward"
+                                app:tint="@color/chevron_color" />
                         </LinearLayout>
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -1383,7 +1296,7 @@
                     android:layout_marginBottom="8dp"
                     android:text="Notifications"
                     android:textColor="@color/text_secondary"
-                    android:textSize="13sp"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
 
                 <com.google.android.material.card.MaterialCardView
@@ -1409,7 +1322,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Notification Sync Preferences"
+                            android:text="Notification sync preferences"
                             android:textColor="@color/text_primary"
                             android:textSize="14sp" />
 
@@ -1422,22 +1335,23 @@
                             android:textSize="13sp" />
 
                         <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
                             android:layout_marginStart="6dp"
-                            android:src="@drawable/ic_arrow_forward" />
+                            android:src="@drawable/ic_arrow_forward"
+                            app:tint="@color/chevron_color" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
-                <!-- Group 3: Background & Reliability -->
+                <!-- Group 3: Background & Sync -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="18dp"
                     android:layout_marginBottom="8dp"
-                    android:text="Background &amp; Reliability"
+                    android:text="Background &amp; Sync"
                     android:textColor="@color/text_secondary"
-                    android:textSize="13sp"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
 
                 <com.google.android.material.card.MaterialCardView
@@ -1468,7 +1382,7 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="Battery Optimization"
+                                android:text="Battery optimization"
                                 android:textColor="@color/text_primary"
                                 android:textSize="14sp" />
 
@@ -1481,40 +1395,11 @@
                                 android:textSize="13sp" />
 
                             <ImageView
-                                android:layout_width="16dp"
-                                android:layout_height="16dp"
+                                android:layout_width="14dp"
+                                android:layout_height="14dp"
                                 android:layout_marginStart="6dp"
-                                android:src="@drawable/ic_arrow_forward" />
-                        </LinearLayout>
-
-                        <View
-                            android:layout_width="match_parent"
-                            android:layout_height="1dp"
-                            android:layout_marginStart="16dp"
-                            android:background="@color/card_stroke" />
-
-                        <LinearLayout
-                            android:id="@+id/rowSettingsAutostart"
-                            android:layout_width="match_parent"
-                            android:layout_height="48dp"
-                            android:background="?attr/selectableItemBackground"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:gravity="center_vertical"
-                            android:paddingHorizontal="16dp">
-
-                            <TextView
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:text="OEM Autostart Instructions"
-                                android:textColor="@color/text_primary"
-                                android:textSize="14sp" />
-
-                            <ImageView
-                                android:layout_width="16dp"
-                                android:layout_height="16dp"
-                                android:src="@drawable/ic_arrow_forward" />
+                                android:src="@drawable/ic_arrow_forward"
+                                app:tint="@color/chevron_color" />
                         </LinearLayout>
 
                         <View
@@ -1537,7 +1422,7 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="Real-Time Sync (Accessibility)"
+                                android:text="Accessibility service"
                                 android:textColor="@color/text_primary"
                                 android:textSize="14sp" />
 
@@ -1550,10 +1435,42 @@
                                 android:textSize="13sp" />
 
                             <ImageView
-                                android:layout_width="16dp"
-                                android:layout_height="16dp"
+                                android:layout_width="14dp"
+                                android:layout_height="14dp"
                                 android:layout_marginStart="6dp"
-                                android:src="@drawable/ic_arrow_forward" />
+                                android:src="@drawable/ic_arrow_forward"
+                                app:tint="@color/chevron_color" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginStart="16dp"
+                            android:background="@color/card_stroke" />
+
+                        <LinearLayout
+                            android:id="@+id/rowSettingsAutostart"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:background="?attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="16dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Background setup guide"
+                                android:textColor="@color/text_primary"
+                                android:textSize="14sp" />
+
+                            <ImageView
+                                android:layout_width="14dp"
+                                android:layout_height="14dp"
+                                android:src="@drawable/ic_arrow_forward"
+                                app:tint="@color/chevron_color" />
                         </LinearLayout>
 
                         <View
@@ -1578,14 +1495,14 @@
                                 <TextView
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="Foreground Auto-Sync"
+                                    android:text="Automatic clipboard sync"
                                     android:textColor="@color/text_primary"
                                     android:textSize="14sp" />
 
                                 <TextView
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="Background capture via adb"
+                                    android:text="Background capture service"
                                     android:textColor="@color/text_secondary"
                                     android:textSize="11sp" />
                             </LinearLayout>
@@ -1598,15 +1515,15 @@
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
-                <!-- Group 4: Diagnostics & Danger -->
+                <!-- Group 4: Maintenance & Updates -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="18dp"
                     android:layout_marginBottom="8dp"
-                    android:text="Diagnostics &amp; Reset"
+                    android:text="Maintenance &amp; Updates"
                     android:textColor="@color/text_secondary"
-                    android:textSize="13sp"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
 
                 <com.google.android.material.card.MaterialCardView
@@ -1624,6 +1541,101 @@
                         android:orientation="vertical">
 
                         <LinearLayout
+                            android:id="@+id/rowSettingsCheckUpdates"
+                            android:layout_width="match_parent"
+                            android:layout_height="50dp"
+                            android:background="?attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="16dp">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Check for updates"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:id="@+id/tvSettingsVersionCode"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Version 1.0 (Build 1)"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="11sp" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/tvSettingsUpdateStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Check"
+                                android:textColor="@color/accent"
+                                android:textSize="13sp" />
+
+                            <ImageView
+                                android:id="@+id/ivSettingsUpdateArrow"
+                                android:layout_width="14dp"
+                                android:layout_height="14dp"
+                                android:layout_marginStart="6dp"
+                                android:src="@drawable/ic_arrow_forward"
+                                app:tint="@color/chevron_color" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginStart="16dp"
+                            android:background="@color/card_stroke" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="16dp"
+                            android:paddingVertical="10dp">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Update notifications"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Notify when updates are available"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="11sp" />
+                            </LinearLayout>
+
+                            <com.google.android.material.switchmaterial.SwitchMaterial
+                                android:id="@+id/switchSettingsUpdateNotifications"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginStart="16dp"
+                            android:background="@color/card_stroke" />
+
+                        <LinearLayout
                             android:id="@+id/rowSettingsCopyLogs"
                             android:layout_width="match_parent"
                             android:layout_height="48dp"
@@ -1637,7 +1649,7 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="Copy Diagnostics Logs"
+                                android:text="Copy debug logs"
                                 android:textColor="@color/text_primary"
                                 android:textSize="14sp" />
 
@@ -1676,131 +1688,15 @@
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
-                <!-- Group 5: Updates -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:layout_marginBottom="8dp"
-                    android:text="Updates"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    app:cardBackgroundColor="@color/card_background"
-                    app:cardCornerRadius="16dp"
-                    app:cardElevation="0dp"
-                    app:strokeColor="@color/card_stroke"
-                    app:strokeWidth="1dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical">
-
-                        <LinearLayout
-                            android:id="@+id/rowSettingsCheckUpdates"
-                            android:layout_width="match_parent"
-                            android:layout_height="52dp"
-                            android:background="?attr/selectableItemBackground"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:gravity="center_vertical"
-                            android:paddingHorizontal="16dp">
-
-                            <LinearLayout
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Check for Updates"
-                                    android:textColor="@color/text_primary"
-                                    android:textSize="14sp" />
-
-                                <TextView
-                                    android:id="@+id/tvSettingsVersionCode"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Version 1.0 (Build 1)"
-                                    android:textColor="@color/text_secondary"
-                                    android:textSize="12sp" />
-                            </LinearLayout>
-
-                            <TextView
-                                android:id="@+id/tvSettingsUpdateStatus"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Check"
-                                android:textColor="@color/accent"
-                                android:textSize="13sp" />
-
-                            <ImageView
-                                android:id="@+id/ivSettingsUpdateArrow"
-                                android:layout_width="16dp"
-                                android:layout_height="16dp"
-                                android:layout_marginStart="6dp"
-                                android:src="@drawable/ic_arrow_forward" />
-                        </LinearLayout>
-
-                        <View
-                            android:layout_width="match_parent"
-                            android:layout_height="1dp"
-                            android:layout_marginStart="16dp"
-                            android:background="@color/card_stroke" />
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:gravity="center_vertical"
-                            android:paddingHorizontal="16dp"
-                            android:paddingVertical="10dp">
-
-                            <LinearLayout
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Update Notifications"
-                                    android:textColor="@color/text_primary"
-                                    android:textSize="14sp" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Alert when new versions are available"
-                                    android:textColor="@color/text_secondary"
-                                    android:textSize="11sp" />
-                            </LinearLayout>
-
-                            <com.google.android.material.switchmaterial.SwitchMaterial
-                                android:id="@+id/switchSettingsUpdateNotifications"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content" />
-                        </LinearLayout>
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-
                 <!-- Footer Attribution & Socials -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="28dp"
-                    android:layout_marginBottom="16dp"
+                    android:layout_marginTop="24dp"
+                    android:layout_marginBottom="8dp"
                     android:gravity="center_horizontal"
                     android:orientation="vertical">
 
-                    <!-- Social Icons Row -->
                     <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -1809,8 +1705,8 @@
 
                         <ImageButton
                             android:id="@+id/btnSocialXSettings"
-                            android:layout_width="38dp"
-                            android:layout_height="38dp"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
                             android:background="?attr/selectableItemBackgroundBorderless"
                             android:contentDescription="X"
                             android:src="@drawable/ic_social_x"
@@ -1818,8 +1714,8 @@
 
                         <ImageButton
                             android:id="@+id/btnSocialLinkedinSettings"
-                            android:layout_width="38dp"
-                            android:layout_height="38dp"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
                             android:layout_marginStart="8dp"
                             android:background="?attr/selectableItemBackgroundBorderless"
                             android:contentDescription="LinkedIn"
@@ -1828,8 +1724,8 @@
 
                         <ImageButton
                             android:id="@+id/btnSocialGithubSettings"
-                            android:layout_width="38dp"
-                            android:layout_height="38dp"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
                             android:layout_marginStart="8dp"
                             android:background="?attr/selectableItemBackgroundBorderless"
                             android:contentDescription="GitHub"
@@ -1838,8 +1734,8 @@
 
                         <ImageButton
                             android:id="@+id/btnSocialInstagramSettings"
-                            android:layout_width="38dp"
-                            android:layout_height="38dp"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
                             android:layout_marginStart="8dp"
                             android:background="?attr/selectableItemBackgroundBorderless"
                             android:contentDescription="Instagram"
@@ -1847,18 +1743,17 @@
                             app:tint="@color/text_secondary" />
                     </LinearLayout>
 
-                    <!-- Copyright & Author -->
                     <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
+                        android:layout_marginTop="6dp"
                         android:gravity="center"
                         android:orientation="horizontal">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="© 2026 Bridge • Built by "
+                            android:text="Bridge • "
                             android:textColor="@color/text_secondary"
                             android:textSize="12sp" />
 
@@ -1870,9 +1765,8 @@
                             android:clickable="true"
                             android:focusable="true"
                             android:text="Satyam Mohanty"
-                            android:textColor="@color/accent"
-                            android:textSize="12sp"
-                            android:textStyle="bold" />
+                            android:textColor="@color/text_secondary"
+                            android:textSize="12sp" />
                     </LinearLayout>
                 </LinearLayout>
 
@@ -1887,7 +1781,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/card_background"
-        app:elevation="6dp"
+        app:elevation="2dp"
         app:itemIconTint="@color/nav_item_color"
         app:itemTextColor="@color/nav_item_color"
         app:labelVisibilityMode="labeled"

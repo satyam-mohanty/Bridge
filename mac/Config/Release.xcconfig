@@ -1,6 +1,4 @@
 // Release Configuration for Public Distribution
-#include? "Local.xcconfig"
-
 SWIFT_VERSION = 5.9
 MACOSX_DEPLOYMENT_TARGET = 13.0
 ENABLE_APP_SANDBOX = NO
@@ -19,3 +17,7 @@ BRIDGE_FEED_URL = https://raw.githubusercontent.com/satyam-mohanty/Bridge/main/a
 
 // Sparkle EdDSA Public Key for update verification
 SPARKLE_PUBLIC_ED_KEY = $(SPARKLE_PUBLIC_ED_KEY)
+
+// Optional local developer overrides (e.g. CODE_SIGN_IDENTITY = -)
+#include? "Local.xcconfig"
+

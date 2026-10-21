@@ -11,12 +11,12 @@ class BootReceiver : BroadcastReceiver() {
         val action = intent.action
         if (action == Intent.ACTION_BOOT_COMPLETED || action == Intent.ACTION_MY_PACKAGE_REPLACED) {
             val keyStoreManager = KeyStoreManager(context)
-            if (keyStoreManager.hasKey()) {
+            if (keyStoreManager.hasKey() && keyStoreManager.isSearchingEnabled()) {
                 LogManager.i("Device boot/upgrade detected: Starting BridgeService")
                 BridgeService.start(context)
                 com.bridge.android.notification.BridgeNotificationListenerService.rebind(context)
             } else {
-                LogManager.i("Device boot detected: Device not paired yet, skipping auto-start")
+                LogManager.i("Device boot detected: Device not paired or searching paused, skipping auto-start")
             }
         }
     }

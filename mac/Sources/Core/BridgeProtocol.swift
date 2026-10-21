@@ -17,6 +17,7 @@ public enum BridgeMessageType: UInt8 {
     case notifRemove = 0x0E
     case callEvent = 0x0F
     case lockMac = 0x10
+    case batteryStatus = 0x11
 }
 
 public struct PingMessage: Codable {
@@ -331,6 +332,18 @@ public struct BeaconInfo: Codable {
         self.v = v
         self.name = name
         self.port = port
+    }
+}
+
+public struct BatteryStatusMessage: Codable {
+    public let level: Int
+    public let isCharging: Bool
+    public let ts: Int64
+    
+    public init(level: Int, isCharging: Bool, ts: Int64 = Int64(Date().timeIntervalSince1970 * 1000)) {
+        self.level = level
+        self.isCharging = isCharging
+        self.ts = ts
     }
 }
 

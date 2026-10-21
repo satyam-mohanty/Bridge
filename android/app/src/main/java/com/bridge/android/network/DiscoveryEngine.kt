@@ -50,20 +50,11 @@ class DiscoveryEngine(private val context: Context) {
 
         // 3. UDP Broadcast Beacon (48250)
         LogManager.i("Discovery Step 3: Listening for UDP broadcast beacon on 48250")
-        val beaconIp = listenForUdpBeacon(4000)
+        val beaconIp = listenForUdpBeacon(2000)
         if (beaconIp != null) {
             LogManager.i("Discovery Step 3 succeeded: Detected UDP beacon from $beaconIp")
             keyStoreManager.saveLastKnownIp(beaconIp)
             return@withContext beaconIp
-        }
-
-        // 4. Subnet Scan (/24)
-        LogManager.i("Discovery Step 4: Performing concurrent subnet scan on /24")
-        val scannedIp = scanLocalSubnet(BridgeProtocol.DEFAULT_PORT)
-        if (scannedIp != null) {
-            LogManager.i("Discovery Step 4 succeeded: Discovered Mac on subnet at $scannedIp")
-            keyStoreManager.saveLastKnownIp(scannedIp)
-            return@withContext scannedIp
         }
 
         LogManager.i("Discovery completed: No Mac discovered automatically")

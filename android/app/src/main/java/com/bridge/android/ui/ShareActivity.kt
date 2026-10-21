@@ -90,6 +90,8 @@ class ShareActivity : Activity() {
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                val stagingDir = File(appContext.cacheDir, "share_staging").apply { mkdirs() }
+
                 for (uri in uris) {
                     var fileName = "shared_file"
                     val mime = contentResolver.getType(uri) ?: fallbackMime.ifEmpty { "application/octet-stream" }
@@ -110,39 +112,52 @@ class ShareActivity : Activity() {
                         fileName = File(uri.lastPathSegment ?: "").name
                     }
 
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(appContext, "Sending $fileName to Mac…", Toast.LENGTH_SHORT).show()
-                    }
+                    // Create a safe unique temporary file name in staging directory
+                    val safePrefix = fileName.filter { it.isLetterOrDigit() || it == '.' || it == '_' || it == '-' }.take(32)
+                    val tempFile = File(stagingDir, "stage_${System.currentTimeMillis()}_$safePrefix")
 
-                    // Read bytes while the Activity is alive and holds the URI permission grant!
-                    val bytes: ByteArray? = try {
-                        contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                    } catch (e: SecurityException) {
-                        // Fallback to openFileDescriptor if direct stream is denied by provider
-                        contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
-                            FileInputStream(pfd.fileDescriptor).use { it.readBytes() }
+                    // Stream to temp staging file with 64KB chunks to protect Dalvik RAM from OOM
+                    var copySuccess = false
+                    try {
+                        contentResolver.openInputStream(uri)?.use { input ->
+                            tempFile.outputStream().use { output ->
+                                input.copyTo(output, bufferSize = 64 * 1024)
+                            }
                         }
+                        copySuccess = tempFile.exists() && tempFile.length() > 0
+                    } catch (e: SecurityException) {
+                        contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+                            FileInputStream(pfd.fileDescriptor).use { input ->
+                                tempFile.outputStream().use { output ->
+                                    input.copyTo(output, bufferSize = 64 * 1024)
+                                }
+                            }
+                        }
+                        copySuccess = tempFile.exists() && tempFile.length() > 0
                     }
 
-                    if (bytes == null || bytes.isEmpty()) {
+                    if (!copySuccess) {
+                        try { tempFile.delete() } catch (_: Exception) {}
                         withContext(Dispatchers.Main) {
                             Toast.makeText(appContext, "Unable to read $fileName", Toast.LENGTH_SHORT).show()
                         }
                         continue
                     }
 
-                    service.sendFile(fileName, bytes, mime)
-
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(appContext, "Sent $fileName to Mac ✓", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(appContext, "Sending $fileName to Mac…", Toast.LENGTH_SHORT).show()
                     }
+
+                    // Hand to background service for streaming over network and auto-deletion on completion
+                    service.sendFile(tempFile, fileName, mime, deleteOnComplete = true)
                 }
             } catch (e: Exception) {
-                LogManager.e("Failed to share file to Mac", e)
+                LogManager.e("Failed to stage share file to Mac", e)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(appContext, "Failed to send file: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(appContext, "Failed to share: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             } finally {
+                // Promptly dismiss ShareActivity so user touches are NEVER blocked
                 withContext(Dispatchers.Main) {
                     finish()
                 }

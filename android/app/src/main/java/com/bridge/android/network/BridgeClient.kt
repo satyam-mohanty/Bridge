@@ -34,6 +34,7 @@ interface BridgeClientListener {
     fun onFileReceived(name: String, data: ByteArray, mime: String)
     fun onFileProgress(transferId: String, name: String, progress: Float, isIncoming: Boolean) {}
     fun onIconNeed(pkg: String) {}
+    fun onBatteryStatusReceived(level: Int, isCharging: Boolean) {}
 }
 
 class BridgeClient(
@@ -245,6 +246,15 @@ class BridgeClient(
                 val need = BridgeProtocol.IconNeedMessage.fromJson(jsonStr)
                 listener.onIconNeed(need.pkg)
             }
+            BridgeProtocol.TYPE_BATTERY_STATUS -> {
+                try {
+                    val jsonStr = String(payload, Charsets.UTF_8)
+                    val msg = BridgeProtocol.BatteryStatusMessage.fromJson(jsonStr)
+                    listener.onBatteryStatusReceived(msg.level, msg.isCharging)
+                } catch (e: Exception) {
+                    LogManager.e("Failed to parse BatteryStatusMessage", e)
+                }
+            }
             else -> {
                 LogManager.d("Unknown message type: $type")
             }
@@ -319,12 +329,86 @@ class BridgeClient(
         }
     }
 
+    fun sendFile(
+        file: java.io.File,
+        displayName: String = file.name,
+        mime: String,
+        onProgress: ((Float) -> Unit)? = null,
+        deleteOnComplete: Boolean = false
+    ) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val transferId = java.util.UUID.randomUUID().toString()
+                val totalSize = file.length().toInt()
+                if (totalSize <= 0) {
+                    LogManager.w("Cannot send empty file: ${file.path}")
+                    return@launch
+                }
+
+                val hash = ImageUtils.sha256Hex(file)
+                val chunkSize = ImageUtils.CHUNK_SIZE_BYTES
+                val totalChunks = maxOf(1, ((totalSize.toLong() + chunkSize - 1) / chunkSize).toInt())
+
+                val startMsg = BridgeProtocol.FileStartMessage(
+                    id = transferId,
+                    origin = "android",
+                    name = displayName,
+                    size = totalSize,
+                    mime = mime.ifEmpty { "application/octet-stream" },
+                    totalChunks = totalChunks,
+                    hash = hash
+                )
+                send(BridgeProtocol.TYPE_FILE_START, startMsg.toJson().toByteArray(Charsets.UTF_8), flush = true)
+                listener.onFileProgress(transferId, displayName, 0f, false)
+                onProgress?.invoke(0f)
+
+                val throttleStep = maxOf(1, totalChunks / 50)
+                val buffer = ByteArray(chunkSize)
+                var chunkIndex = 0
+
+                file.inputStream().buffered().use { input ->
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read <= 0) break
+
+                        val isLast = chunkIndex == totalChunks - 1 || read < chunkSize
+                        val chunkBytes = if (read == buffer.size) buffer else buffer.copyOf(read)
+                        val chunkObj = BridgeProtocol.FileChunkData(
+                            transferId = transferId,
+                            chunkIndex = chunkIndex,
+                            chunkBytes = chunkBytes
+                        )
+                        val shouldFlush = isLast || ((chunkIndex + 1) % 8 == 0)
+                        send(BridgeProtocol.TYPE_FILE_CHUNK, chunkObj.serialize(), flush = shouldFlush)
+
+                        val current = chunkIndex + 1
+                        if (isLast || current % throttleStep == 0) {
+                            val progress = current.toFloat() / totalChunks
+                            onProgress?.invoke(progress)
+                            listener.onFileProgress(transferId, displayName, progress, isLast)
+                        }
+                        chunkIndex++
+                    }
+                }
+                LogManager.i("Sent file $displayName ($totalChunks chunks) to Mac at high speed via streaming")
+            } catch (e: Exception) {
+                LogManager.e("Failed to send streaming file $displayName", e)
+            } finally {
+                if (deleteOnComplete) {
+                    try {
+                        file.delete()
+                    } catch (_: Exception) {}
+                }
+            }
+        }
+    }
+
     fun sendFile(name: String, bytes: ByteArray, mime: String, onProgress: ((Float) -> Unit)? = null) {
         scope.launch(Dispatchers.IO) {
             val transferId = java.util.UUID.randomUUID().toString()
             val hash = ImageUtils.sha256Hex(bytes)
-            val chunks = ImageUtils.chunkBytes(bytes)
-            val totalChunks = chunks.size
+            val chunkSize = ImageUtils.CHUNK_SIZE_BYTES
+            val totalChunks = maxOf(1, ((bytes.size.toLong() + chunkSize - 1) / chunkSize).toInt())
 
             val startMsg = BridgeProtocol.FileStartMessage(
                 id = transferId,
@@ -341,23 +425,28 @@ class BridgeClient(
 
             val throttleStep = maxOf(1, totalChunks / 50)
 
-            for ((index, chunk) in chunks.withIndex()) {
+            var offset = 0
+            var chunkIndex = 0
+            while (offset < bytes.size) {
+                val end = minOf(offset + chunkSize, bytes.size)
+                val isLast = end == bytes.size
+                val chunk = bytes.copyOfRange(offset, end)
                 val chunkObj = BridgeProtocol.FileChunkData(
                     transferId = transferId,
-                    chunkIndex = index,
+                    chunkIndex = chunkIndex,
                     chunkBytes = chunk
                 )
-                val isLast = index == totalChunks - 1
-                // Batch-flush every 8 chunks (~512 KB) or on the last chunk to maximize TCP throughput
-                val shouldFlush = isLast || ((index + 1) % 8 == 0)
+                val shouldFlush = isLast || ((chunkIndex + 1) % 8 == 0)
                 send(BridgeProtocol.TYPE_FILE_CHUNK, chunkObj.serialize(), flush = shouldFlush)
 
-                val current = index + 1
+                val current = chunkIndex + 1
                 if (isLast || current % throttleStep == 0) {
                     val progress = current.toFloat() / totalChunks
                     onProgress?.invoke(progress)
                     listener.onFileProgress(transferId, name, progress, false)
                 }
+                offset = end
+                chunkIndex++
             }
             LogManager.i("Sent file $name ($totalChunks chunks) to Mac at high speed")
         }
@@ -400,6 +489,14 @@ class BridgeClient(
             val msg = BridgeProtocol.LockMacMessage()
             send(BridgeProtocol.TYPE_LOCK_MAC, msg.toJson().toByteArray(Charsets.UTF_8), flush = true)
             LogManager.i("Sent lock mac request to Mac")
+        }
+    }
+
+    fun sendBatteryStatus(level: Int, isCharging: Boolean) {
+        scope.launch(Dispatchers.IO) {
+            val msg = BridgeProtocol.BatteryStatusMessage(level, isCharging)
+            send(BridgeProtocol.TYPE_BATTERY_STATUS, msg.toJson().toByteArray(Charsets.UTF_8), flush = true)
+            LogManager.i("Sent battery status to Mac: $level%, isCharging=$isCharging")
         }
     }
 

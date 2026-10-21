@@ -350,4 +350,128 @@ final class BridgeTests: XCTestCase {
         let decoded = try JSONDecoder().decode(LockMacMessage.self, from: payload)
         XCTAssertEqual(decoded.t, 123456789)
     }
+    
+    func testNotificationPlatformClickTargets() throws {
+        let manager = MacNotificationManager.shared
+        
+        // 1. Instagram -> instagram.com
+        XCTAssertEqual(
+            manager.resolveNotificationClickTarget(pkg: "com.instagram.android", appName: "Instagram"),
+            .openWebURL("https://www.instagram.com")
+        )
+        XCTAssertEqual(
+            manager.resolveNotificationClickTarget(pkg: "com.instagram.lite", appName: "Instagram Lite"),
+            .openWebURL("https://www.instagram.com")
+        )
+        
+        // 2. LinkedIn -> linkedin.com
+        XCTAssertEqual(
+            manager.resolveNotificationClickTarget(pkg: "com.linkedin.android", appName: "LinkedIn"),
+            .openWebURL("https://www.linkedin.com")
+        )
+        
+        // 3. Twitter / X -> x.com
+        XCTAssertEqual(
+            manager.resolveNotificationClickTarget(pkg: "com.twitter.android", appName: "X"),
+            .openWebURL("https://x.com")
+        )
+        XCTAssertEqual(
+            manager.resolveNotificationClickTarget(pkg: "com.twitter.android.lite", appName: "Twitter"),
+            .openWebURL("https://x.com")
+        )
+        
+        // 4. WhatsApp:
+        // When desktop app is available -> .openWhatsAppApp
+        XCTAssertEqual(
+            manager.resolveNotificationClickTarget(pkg: "com.whatsapp", appName: "WhatsApp", checkWhatsAppApp: true),
+            .openWhatsAppApp
+        )
+        // When desktop app is NOT available -> web.whatsapp.com
+        XCTAssertEqual(
+            manager.resolveNotificationClickTarget(pkg: "com.whatsapp", appName: "WhatsApp", checkWhatsAppApp: false),
+            .openWebURL("https://web.whatsapp.com")
+        )
+        XCTAssertEqual(
+            manager.resolveNotificationClickTarget(pkg: "com.whatsapp.w4b", appName: "WhatsApp Business", checkWhatsAppApp: false),
+            .openWebURL("https://web.whatsapp.com")
+        )
+        
+        // 5. Other platforms: Reddit, YouTube, Telegram, Discord, Slack, GitHub
+        XCTAssertEqual(
+            manager.resolveNotificationClickTarget(pkg: "com.reddit.frontpage", appName: "Reddit"),
+            .openWebURL("https://www.reddit.com")
+        )
+        XCTAssertEqual(
+            manager.resolveNotificationClickTarget(pkg: "org.telegram.messenger", appName: "Telegram"),
+            .openWebURL("https://web.telegram.org")
+        )
+        XCTAssertEqual(
+            manager.resolveNotificationClickTarget(pkg: "com.discord", appName: "Discord"),
+            .openWebURL("https://discord.com/app")
+        )
+        XCTAssertEqual(
+            manager.resolveNotificationClickTarget(pkg: "com.Slack", appName: "Slack"),
+            .openWebURL("https://slack.com")
+        )
+        XCTAssertEqual(
+            manager.resolveNotificationClickTarget(pkg: "com.github.android", appName: "GitHub"),
+            .openWebURL("https://github.com")
+        )
+        
+        // 6. Generic domain heuristic (e.g. Airbnb)
+        XCTAssertEqual(
+            manager.resolveNotificationClickTarget(pkg: "com.airbnb.android", appName: "Airbnb"),
+            .openWebURL("https://www.airbnb.com")
+        )
+        
+        // 7. System calls / Telecom -> activates Bridge app window
+        XCTAssertEqual(
+            manager.resolveNotificationClickTarget(pkg: "com.android.server.telecom", appName: "Phone"),
+            .activateBridge
+        )
+    }
+    
+    func testCallEventFlows() throws {
+        let manager = MacNotificationManager.shared
+        
+        // Ringing call
+        let ringingMsg = CallEventMessage(id: "call-test-1", state: "ringing", number: "+1234567890", name: "Alice")
+        manager.handleCallEvent(ringingMsg, showNotifications: true)
+        
+        // Answered call -> should remove ringing state and notification
+        let answeredMsg = CallEventMessage(id: "call-test-1", state: "answered", number: "+1234567890", name: "Alice")
+        manager.handleCallEvent(answeredMsg, showNotifications: true)
+        
+        // Ended after answered -> should not produce missed call
+        let endedAfterAnswerMsg = CallEventMessage(id: "call-test-1", state: "ended", number: "+1234567890", name: "Alice")
+        manager.handleCallEvent(endedAfterAnswerMsg, showNotifications: true)
+        
+        // New call that actually gets missed
+        let ringingMsg2 = CallEventMessage(id: "call-test-2", state: "ringing", number: "+1987654321", name: "Bob")
+        manager.handleCallEvent(ringingMsg2, showNotifications: true)
+        
+        // Ended while ringing -> should produce missed call
+        let missedMsg = CallEventMessage(id: "call-test-2", state: "ended", number: "+1987654321", name: "Bob")
+        manager.handleCallEvent(missedMsg, showNotifications: true)
+        
+        // Direct missed state
+        let directMissedMsg = CallEventMessage(id: "call-test-3", state: "missed", number: "+1555555555", name: "Charlie")
+        manager.handleCallEvent(directMissedMsg, showNotifications: true)
+    }
+    
+    func testBatteryStatusMessageSerialization() throws {
+        let original = BatteryStatusMessage(level: 82, isCharging: true)
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(BatteryStatusMessage.self, from: data)
+        XCTAssertEqual(decoded.level, 82)
+        XCTAssertTrue(decoded.isCharging)
+    }
+    
+    func testMacBatteryMonitorReturnsInfo() throws {
+        // Should execute safely without crashing on macOS
+        let info = MacBatteryMonitor.getCurrentBatteryInfo()
+        if let info = info {
+            XCTAssertTrue(info.level >= 0 && info.level <= 100)
+        }
+    }
 }

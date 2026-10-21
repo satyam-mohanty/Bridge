@@ -6,6 +6,9 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.os.Bundle
+import android.util.SizeF
 import android.widget.RemoteViews
 import com.bridge.android.R
 import com.bridge.android.crypto.KeyStoreManager
@@ -28,21 +31,13 @@ class BridgeWidgetProvider : AppWidgetProvider() {
             }
         }
 
-        fun updateWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
-            val keyStoreManager = KeyStoreManager(context)
-            val isSearching = keyStoreManager.isSearchingEnabled()
-            val service = BridgeService.instance
-            val isConnected = service?.isConnectedFlow?.value == true
-
-            val statusText = when {
-                !isSearching -> "Off / Paused"
-                isConnected -> "Connected to ${keyStoreManager.getMacName() ?: "Mac"}"
-                else -> "Searching for Mac…"
-            }
-
-            val btnText = if (isSearching) "PAUSE" else "RESUME"
-
-            val views = RemoteViews(context.packageName, R.layout.widget_bridge).apply {
+        private fun buildViews(
+            context: Context,
+            layoutId: Int,
+            statusText: String,
+            btnText: String
+        ): RemoteViews {
+            return RemoteViews(context.packageName, layoutId).apply {
                 setTextViewText(R.id.widgetStatus, statusText)
                 setTextViewText(R.id.widgetBtnToggle, btnText)
 
@@ -70,9 +65,52 @@ class BridgeWidgetProvider : AppWidgetProvider() {
                 )
                 setOnClickPendingIntent(R.id.widgetBtnToggle, togglePending)
             }
-
-            appWidgetManager.updateAppWidget(appWidgetId, views)
         }
+
+        fun updateWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
+            val keyStoreManager = KeyStoreManager(context)
+            val isSearching = keyStoreManager.isSearchingEnabled()
+            val service = BridgeService.instance
+            val isConnected = service?.isConnectedFlow?.value == true
+
+            val statusText = when {
+                !isSearching -> "Off / Paused"
+                isConnected -> "Connected to ${keyStoreManager.getMacName() ?: "Mac"}"
+                else -> "Searching for Mac…"
+            }
+
+            val btnText = if (isSearching) "Pause" else "Resume"
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val viewMapping = mapOf(
+                    SizeF(100f, 40f) to buildViews(context, R.layout.widget_bridge_compact, statusText, btnText),
+                    SizeF(180f, 40f) to buildViews(context, R.layout.widget_bridge, statusText, btnText),
+                    SizeF(120f, 95f) to buildViews(context, R.layout.widget_bridge_tall, statusText, btnText)
+                )
+                appWidgetManager.updateAppWidget(appWidgetId, RemoteViews(viewMapping))
+            } else {
+                val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
+                val minWidth = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0) ?: 0
+                val minHeight = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) ?: 0
+
+                val layoutId = when {
+                    minHeight >= 95 -> R.layout.widget_bridge_tall
+                    minWidth in 1..170 -> R.layout.widget_bridge_compact
+                    else -> R.layout.widget_bridge
+                }
+                appWidgetManager.updateAppWidget(appWidgetId, buildViews(context, layoutId, statusText, btnText))
+            }
+        }
+    }
+
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle
+    ) {
+        super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
+        updateWidget(context, appWidgetManager, appWidgetId)
     }
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {

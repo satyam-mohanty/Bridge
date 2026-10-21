@@ -9,4 +9,8 @@
 // SPARKLE_PUBLIC_ED_KEY = your_base64_public_key_here
 
 // Optional explicit signing identity override
+// For local testing without a paid Apple Developer certificate, uncomment:
+// CODE_SIGN_IDENTITY = -
+// DEVELOPMENT_TEAM =
+// For public distribution with a paid certificate:
 // CODE_SIGN_IDENTITY = Developer ID Application: Your Name (ABCDE12345)

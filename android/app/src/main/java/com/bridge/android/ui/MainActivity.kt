@@ -951,6 +951,24 @@ class MainActivity : AppCompatActivity() {
                 binding.btnQuickReconnect.visibility = View.VISIBLE
                 binding.btnHeaderReconnect.visibility = View.VISIBLE
             }
+
+            // Mac Battery Status Badge
+            val peerBattery = BridgeService.peerBatteryFlow.value
+            if (isConnected && peerBattery != null) {
+                val (level, isCharging) = peerBattery
+                binding.layoutMacBattery.visibility = View.VISIBLE
+                binding.tvMacBattery.text = if (isCharging) "$level% ⚡" else "$level%"
+                if (isCharging) {
+                    binding.ivMacBattery.setImageResource(R.drawable.ic_battery_opt)
+                    binding.ivMacBattery.imageTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.status_green))
+                } else {
+                    binding.ivMacBattery.setImageResource(R.drawable.ic_battery_full)
+                    val color = if (level <= 20) R.color.status_orange else R.color.text_secondary
+                    binding.ivMacBattery.imageTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, color))
+                }
+            } else {
+                binding.layoutMacBattery.visibility = View.GONE
+            }
         }
     }
 

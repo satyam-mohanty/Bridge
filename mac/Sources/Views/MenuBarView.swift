@@ -28,6 +28,21 @@ public struct MenuBarView: View {
                             .frame(width: 8, height: 8)
                         Text(model.isConnected ? "Connected" : "Listening...")
                             .font(.headline)
+                        
+                        if model.isConnected, let phoneBattery = model.peerBatteryLevel {
+                            Text("•")
+                                .foregroundColor(.secondary.opacity(0.4))
+                            
+                            HStack(spacing: 3) {
+                                Image(systemName: model.isPeerCharging ? "battery.100.bolt" : (phoneBattery > 20 ? "battery.75" : "battery.25"))
+                                    .font(.caption)
+                                    .foregroundColor(model.isPeerCharging ? .green : (phoneBattery <= 20 ? .orange : .secondary))
+                                
+                                Text("\(phoneBattery)%")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                     }
                     Text("Port 48250 • Beacon active")
                         .font(.caption)

@@ -59,12 +59,10 @@ class BridgeAccessibilityService : AccessibilityService() {
             eventTypes = AccessibilityEvent.TYPE_VIEW_CLICKED or
                     AccessibilityEvent.TYPE_VIEW_LONG_CLICKED or
                     AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
-                    AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED or
-                    AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED
+                    AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
-            notificationTimeout = 50
-            flags = AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
-                    AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+            notificationTimeout = 100
+            flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
         }
         serviceInfo = info
     }
@@ -91,6 +89,18 @@ class BridgeAccessibilityService : AccessibilityService() {
         try {
             val pkgName = event.packageName?.toString() ?: ""
             if (pkgName == packageName) return // Ignore events from Bridge itself
+
+            // CRITICAL: Ignore all launcher, system UI, recent apps, and overview screens!
+            // When user opens Recents or Home, NEVER trigger speculative sync or activity launches.
+            if (pkgName.contains("launcher", ignoreCase = true) ||
+                pkgName.contains("systemui", ignoreCase = true) ||
+                pkgName.contains("recents", ignoreCase = true) ||
+                pkgName.contains("overview", ignoreCase = true) ||
+                pkgName.contains("quickstep", ignoreCase = true) ||
+                pkgName == "android"
+            ) {
+                return
+            }
 
             var detectedCopyAction = false
 
@@ -134,15 +144,21 @@ class BridgeAccessibilityService : AccessibilityService() {
                     val className = (event.className ?: "").toString()
                     val text = event.text.joinToString(" ").lowercase()
                     val desc = (event.contentDescription ?: "").toString().lowercase()
-                    if (className.contains("Clipboard", ignoreCase = true) ||
-                        className.contains("Overlay", ignoreCase = true) ||
-                        className.contains("Toast", ignoreCase = true) ||
-                        className.contains("Chooser", ignoreCase = true) ||
-                        pkgName.contains("clipboard", ignoreCase = true) ||
-                        text.contains("copi") || desc.contains("copi") ||
-                        text.contains("clip") || desc.contains("clip")
+
+                    // Never hijack or trigger on Chooser/ShareSheet or system dialogs
+                    if (className.contains("Chooser", ignoreCase = true) ||
+                        className.contains("Share", ignoreCase = true)
                     ) {
-                        LogManager.i("Accessibility: Clipboard/Share UI state appeared in $pkgName ($className)")
+                        return
+                    }
+
+                    if (className.contains("Clipboard", ignoreCase = true) ||
+                        className.contains("Toast", ignoreCase = true) ||
+                        pkgName.contains("clipboard", ignoreCase = true) ||
+                        text.contains("copied to clipboard") ||
+                        desc.contains("copied to clipboard")
+                    ) {
+                        LogManager.i("Accessibility: Clipboard UI state appeared in $pkgName ($className)")
                         detectedCopyAction = true
                     }
                 }
@@ -174,26 +190,8 @@ class BridgeAccessibilityService : AccessibilityService() {
             val viewId = (node.viewIdResourceName ?: "").toString()
             if (isCopyOrCutIdentifier(text, desc, viewId)) return true
 
-            // Safely check parent node
-            var parent: AccessibilityNodeInfo? = null
-            try {
-                parent = node.parent
-                if (parent != null) {
-                    val pText = (parent.text ?: "").toString()
-                    val pDesc = (parent.contentDescription ?: "").toString()
-                    val pViewId = (parent.viewIdResourceName ?: "").toString()
-                    if (isCopyOrCutIdentifier(pText, pDesc, pViewId)) return true
-                }
-            } catch (_: Throwable) {
-            } finally {
-                try {
-                    @Suppress("DEPRECATION")
-                    parent?.recycle()
-                } catch (_: Throwable) {}
-            }
-
             val count = node.childCount
-            for (i in 0 until minOf(count, 6)) {
+            for (i in 0 until minOf(count, 3)) {
                 var child: AccessibilityNodeInfo? = null
                 try {
                     child = node.getChild(i)
@@ -229,24 +227,20 @@ class BridgeAccessibilityService : AccessibilityService() {
             v.contains("clipboard") || v.contains("pasteboard")
         ) return true
 
-        // 2. Link & Image copy actions (e.g. "Copy link address", "Copy link", "Copy URL", "Copy image", "Copy photo")
-        if (t.contains("link") || d.contains("link") || v.contains("link") ||
-            t.contains("url") || d.contains("url") || v.contains("url") ||
-            t.contains("image") || d.contains("image") || v.contains("image") ||
-            t.contains("photo") || d.contains("photo") || v.contains("photo")
-        ) {
-            if (t.contains("cop") || d.contains("cop") || v.contains("cop") ||
-                t.contains("address") || d.contains("address") ||
-                t.contains("clip") || d.contains("clip")
-            ) {
-                return true
-            }
+        // 2. Link & Image copy actions (Must contain both a copy indicator AND link/image)
+        val hasCopyVerb = t.contains("cop") || d.contains("cop") || v.contains("cop")
+        val hasTargetNoun = t.contains("link") || d.contains("link") || v.contains("link") ||
+                t.contains("url") || d.contains("url") || v.contains("url") ||
+                t.contains("image") || d.contains("image") || v.contains("image") ||
+                t.contains("photo") || d.contains("photo") || v.contains("photo")
+
+        if (hasCopyVerb && hasTargetNoun) {
+            return true
         }
 
-        // 3. Android ShareSheet / Chooser button identifiers
+        // 3. Android ShareSheet / Chooser copy button identifiers
         if (v.contains("chooser_copy") || v.contains("copy_button") || v.contains("copy_link") ||
-            v.contains("button_copy") || v.contains("action_copy") || v.contains("context_menu_copy") ||
-            v.contains("url_action_container")
+            v.contains("button_copy") || v.contains("action_copy") || v.contains("context_menu_copy")
         ) return true
 
         // 4. Multilingual keywords

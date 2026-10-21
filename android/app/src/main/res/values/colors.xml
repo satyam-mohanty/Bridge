@@ -10,12 +10,13 @@
     <color name="status_red">#FF3B30</color>
     <color name="status_gray">#8E8E93</color>
     
-    <!-- Light Mode Surfaces & Text (Apple & Material 3 Neutral Slate) -->
+    <!-- Light Mode Surfaces & Text (Clean, calm neutral slate) -->
     <color name="surface">#F8F9FA</color>
     <color name="card_background">#FFFFFF</color>
     <color name="card_stroke">#ECEEF1</color>
     <color name="card_highlight">#F3F4F6</color>
     <color name="icon_tint">#1F2937</color>
+    <color name="neutral_icon_bg">#F3F4F6</color>
     <color name="text_primary">#111827</color>
     <color name="text_secondary">#6B7280</color>
     <color name="chevron_color">#9CA3AF</color>

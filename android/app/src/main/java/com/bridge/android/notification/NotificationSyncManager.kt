@@ -311,12 +311,19 @@ object NotificationSyncManager {
     }
 
     private fun isDialerOrTelecom(context: Context, pkg: String): Boolean {
-        if (pkg.contains("telecom") || pkg.contains("dialer") || pkg.contains("telephony") || pkg == "com.android.phone") {
+        val lowerPkg = pkg.lowercase()
+        if (lowerPkg.contains("telecom") ||
+            lowerPkg.contains("dialer") ||
+            lowerPkg.contains("telephony") ||
+            lowerPkg.contains("incallui") ||
+            lowerPkg == "com.android.phone" ||
+            lowerPkg == "com.samsung.android.incallui" ||
+            lowerPkg == "com.samsung.android.dialer") {
             return true
         }
         val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as? TelecomManager
         val defaultDialer = telecomManager?.defaultDialerPackage
-        if (defaultDialer != null && defaultDialer == pkg) {
+        if (defaultDialer != null && defaultDialer.equals(pkg, ignoreCase = true)) {
             return true
         }
         return false

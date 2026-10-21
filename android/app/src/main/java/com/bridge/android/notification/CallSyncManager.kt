@@ -247,22 +247,67 @@ object CallSyncManager {
         val notif = sbn.notification ?: return
         val extras = notif.extras ?: return
 
-        val title = extras.getCharSequence(android.app.Notification.EXTRA_TITLE)?.toString()
-        val text = extras.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString()
+        val category = notif.category
+        val title = extras.getCharSequence(android.app.Notification.EXTRA_TITLE)?.toString()?.trim()
+        val text = extras.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString()?.trim()
 
-        LogManager.i("Call notification intercepted: pkg=${sbn.packageName} title=$title text=$text")
+        LogManager.i("Call notification intercepted: pkg=${sbn.packageName} category=$category title=$title text=$text")
 
-        // If title or text looks like caller/number, correlate with currentCall
+        // 1. If notification is a MISSED CALL notification, do NOT treat it as an incoming ringing call!
+        val isMissedCall = android.app.Notification.CATEGORY_MISSED_CALL.equals(category, ignoreCase = true) ||
+                title?.contains("missed call", ignoreCase = true) == true ||
+                text?.contains("missed call", ignoreCase = true) == true ||
+                title?.equals("Missed", ignoreCase = true) == true
+
+        if (isMissedCall) {
+            LogManager.i("Dialer notification is a missed call notification: pkg=${sbn.packageName}")
+            if (currentCall?.state == "ringing") {
+                onCallEnded(context, source = "dialer_missed_call_notification")
+            }
+            return
+        }
+
+        // 2. Correlate with currentCall if already active
         val active = currentCall
         if (active != null) {
-            if (active.name == null && !title.isNullOrBlank() && !title.equals("Incoming call", ignoreCase = true)) {
+            var updated = false
+            if ((active.name == null || active.name == active.number) && !title.isNullOrBlank() && !title.equals("Incoming call", ignoreCase = true)) {
                 active.name = title
+                updated = true
             }
-            if (active.number == null && !text.isNullOrBlank()) {
+            if (active.number == null && !text.isNullOrBlank() && text.any { it.isDigit() }) {
                 active.number = text
+                updated = true
+            }
+            if (updated && active.state == "ringing") {
+                val client = BridgeService.instance?.getClient()
+                if (client != null) {
+                    val msg = BridgeProtocol.CallEventMessage(
+                        id = active.id,
+                        state = "ringing",
+                        number = active.number,
+                        name = active.name
+                    )
+                    client.sendCallEvent(msg)
+                    LogManager.i("Call notification enriched ringing call: id=${active.id} name=${active.name} number=${active.number}")
+                }
             }
         } else {
-            // Dialer notification arrived without or before phone state broadcast
+            // Dialer notification arrived without or before phone state broadcast.
+            // Verify telephony state: if telephony is available and not ringing (e.g. idle or offhook for outgoing call), do NOT start ringing
+            val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
+            @Suppress("DEPRECATION")
+            val callState = try {
+                tm?.callState
+            } catch (_: Exception) {
+                null
+            }
+
+            if (callState != null && callState != TelephonyManager.CALL_STATE_RINGING) {
+                LogManager.i("Ignoring dialer notification because telephony is not RINGING (callState=$callState)")
+                return
+            }
+
             val callerName = if (!title.isNullOrBlank() && !title.equals("Incoming call", ignoreCase = true)) title else null
             val callerNumber = if (!text.isNullOrBlank() && text.any { it.isDigit() }) text else null
             onCallRinging(context, callerNumber, callerName, source = "dialer_notification")
@@ -271,8 +316,24 @@ object CallSyncManager {
 
     fun onCallNotificationRemoved(context: Context, sbn: StatusBarNotification) {
         LogManager.i("Call notification removed: pkg=${sbn.packageName}")
-        if (currentCall?.state == "ringing") {
-            onCallEnded(context, source = "dialer_notification_removed")
+        val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
+        @Suppress("DEPRECATION")
+        val callState = try {
+            tm?.callState
+        } catch (_: Exception) {
+            null
+        }
+
+        // Under no circumstances should we end a call if telephony is still RINGING or OFFHOOK
+        if (callState == TelephonyManager.CALL_STATE_RINGING || callState == TelephonyManager.CALL_STATE_OFFHOOK) {
+            LogManager.i("Call notification removed but TelephonyManager is still active (callState=$callState) - preserving call session")
+            return
+        }
+
+        // Only end if telephony explicitly confirms IDLE and we have an active call
+        if (callState == TelephonyManager.CALL_STATE_IDLE && currentCall != null) {
+            LogManager.i("Call notification removed and TelephonyManager confirmed IDLE - ending call session")
+            onCallEnded(context, source = "dialer_notification_removed_idle")
         }
     }
 

@@ -81,6 +81,300 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
+        let userInfo = response.notification.request.content.userInfo
+        let pkg = userInfo["pkg"] as? String ?? ""
+        let app = userInfo["app"] as? String ?? ""
+        
+        DispatchQueue.main.async {
+            self.handleNotificationClick(pkg: pkg, appName: app)
+        }
+        completionHandler()
+    }
+    
+    // MARK: - Notification Click Action
+    public enum NotificationClickTarget: Equatable {
+        case openWhatsAppApp
+        case openWebURL(String)
+        case activateBridge
+    }
+    
+    public func hasWhatsAppDesktopApp() -> Bool {
+        let workspace = NSWorkspace.shared
+        let whatsappBundleIds = [
+            "net.whatsapp.WhatsApp",
+            "com.whatsapp.WhatsApp",
+            "net.whatsapp.WhatsApp.desktop"
+        ]
+        for bundleId in whatsappBundleIds {
+            if workspace.urlForApplication(withBundleIdentifier: bundleId) != nil {
+                return true
+            }
+        }
+        if let whatsappScheme = URL(string: "whatsapp://"),
+           workspace.urlsForApplications(toOpen: whatsappScheme).first != nil {
+            return true
+        }
+        return false
+    }
+    
+    public func resolveNotificationClickTarget(pkg: String, appName: String, checkWhatsAppApp: Bool? = nil) -> NotificationClickTarget {
+        let lowerPkg = pkg.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let lowerApp = appName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        
+        // 1. WhatsApp: open native WhatsApp app if installed; otherwise open web WhatsApp
+        if lowerPkg.contains("whatsapp") || lowerApp.contains("whatsapp") {
+            let isAppAvailable = checkWhatsAppApp ?? hasWhatsAppDesktopApp()
+            if isAppAvailable {
+                return .openWhatsAppApp
+            } else {
+                return .openWebURL("https://web.whatsapp.com")
+            }
+        }
+        
+        // 2. Instagram: open instagram.com in browser
+        if lowerPkg.contains("instagram") || lowerApp.contains("instagram") {
+            return .openWebURL("https://www.instagram.com")
+        }
+        
+        // 3. LinkedIn: open linkedin.com on the web
+        if lowerPkg.contains("linkedin") || lowerApp.contains("linkedin") {
+            return .openWebURL("https://www.linkedin.com")
+        }
+        
+        // 4. Twitter / X: open x.com in default browser
+        if lowerPkg.contains("twitter") || lowerPkg == "com.twitter.android" || lowerPkg == "com.twitter.android.lite" ||
+           lowerApp == "x" || lowerApp == "twitter" || lowerApp.contains("twitter") {
+            return .openWebURL("https://x.com")
+        }
+        
+        // 5. Threads
+        if lowerPkg.contains("barcelona") || lowerApp == "threads" || lowerApp.contains("threads") {
+            return .openWebURL("https://www.threads.net")
+        }
+        
+        // 6. Reddit
+        if lowerPkg.contains("reddit") || lowerApp.contains("reddit") {
+            return .openWebURL("https://www.reddit.com")
+        }
+        
+        // 7. YouTube
+        if lowerPkg.contains("youtube") || lowerApp.contains("youtube") {
+            if lowerPkg.contains("music") || lowerApp.contains("music") {
+                return .openWebURL("https://music.youtube.com")
+            } else {
+                return .openWebURL("https://www.youtube.com")
+            }
+        }
+        
+        // 8. Facebook
+        if lowerPkg.contains("facebook.katana") || lowerPkg.contains("facebook.lite") || lowerApp == "facebook" {
+            return .openWebURL("https://www.facebook.com")
+        }
+        
+        // 9. Telegram
+        if lowerPkg.contains("telegram") || lowerApp.contains("telegram") {
+            return .openWebURL("https://web.telegram.org")
+        }
+        
+        // 10. Messenger
+        if lowerPkg.contains("orca") || lowerPkg.contains("facebook.mlite") || (lowerApp.contains("messenger") && !lowerPkg.contains("telegram")) {
+            return .openWebURL("https://www.messenger.com")
+        }
+        
+        // 11. Discord
+        if lowerPkg.contains("discord") || lowerApp.contains("discord") {
+            return .openWebURL("https://discord.com/app")
+        }
+        
+        // 12. Slack
+        if lowerPkg.contains("slack") || lowerApp.contains("slack") {
+            return .openWebURL("https://slack.com")
+        }
+        
+        // 13. GitHub
+        if lowerPkg.contains("github") || lowerApp.contains("github") {
+            return .openWebURL("https://github.com")
+        }
+        
+        // 14. Gmail
+        if lowerPkg == "com.google.android.gm" || lowerApp.contains("gmail") {
+            return .openWebURL("https://mail.google.com")
+        }
+        
+        // 15. Google Calendar
+        if lowerPkg.contains("calendar") || lowerApp.contains("calendar") {
+            return .openWebURL("https://calendar.google.com")
+        }
+        
+        // 16. Google Drive / Docs / Sheets
+        if lowerPkg.contains("docs") || lowerPkg.contains("drive") || lowerApp.contains("drive") {
+            return .openWebURL("https://drive.google.com")
+        }
+        
+        // 17. Notion
+        if lowerPkg.contains("notion") || lowerApp.contains("notion") {
+            return .openWebURL("https://www.notion.so")
+        }
+        
+        // 18. Spotify
+        if lowerPkg.contains("spotify") || lowerApp.contains("spotify") {
+            return .openWebURL("https://open.spotify.com")
+        }
+        
+        // 19. Pinterest
+        if lowerPkg.contains("pinterest") || lowerApp.contains("pinterest") {
+            return .openWebURL("https://www.pinterest.com")
+        }
+        
+        // 20. TikTok
+        if lowerPkg.contains("musically") || lowerPkg.contains("trill") || lowerApp.contains("tiktok") {
+            return .openWebURL("https://www.tiktok.com")
+        }
+        
+        // 21. Snapchat
+        if lowerPkg.contains("snapchat") || lowerApp.contains("snapchat") {
+            return .openWebURL("https://web.snapchat.com")
+        }
+        
+        // 22. Amazon
+        if lowerPkg.contains("amazon") || lowerApp.contains("amazon") {
+            return .openWebURL("https://www.amazon.com")
+        }
+        
+        // 23. Netflix
+        if lowerPkg.contains("netflix") || lowerApp.contains("netflix") {
+            return .openWebURL("https://www.netflix.com")
+        }
+        
+        // 24. Twitch
+        if lowerPkg.contains("twitch") || lowerApp.contains("twitch") {
+            return .openWebURL("https://www.twitch.tv")
+        }
+        
+        // 25. Quora
+        if lowerPkg.contains("quora") || lowerApp.contains("quora") {
+            return .openWebURL("https://www.quora.com")
+        }
+        
+        // 26. Medium
+        if lowerPkg.contains("medium") || lowerApp.contains("medium") {
+            return .openWebURL("https://medium.com")
+        }
+        
+        // 27. Substack
+        if lowerPkg.contains("substack") || lowerApp.contains("substack") {
+            return .openWebURL("https://substack.com")
+        }
+        
+        // 28. Outlook
+        if lowerPkg.contains("outlook") || lowerApp.contains("outlook") {
+            return .openWebURL("https://outlook.live.com")
+        }
+        
+        // 29. Teams
+        if lowerPkg.contains("teams") || lowerApp.contains("teams") {
+            return .openWebURL("https://teams.microsoft.com")
+        }
+        
+        // 30. Trello
+        if lowerPkg.contains("trello") || lowerApp.contains("trello") {
+            return .openWebURL("https://trello.com")
+        }
+        
+        // 31. Zoom
+        if lowerPkg.contains("zoom") || lowerApp.contains("zoom") {
+            return .openWebURL("https://zoom.us")
+        }
+        
+        // 32. Heuristic for other web platforms:
+        // If package has a domain pattern (e.g. com.airbnb.android) and is not an Android system service
+        if !lowerPkg.isEmpty && !lowerPkg.hasPrefix("com.android.") && !lowerPkg.hasPrefix("com.google.android.googlequicksearchbox") && !lowerPkg.hasPrefix("com.bridge.") {
+            let parts = lowerPkg.split(separator: ".")
+            if parts.count >= 2 {
+                let domain = String(parts[1])
+                let tld = String(parts[0])
+                if (tld == "com" || tld == "org" || tld == "io" || tld == "net" || tld == "app" || tld == "co") && domain.count > 2 {
+                    let candidate = "https://www.\(domain).\(tld)"
+                    if let url = URL(string: candidate) {
+                        return .openWebURL(url.absoluteString)
+                    }
+                }
+            }
+        }
+        
+        // Fallback: bring Bridge window to front
+        return .activateBridge
+    }
+    
+    public func handleNotificationClick(pkg: String, appName: String) {
+        LogManager.shared.log("Notification clicked: pkg=\(pkg), app=\(appName)")
+        let target = resolveNotificationClickTarget(pkg: pkg, appName: appName)
+        switch target {
+        case .openWhatsAppApp:
+            openWhatsApp()
+        case .openWebURL(let urlString):
+            openWebURL(urlString)
+        case .activateBridge:
+            activateBridgeApp()
+        }
+    }
+    
+    public func openWhatsApp() {
+        let workspace = NSWorkspace.shared
+        
+        // 1. Check known bundle IDs for WhatsApp desktop app on macOS
+        let whatsappBundleIds = [
+            "net.whatsapp.WhatsApp",
+            "com.whatsapp.WhatsApp",
+            "net.whatsapp.WhatsApp.desktop"
+        ]
+        
+        for bundleId in whatsappBundleIds {
+            if let appUrl = workspace.urlForApplication(withBundleIdentifier: bundleId) {
+                LogManager.shared.log("Found native WhatsApp desktop app at: \(appUrl.path)")
+                let config = NSWorkspace.OpenConfiguration()
+                config.activates = true
+                workspace.openApplication(at: appUrl, configuration: config) { app, error in
+                    if let error = error {
+                        LogManager.shared.log("Error launching WhatsApp desktop app: \(error.localizedDescription)", level: .error)
+                        self.openWebURL("https://web.whatsapp.com")
+                    } else {
+                        LogManager.shared.log("WhatsApp desktop app launched successfully")
+                    }
+                }
+                return
+            }
+        }
+        
+        // 2. Check if any app is registered to handle whatsapp:// scheme
+        if let whatsappScheme = URL(string: "whatsapp://"),
+           let appUrl = workspace.urlsForApplications(toOpen: whatsappScheme).first {
+            LogManager.shared.log("Found application handling whatsapp:// at: \(appUrl.path)")
+            let config = NSWorkspace.OpenConfiguration()
+            config.activates = true
+            workspace.openApplication(at: appUrl, configuration: config) { app, error in
+                if let error = error {
+                    LogManager.shared.log("Error opening whatsapp:// app: \(error.localizedDescription)", level: .error)
+                    self.openWebURL("https://web.whatsapp.com")
+                } else {
+                    LogManager.shared.log("WhatsApp scheme opened successfully")
+                }
+            }
+            return
+        }
+        
+        // 3. Fallback: WhatsApp desktop app is not available on Mac -> open web WhatsApp
+        LogManager.shared.log("WhatsApp desktop app is not available on this Mac. Opening web.whatsapp.com...")
+        openWebURL("https://web.whatsapp.com")
+    }
+    
+    public func openWebURL(_ urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        LogManager.shared.log("Opening web application in default browser: \(urlString)")
+        NSWorkspace.shared.open(url)
+    }
+    
+    public func activateBridgeApp() {
         DispatchQueue.main.async {
             NSApp.activate(ignoringOtherApps: true)
             for window in NSApp.windows where window.canBecomeMain {
@@ -88,7 +382,6 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
                 break
             }
         }
-        completionHandler()
     }
     
     // MARK: - Notification Post Handling
@@ -135,6 +428,7 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
         
         postNotification(
             key: msg.key,
+            pkg: msg.pkg,
             app: msg.app,
             title: title,
             subtitle: subtitle,
@@ -146,6 +440,7 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
     
     private func postNotification(
         key: String,
+        pkg: String,
         app: String,
         title: String,
         subtitle: String,
@@ -159,6 +454,7 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
             case .authorized, .provisional:
                 self.deliverViaUN(
                     key: key,
+                    pkg: pkg,
                     app: app,
                     title: title,
                     subtitle: subtitle,
@@ -171,6 +467,7 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
                     if granted {
                         self.deliverViaUN(
                             key: key,
+                            pkg: pkg,
                             app: app,
                             title: title,
                             subtitle: subtitle,
@@ -187,6 +484,7 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
             @unknown default:
                 self.deliverViaUN(
                     key: key,
+                    pkg: pkg,
                     app: app,
                     title: title,
                     subtitle: subtitle,
@@ -200,6 +498,7 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
     
     private func deliverViaUN(
         key: String,
+        pkg: String,
         app: String,
         title: String,
         subtitle: String,
@@ -214,6 +513,11 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
         }
         content.body = body
         content.sound = .default
+        content.userInfo = [
+            "pkg": pkg,
+            "app": app,
+            "key": key
+        ]
         
         var attachmentSet = false
         if let photoData = contactPhotoData {
@@ -275,6 +579,7 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
             
             postNotification(
                 key: callKey,
+                pkg: "com.android.server.telecom",
                 app: "Phone",
                 title: "Incoming call",
                 subtitle: callerLabel,
@@ -301,6 +606,7 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
                 
                 postNotification(
                     key: missedKey,
+                    pkg: "com.android.server.telecom",
                     app: "Phone",
                     title: missedTitle,
                     subtitle: "Phone",
@@ -312,6 +618,26 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
             } else {
                 LogManager.shared.log("Call ended after answer: id=\(msg.id)")
             }
+            
+        case "missed":
+            activeRingingCalls.remove(msg.id)
+            removeNotification(key: callKey)
+            
+            let missedKey = "bridge-missed-call-\(msg.id)-\(msg.ts)"
+            let missedTitle = "Missed call from \(callerLabel)"
+            let missedBody = (msg.name != nil && msg.number != nil) ? "Missed call from \(callerLabel) (\(msg.number!))" : "Missed call from \(callerLabel)"
+            
+            postNotification(
+                key: missedKey,
+                pkg: "com.android.server.telecom",
+                app: "Phone",
+                title: missedTitle,
+                subtitle: "Phone",
+                body: missedBody,
+                contactPhotoData: nil,
+                iconFileUrl: nil
+            )
+            LogManager.shared.log("Notification displayed: [Call] Missed call from \(callerLabel)")
             
         default:
             LogManager.shared.log("Unknown call state: \(msg.state)", level: .error)
@@ -344,6 +670,7 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
         
         postNotification(
             key: key,
+            pkg: "com.bridge.android",
             app: "Bridge",
             title: title,
             subtitle: subtitle,

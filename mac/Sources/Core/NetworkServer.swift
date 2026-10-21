@@ -12,6 +12,7 @@ public protocol NetworkServerDelegate: AnyObject {
     func serverDidReceiveIconResponse(_ msg: IconRespMessage)
     func serverDidReceiveCallEvent(_ msg: CallEventMessage)
     func serverDidReceiveLockRequest()
+    func serverDidReceiveBatteryStatus(_ msg: BatteryStatusMessage)
 }
 
 public final class NetworkServer {
@@ -229,7 +230,7 @@ public final class NetworkServer {
         
         func receiveChunk() {
             let needed = length - accumulated.count
-            connection.receive(minimumIncompleteLength: needed, maximumLength: needed) { [weak self, weak connection] content, _, isComplete, error in
+            connection.receive(minimumIncompleteLength: 1, maximumLength: min(needed, 65536)) { [weak self, weak connection] content, _, isComplete, error in
                 guard let self = self, let connection = connection else { return }
                 if let error = error {
                     LogManager.shared.log("Error reading frame body: \(error)", level: .error)
@@ -370,6 +371,13 @@ public final class NetworkServer {
         case BridgeMessageType.lockMac.rawValue:
             LogManager.shared.log("Received remote lock command from Android")
             delegate?.serverDidReceiveLockRequest()
+            
+        case BridgeMessageType.batteryStatus.rawValue:
+            if let msg = try? JSONDecoder().decode(BatteryStatusMessage.self, from: payload) {
+                delegate?.serverDidReceiveBatteryStatus(msg)
+            } else {
+                LogManager.shared.log("Failed to decode BatteryStatusMessage", level: .error)
+            }
             
         default:
             LogManager.shared.log("Unknown message type: \(msgType)")

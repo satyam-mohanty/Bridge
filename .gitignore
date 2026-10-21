@@ -26,6 +26,11 @@ android/.idea/
 .gradle/
 build/
 
+# Build Artifacts
+*.apk
+*.dmg
+dist/
+
 # Release Signing Secrets (Never commit private keys!)
 *.pem
 *.key

@@ -126,11 +126,7 @@ class TransparentClipReaderActivity : Activity() {
     }
 
     private fun safeDismiss() {
-        try {
-            finishAndRemoveTask()
-        } catch (_: Throwable) {
-            finish()
-        }
+        finish()
         overridePendingTransition(0, 0)
     }
 }
