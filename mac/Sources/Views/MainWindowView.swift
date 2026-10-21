@@ -10,54 +10,58 @@ public struct MainWindowView: View {
     @State private var showClearConfirm: Bool = false
     @State private var settingsTab: Int = 0
     
-    // Pure neutral dark / black theme (eliminates macOS wallpaper reddish tinting)
-    private let bgWindow = Color(red: 0.05, green: 0.05, blue: 0.05)       // #0D0D0D pure dark background
-    private let bgHeader = Color(red: 0.08, green: 0.08, blue: 0.08)       // #141414 header background
-    private let bgCard = Color(red: 0.12, green: 0.12, blue: 0.12)         // #1F1F1F neutral card surface
-    private let bgCardSubtle = Color(red: 0.08, green: 0.08, blue: 0.08)   // #141414 empty state card
-    private let bgInput = Color(red: 0.09, green: 0.09, blue: 0.09)        // #171717 text input / logs
-    private let borderSubtle = Color(white: 0.20)                          // Subtle neutral border
+    // Liquid glass / Apple Design System Palette
+    private let glassMaterial = Material.ultraThinMaterial
+    private let glassFill = Color.white.opacity(0.06)
+    private let glassFillHover = Color.white.opacity(0.09)
+    private let glassBorder = Color.white.opacity(0.12)
+    private let glassBorderSubtle = Color.white.opacity(0.07)
+    private let bgCanvas = Color(red: 0.05, green: 0.05, blue: 0.05)
     
     public init(model: AppModel) {
         self.model = model
     }
     
     public var body: some View {
-        VStack(spacing: 0) {
-            // Header Bar
-            headerSection
-                .padding(.horizontal, 24)
-                .padding(.top, 20)
-                .padding(.bottom, 16)
-                .background(bgHeader)
+        ZStack {
+            // Background deep canvas
+            bgCanvas.ignoresSafeArea()
             
-            Divider()
-                .overlay(borderSubtle)
-            
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Drop Zone / Send Files
-                    dropZoneCard
-                    
-                    // Active Transfer Progress
-                    if model.isTransferring {
-                        activeTransferBanner
+            VStack(spacing: 0) {
+                // Frosted Liquid Glass Top Bar
+                headerSection
+                    .padding(.horizontal, 28)
+                    .padding(.top, 24)
+                    .padding(.bottom, 18)
+                    .background(.bar)
+                
+                Divider()
+                    .overlay(glassBorderSubtle)
+                
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 24) {
+                        // Drop Zone / Send Files
+                        dropZoneCard
+                        
+                        // Active Transfer Progress
+                        if model.isTransferring {
+                            activeTransferBanner
+                        }
+                        
+                        // Recent Transfers
+                        recentTransfersSection
+                        
+                        // Recent Notifications
+                        recentNotificationsSection
+                        
+                        // Settings & Preferences
+                        settingsSection
                     }
-                    
-                    // Recent Transfers List
-                    recentTransfersSection
-                    
-                    // Recent Notifications List
-                    recentNotificationsSection
-                    
-                    // Settings & Destination
-                    settingsSection
+                    .padding(28)
                 }
-                .padding(24)
             }
         }
-        .frame(minWidth: 620, idealWidth: 660, minHeight: 520, idealHeight: 600)
-        .background(bgWindow)
+        .frame(minWidth: 640, idealWidth: 680, minHeight: 560, idealHeight: 640)
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showPairingSheet) {
             PairingQRView(pairingJson: model.pairingJson, model: model)
@@ -69,85 +73,132 @@ public struct MainWindowView: View {
     
     // MARK: - Header
     private var headerSection: some View {
-        HStack(spacing: 14) {
-            if let logoUrl = Bundle.main.url(forResource: "BridgeLogo", withExtension: "png"),
-               let image = NSImage(contentsOf: logoUrl) {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 36, height: 36)
+        HStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(Color.accentColor.opacity(0.16))
+                    .frame(width: 44, height: 44)
+                
+                if let logoUrl = Bundle.main.url(forResource: "BridgeLogo", withExtension: "png"),
+                   let image = NSImage(contentsOf: logoUrl) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 32, height: 32)
+                        .clipShape(Circle())
+                } else {
+                    Image(systemName: "link")
+                        .font(.title2)
+                        .foregroundColor(.accentColor)
+                }
             }
+            .overlay(Circle().stroke(glassBorder, lineWidth: 1))
+            .shadow(color: Color.black.opacity(0.3), radius: 6, x: 0, y: 3)
             
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Bridge")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                Text("Native macOS & Android AirDrop & Clipboard")
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 8) {
+                    Text("Bridge")
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                    
+                    Text("Continuity")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(Color.accentColor.opacity(0.18))
+                        .foregroundColor(.accentColor)
+                        .clipShape(Capsule())
+                }
+                
+                Text(model.clientDescription ?? "Native AirDrop & Clipboard Sync")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
             
             Spacer()
             
-            // Connection Status Badge
+            // Connection Status Pill
             HStack(spacing: 8) {
-                Circle()
-                    .fill(model.isConnected ? Color.green : Color.orange)
-                    .frame(width: 9, height: 9)
-                Text(model.isConnected ? "Connected" : "Waiting for Phone")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                ZStack {
+                    Circle()
+                        .fill((model.isConnected ? Color.green : Color.orange).opacity(0.35))
+                        .frame(width: 14, height: 14)
+                    Circle()
+                        .fill(model.isConnected ? Color.green : Color.orange)
+                        .frame(width: 8, height: 8)
+                }
+                
+                Text(model.isConnected ? "Connected" : "Listening…")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundColor(.primary)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(bgCard)
-            .cornerRadius(20)
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(borderSubtle, lineWidth: 1)
-            )
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .background(glassMaterial)
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(glassBorder, lineWidth: 1))
+            .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
         }
     }
     
-    // MARK: - Drop Zone
+    // MARK: - Drop Zone (Liquid Glass AirDrop Card)
     private var dropZoneCard: some View {
-        VStack(spacing: 12) {
-            Image(systemName: isDropTargeted ? "arrow.down.doc.fill" : "square.and.arrow.up.circle.fill")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 44, height: 44)
-                .foregroundColor(isDropTargeted ? .accentColor : .secondary)
+        VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(isDropTargeted ? Color.accentColor.opacity(0.25) : Color.accentColor.opacity(0.12))
+                    .frame(width: 60, height: 60)
+                
+                Image(systemName: isDropTargeted ? "arrow.down.doc.fill" : "square.and.arrow.up.fill")
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(isDropTargeted ? Color.white : Color.accentColor)
+            }
+            .shadow(color: Color.accentColor.opacity(isDropTargeted ? 0.4 : 0.15), radius: 10, x: 0, y: 4)
             
-            Text("Send Files to Android")
-                .font(.headline)
-            
-            Text("Drag & drop files here, or choose from your Mac")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+            VStack(spacing: 4) {
+                Text(isDropTargeted ? "Drop Files to Send" : "Send Files to Android")
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundColor(.primary)
+                
+                Text("Drag and drop documents, photos, or videos here")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
             
             Button(action: {
                 model.selectAndSendFiles()
             }) {
-                Label("Choose Files…", systemImage: "doc.badge.plus")
+                HStack(spacing: 6) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("Select Files…")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 8)
+                .background(Color.accentColor)
+                .foregroundColor(.white)
+                .clipShape(Capsule())
+                .shadow(color: Color.accentColor.opacity(0.4), radius: 8, x: 0, y: 3)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .buttonStyle(.plain)
             .disabled(!model.isConnected)
+            .opacity(model.isConnected ? 1.0 : 0.5)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 28)
-        .padding(.horizontal, 16)
+        .padding(.vertical, 32)
+        .padding(.horizontal, 20)
         .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(isDropTargeted ? Color.accentColor.opacity(0.12) : bgCard)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(glassMaterial)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(
-                    isDropTargeted ? Color.accentColor : borderSubtle,
-                    style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
+                    isDropTargeted ? Color.accentColor : glassBorder,
+                    lineWidth: isDropTargeted ? 2 : 1
                 )
         )
+        .shadow(color: Color.black.opacity(0.3), radius: 16, x: 0, y: 8)
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             handleDroppedFiles(providers: providers)
             return true
@@ -159,88 +210,101 @@ public struct MainWindowView: View {
             provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
                 if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
                     DispatchQueue.main.async {
-                        self.model.sendFile(url: url)
+                        model.sendFiles(urls: [url])
                     }
                 } else if let url = item as? URL {
                     DispatchQueue.main.async {
-                        self.model.sendFile(url: url)
+                        model.sendFiles(urls: [url])
                     }
                 }
             }
         }
     }
     
-    // MARK: - Active Transfer Banner
+    // MARK: - Active Transfer Progress Banner
     private var activeTransferBanner: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Label(model.activeTransferName, systemImage: "arrow.triangle.2.circlepath")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .lineLimit(1)
-                Spacer()
-                Text("\(Int(model.activeTransferProgress * 100))%")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Button(action: {
-                    model.cancelActiveTransfer()
-                }) {
-                    Text("Cancel")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.red)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color.red.opacity(0.1))
-                        .cornerRadius(6)
-                }
-                .buttonStyle(.plain)
-                .help("Cancel transfer")
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Color.accentColor.opacity(0.18))
+                    .frame(width: 36, height: 36)
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.accentColor)
             }
-            ProgressView(value: model.activeTransferProgress)
-                .progressViewStyle(.linear)
+            
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(model.activeTransferName)
+                        .font(.system(size: 13, weight: .medium))
+                        .lineLimit(1)
+                    Spacer()
+                    Text("\(Int(model.activeTransferProgress * 100))%")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundColor(.secondary)
+                    
+                    Button(action: {
+                        model.cancelActiveTransfer()
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Cancel transfer")
+                }
+                
+                ProgressView(value: model.activeTransferProgress)
+                    .progressViewStyle(.linear)
+                    .tint(.accentColor)
+            }
         }
-        .padding(14)
-        .background(bgCard)
-        .cornerRadius(10)
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(borderSubtle, lineWidth: 1))
+        .padding(16)
+        .background(glassMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(glassBorder, lineWidth: 1))
+        .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 4)
     }
     
     // MARK: - Recent Transfers Section
     private var recentTransfersSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Recent Transfers")
-                    .font(.headline)
+            HStack(alignment: .firstTextBaseline) {
+                Label("Recent Transfers", systemImage: "arrow.left.arrow.right.circle")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(.secondary)
+                
                 Spacer()
+                
                 if !model.recentTransfers.isEmpty {
-                    Button("Clear") {
+                    Button(action: {
                         model.clearRecentTransfers()
+                    }) {
+                        Text("Clear")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.accentColor)
                     }
                     .buttonStyle(.plain)
-                    .foregroundColor(.accentColor)
-                    .font(.subheadline)
                 }
             }
             
             if model.recentTransfers.isEmpty {
                 HStack {
                     Spacer()
-                    VStack(spacing: 6) {
+                    VStack(spacing: 8) {
                         Image(systemName: "tray")
-                            .font(.title2)
-                            .foregroundColor(.secondary)
-                        Text("No file transfers yet.")
-                            .font(.subheadline)
+                            .font(.system(size: 24))
+                            .foregroundColor(.secondary.opacity(0.6))
+                        Text("No file transfers yet")
+                            .font(.system(size: 13))
                             .foregroundColor(.secondary)
                     }
-                    .padding(.vertical, 20)
+                    .padding(.vertical, 24)
                     Spacer()
                 }
-                .background(bgCardSubtle)
-                .cornerRadius(10)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(borderSubtle, lineWidth: 0.5))
+                .background(glassMaterial.opacity(0.6))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(glassBorderSubtle, lineWidth: 1))
             } else {
                 VStack(spacing: 8) {
                     ForEach(model.recentTransfers.prefix(6)) { item in
@@ -253,26 +317,31 @@ public struct MainWindowView: View {
     
     private func transferRow(item: FileTransferItem) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: item.isIncoming ? "arrow.down.circle.fill" : "arrow.up.circle.fill")
-                .font(.title3)
-                .foregroundColor(item.isIncoming ? .green : .blue)
+            ZStack {
+                Circle()
+                    .fill((item.isIncoming ? Color.green : Color.accentColor).opacity(0.16))
+                    .frame(width: 32, height: 32)
+                
+                Image(systemName: item.isIncoming ? "arrow.down" : "arrow.up")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(item.isIncoming ? .green : .accentColor)
+            }
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.name)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(.system(size: 13, weight: .medium))
                     .lineLimit(1)
                 
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Text(item.status)
-                        .font(.caption)
+                        .font(.system(size: 11))
                         .foregroundColor(.secondary)
                     if item.size > 0 {
                         Text("•")
-                            .font(.caption)
+                            .font(.system(size: 10))
                             .foregroundColor(.secondary)
                         Text(formatByteCount(item.size))
-                            .font(.caption)
+                            .font(.system(size: 11))
                             .foregroundColor(.secondary)
                     }
                 }
@@ -285,52 +354,61 @@ public struct MainWindowView: View {
                     NSWorkspace.shared.activateFileViewerSelecting([url])
                 }) {
                     Text("Show in Finder")
-                        .font(.caption)
+                        .font(.system(size: 11, weight: .medium))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(glassFill)
+                        .clipShape(Capsule())
+                        .overlay(Capsule().stroke(glassBorder, lineWidth: 1))
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                .buttonStyle(.plain)
             }
         }
-        .padding(10)
-        .background(bgCard)
-        .cornerRadius(8)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(borderSubtle, lineWidth: 0.5))
+        .padding(12)
+        .background(glassMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(glassBorderSubtle, lineWidth: 1))
     }
     
     // MARK: - Recent Notifications Section
     private var recentNotificationsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Recent Notifications")
-                    .font(.headline)
+            HStack(alignment: .firstTextBaseline) {
+                Label("Recent Notifications", systemImage: "bell.badge")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(.secondary)
+                
                 Spacer()
+                
                 if !model.recentNotifications.isEmpty {
-                    Button("Clear") {
+                    Button(action: {
                         model.clearNotificationHistory()
+                    }) {
+                        Text("Clear")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.accentColor)
                     }
                     .buttonStyle(.plain)
-                    .foregroundColor(.accentColor)
-                    .font(.subheadline)
                 }
             }
             
             if model.recentNotifications.isEmpty {
                 HStack {
                     Spacer()
-                    VStack(spacing: 6) {
+                    VStack(spacing: 8) {
                         Image(systemName: "bell.slash")
-                            .font(.title2)
-                            .foregroundColor(.secondary)
-                        Text("No recent notifications.")
-                            .font(.subheadline)
+                            .font(.system(size: 24))
+                            .foregroundColor(.secondary.opacity(0.6))
+                        Text("No notifications from phone yet")
+                            .font(.system(size: 13))
                             .foregroundColor(.secondary)
                     }
-                    .padding(.vertical, 20)
+                    .padding(.vertical, 24)
                     Spacer()
                 }
-                .background(bgCardSubtle)
-                .cornerRadius(10)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(borderSubtle, lineWidth: 0.5))
+                .background(glassMaterial.opacity(0.6))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(glassBorderSubtle, lineWidth: 1))
             } else {
                 VStack(spacing: 8) {
                     ForEach(model.recentNotifications.prefix(6)) { notif in
@@ -343,53 +421,56 @@ public struct MainWindowView: View {
     
     private func notificationRow(item: NotificationHistoryItem) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "bell.badge.fill")
-                .font(.title3)
-                .foregroundColor(.accentColor)
-                .padding(.top, 2)
+            ZStack {
+                Circle()
+                    .fill(Color.accentColor.opacity(0.16))
+                    .frame(width: 32, height: 32)
+                
+                Image(systemName: "bell.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.accentColor)
+            }
+            .padding(.top, 2)
             
             VStack(alignment: .leading, spacing: 3) {
                 HStack {
                     Text(item.app)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.primary)
                     Spacer()
                     Text(item.date, style: .time)
-                        .font(.caption2)
+                        .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }
                 
                 if !item.title.isEmpty {
                     Text(item.title)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.primary)
                         .lineLimit(1)
                 }
                 
                 if !item.body.isEmpty {
                     Text(item.body)
-                        .font(.caption)
+                        .font(.system(size: 12))
                         .foregroundColor(.secondary)
                         .lineLimit(2)
                 }
             }
-            
-            Spacer()
         }
-        .padding(10)
-        .background(bgCard)
-        .cornerRadius(8)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(borderSubtle, lineWidth: 0.5))
+        .padding(12)
+        .background(glassMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(glassBorderSubtle, lineWidth: 1))
     }
     
     // MARK: - Settings Section
     private var settingsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("Settings")
-                    .font(.headline)
+                Label("Preferences", systemImage: "gearshape")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(.secondary)
                 
                 Spacer()
                 
@@ -410,68 +491,78 @@ public struct MainWindowView: View {
     }
     
     private var notificationsSettingsContent: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("PHONE NOTIFICATIONS")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(.secondary)
-                
-                VStack(spacing: 0) {
-                    HStack {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(spacing: 0) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text("Show Android notifications")
-                            .font(.subheadline)
-                        Spacer()
-                        Toggle("", isOn: $model.showAndroidNotifications)
-                            .labelsHidden()
+                            .font(.system(size: 13, weight: .medium))
+                        Text("Deliver phone notifications as macOS banners")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
                     }
-                    .padding(12)
-                    
-                    Divider()
-                        .overlay(borderSubtle)
-                    
-                    HStack {
-                        Text("Show previews")
-                            .font(.subheadline)
-                        Spacer()
-                        Toggle("", isOn: $model.showNotificationPreviews)
-                            .labelsHidden()
-                            .disabled(!model.showAndroidNotifications)
-                    }
-                    .padding(12)
+                    Spacer()
+                    Toggle("", isOn: $model.showAndroidNotifications)
+                        .labelsHidden()
                 }
-                .background(bgCard)
-                .cornerRadius(10)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(borderSubtle, lineWidth: 0.5))
+                .padding(14)
                 
-                Text("When enabled, allowed notifications from your Android phone will be shown as native macOS banners.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 4)
+                Divider()
+                    .overlay(glassBorderSubtle)
+                
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Show message previews")
+                            .font(.system(size: 13, weight: .medium))
+                        Text("Display text message previews in alert banners")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: $model.showNotificationPreviews)
+                        .labelsHidden()
+                        .disabled(!model.showAndroidNotifications)
+                }
+                .padding(14)
             }
+            .background(glassMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(glassBorderSubtle, lineWidth: 1))
             
-            Button("Send test notification") {
+            Button(action: {
                 model.sendTestNotification()
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "paperplane")
+                        .font(.system(size: 12))
+                    Text("Send Test Notification")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .background(glassFill)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(glassBorder, lineWidth: 1))
             }
-            .buttonStyle(.bordered)
-            .controlSize(.regular)
+            .buttonStyle(.plain)
         }
-        .padding(.vertical, 4)
     }
     
     private var generalSettingsContent: some View {
         VStack(alignment: .leading, spacing: 14) {
-            // Save Location
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Save Received Files To:")
-                    .font(.subheadline)
+            // Save Location Card
+            VStack(alignment: .leading, spacing: 10) {
+                Text("DOWNLOADS DESTINATION")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundColor(.secondary)
                 
-                HStack {
+                HStack(spacing: 12) {
                     Image(systemName: "folder.fill")
+                        .font(.system(size: 20))
                         .foregroundColor(.accentColor)
+                    
                     Text(model.downloadsDirectoryPath)
-                        .font(.subheadline)
+                        .font(.system(size: 13, weight: .medium))
                         .lineLimit(1)
                         .truncationMode(.middle)
                     
@@ -480,52 +571,82 @@ public struct MainWindowView: View {
                     Button("Change…") {
                         model.chooseDownloadsDirectory()
                     }
-                    .controlSize(.small)
+                    .font(.system(size: 12, weight: .medium))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(glassFill)
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(glassBorder, lineWidth: 1))
+                    .buttonStyle(.plain)
                     
-                    Button("Open Folder") {
+                    Button("Open") {
                         model.openDownloadsDirectory()
                     }
-                    .controlSize(.small)
+                    .font(.system(size: 12, weight: .medium))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(glassFill)
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(glassBorder, lineWidth: 1))
+                    .buttonStyle(.plain)
                 }
-                .padding(10)
-                .background(bgCard)
-                .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(borderSubtle, lineWidth: 0.5))
+                .padding(14)
+                .background(glassMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(glassBorderSubtle, lineWidth: 1))
             }
             
-            Divider()
-            
-            // System & Connection Preferences
-            VStack(alignment: .leading, spacing: 12) {
-                Text("App & Connection")
-                    .font(.subheadline)
+            // App & Connection Preferences
+            VStack(alignment: .leading, spacing: 10) {
+                Text("SYSTEM & ACTIONS")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundColor(.secondary)
                 
-                HStack(spacing: 24) {
-                    Toggle("Hide Bridge from Dock", isOn: $model.hideFromDock)
+                VStack(spacing: 0) {
+                    HStack {
+                        Text("Hide Bridge from Dock")
+                            .font(.system(size: 13, weight: .medium))
+                        Spacer()
+                        Toggle("", isOn: $model.hideFromDock)
+                            .labelsHidden()
+                    }
+                    .padding(14)
                     
-                    Toggle("Launch Bridge at Login", isOn: Binding(
-                        get: { model.isOpenAtLogin },
-                        set: { _ in model.toggleOpenAtLogin() }
-                    ))
+                    Divider()
+                        .overlay(glassBorderSubtle)
                     
-                    Spacer()
+                    HStack {
+                        Text("Launch Bridge at Login")
+                            .font(.system(size: 13, weight: .medium))
+                        Spacer()
+                        Toggle("", isOn: Binding(
+                            get: { model.isOpenAtLogin },
+                            set: { _ in model.toggleOpenAtLogin() }
+                        ))
+                        .labelsHidden()
+                    }
+                    .padding(14)
                 }
-                .font(.subheadline)
+                .background(glassMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(glassBorderSubtle, lineWidth: 1))
                 
                 HStack(spacing: 10) {
                     if model.isConnected {
                         Button(action: { model.disconnect() }) {
                             Label("Disconnect", systemImage: "xmark.circle")
+                                .font(.system(size: 12, weight: .medium))
                         }
                     }
                     
                     Button(action: { model.reconnect() }) {
                         Label("Reconnect", systemImage: "arrow.clockwise")
+                            .font(.system(size: 12, weight: .medium))
                     }
                     
                     Button(role: .destructive, action: { showClearConfirm = true }) {
-                        Label("Clear Pairing", systemImage: "trash")
+                        Label("Reset Pairing", systemImage: "trash")
+                            .font(.system(size: 12, weight: .medium))
                     }
                     
                     Spacer()
@@ -539,6 +660,7 @@ public struct MainWindowView: View {
                     }
                 }
                 .font(.subheadline)
+                .padding(.top, 4)
             }
         }
         .alert("Clear & Reset Pairing?", isPresented: $showClearConfirm) {
@@ -568,10 +690,10 @@ public struct MainWindowView: View {
                 Text(LogManager.shared.getDiagnostics())
                     .font(.system(.caption, design: .monospaced))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(bgInput)
-                    .cornerRadius(8)
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(borderSubtle, lineWidth: 0.5))
+                    .padding(14)
+                    .background(Color.black.opacity(0.4))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(glassBorderSubtle, lineWidth: 1))
             }
             .frame(height: 320)
             
@@ -582,8 +704,9 @@ public struct MainWindowView: View {
                 Spacer()
             }
         }
-        .padding(20)
-        .frame(width: 540, height: 420)
+        .padding(24)
+        .frame(width: 560, height: 440)
+        .background(glassMaterial)
     }
     
     private func formatByteCount(_ bytes: Int) -> String {

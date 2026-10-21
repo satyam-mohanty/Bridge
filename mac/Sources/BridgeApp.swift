@@ -41,7 +41,6 @@ struct BridgeApp: App {
     var body: some Scene {
         WindowGroup("Bridge", id: "main") {
             MainWindowView(model: model)
-                .background(Color(red: 0.05, green: 0.05, blue: 0.05))
                 .preferredColorScheme(.dark)
                 .onAppear {
                     appDelegate.model = model
@@ -50,8 +49,10 @@ struct BridgeApp: App {
                     model.sendFiles(urls: [url])
                 }
         }
+        .windowStyle(.hiddenTitleBar)
+        .windowToolbarStyle(.unified)
         .windowResizability(.contentMinSize)
-        .defaultSize(width: 660, height: 580)
+        .defaultSize(width: 680, height: 640)
         
         MenuBarExtra("Bridge", systemImage: model.isConnected ? "link.circle.fill" : "link.circle") {
             MenuBarView(model: model)
