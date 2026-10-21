@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.servicesProvider = self
         NSUpdateDynamicServices()
+        _ = MacNotificationManager.shared
     }
     
     func application(_ sender: NSApplication, openFiles filenames: [String]) {
@@ -66,13 +67,24 @@ struct BridgeApp: App {
         MenuBarExtra {
             MenuBarView(model: model)
         } label: {
-            Image(model.isConnected ? "bridge_menu_connected" : "bridge_menu_not_connected")
+            menuBarIcon(isConnected: model.isConnected)
         }
         .menuBarExtraStyle(.window)
         
         Settings {
             SettingsView(model: model)
         }
+    }
+    
+    private func menuBarIcon(isConnected: Bool) -> Image {
+        let name = isConnected ? "bridge_menu_connected" : "bridge_menu_not_connected"
+        if let image = NSImage(named: name) {
+            let resized = image.copy() as! NSImage
+            resized.size = NSSize(width: 16, height: 16)
+            resized.isTemplate = true
+            return Image(nsImage: resized)
+        }
+        return Image(name)
     }
 }
 

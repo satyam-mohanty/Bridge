@@ -4,6 +4,11 @@
       "filename" : "bridge_menu_not_connected.png",
       "idiom" : "universal",
       "scale" : "1x"
+    },
+    {
+      "filename" : "bridge_menu_not_connected@2x.png",
+      "idiom" : "universal",
+      "scale" : "2x"
     }
   ],
   "info" : {

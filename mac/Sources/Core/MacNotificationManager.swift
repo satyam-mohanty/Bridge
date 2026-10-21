@@ -2,7 +2,7 @@ import Foundation
 import UserNotifications
 import AppKit
 
-public final class MacNotificationManager: NSObject, UNUserNotificationCenterDelegate, NSUserNotificationCenterDelegate {
+public final class MacNotificationManager: NSObject, UNUserNotificationCenterDelegate {
     public static let shared = MacNotificationManager()
     
     private let center = UNUserNotificationCenter.current()
@@ -21,21 +21,24 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
     private override init() {
         super.init()
         center.delegate = self
-        NSUserNotificationCenter.default.delegate = self
         checkAuthorization()
     }
     
     public func checkAuthorization(completion: ((Bool) -> Void)? = nil) {
         center.getNotificationSettings { [weak self] settings in
             guard let self = self else { return }
-            if settings.authorizationStatus == .authorized {
+            switch settings.authorizationStatus {
+            case .authorized, .provisional:
                 self.isUNAuthorized = true
                 completion?(true)
-            } else if settings.authorizationStatus == .notDetermined {
+            case .notDetermined:
                 self.requestAuthorization(completion: completion)
-            } else {
+            case .denied:
                 self.isUNAuthorized = false
-                LogManager.shared.log("UNUserNotificationCenter authorization status: \(settings.authorizationStatus.rawValue); direct delivery active")
+                LogManager.shared.log("UNUserNotificationCenter authorization is denied in System Settings for Bridge", level: .error)
+                completion?(false)
+            @unknown default:
+                self.isUNAuthorized = false
                 completion?(false)
             }
         }
@@ -46,7 +49,7 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
             guard let self = self else { return }
             self.isUNAuthorized = granted
             if let error = error {
-                LogManager.shared.log("Notification authorization failed: \(error); using direct delivery fallback", level: .error)
+                LogManager.shared.log("Notification authorization failed: \(error)", level: .error)
             } else {
                 LogManager.shared.log("Notification authorization granted: \(granted)")
             }
@@ -67,15 +70,25 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         if #available(macOS 14.0, *) {
-            completionHandler([.banner, .sound, .list])
+            completionHandler([.banner, .sound, .list, .badge])
         } else {
-            completionHandler([.alert, .sound])
+            completionHandler([.alert, .sound, .badge])
         }
     }
     
-    // MARK: - NSUserNotificationCenterDelegate
-    public func userNotificationCenter(_ center: NSUserNotificationCenter, shouldPresent notification: NSUserNotification) -> Bool {
-        return true
+    public func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+            for window in NSApp.windows where window.canBecomeMain {
+                window.makeKeyAndOrderFront(nil)
+                break
+            }
+        }
+        completionHandler()
     }
     
     // MARK: - Notification Post Handling
@@ -120,27 +133,66 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
             NetworkServer.shared.send(type: .iconNeed, value: IconNeedMessage(pkg: msg.pkg))
         }
         
+        postNotification(
+            key: msg.key,
+            app: msg.app,
+            title: title,
+            subtitle: subtitle,
+            body: body,
+            contactPhotoData: contactPhotoData,
+            iconFileUrl: hasAppIcon ? iconFileUrl : nil
+        )
+    }
+    
+    private func postNotification(
+        key: String,
+        app: String,
+        title: String,
+        subtitle: String,
+        body: String,
+        contactPhotoData: Data?,
+        iconFileUrl: URL?
+    ) {
         center.getNotificationSettings { [weak self] settings in
             guard let self = self else { return }
-            if settings.authorizationStatus == .authorized {
+            switch settings.authorizationStatus {
+            case .authorized, .provisional:
                 self.deliverViaUN(
-                    key: msg.key,
-                    app: msg.app,
+                    key: key,
+                    app: app,
                     title: title,
                     subtitle: subtitle,
                     body: body,
                     contactPhotoData: contactPhotoData,
-                    iconFileUrl: hasAppIcon ? iconFileUrl : nil
+                    iconFileUrl: iconFileUrl
                 )
-            } else {
-                self.deliverViaNS(
-                    key: msg.key,
-                    app: msg.app,
+            case .notDetermined:
+                self.requestAuthorization { granted in
+                    if granted {
+                        self.deliverViaUN(
+                            key: key,
+                            app: app,
+                            title: title,
+                            subtitle: subtitle,
+                            body: body,
+                            contactPhotoData: contactPhotoData,
+                            iconFileUrl: iconFileUrl
+                        )
+                    } else {
+                        LogManager.shared.log("Notification authorization denied by user", level: .error)
+                    }
+                }
+            case .denied:
+                LogManager.shared.log("Notification not allowed in macOS System Settings for Bridge", level: .error)
+            @unknown default:
+                self.deliverViaUN(
+                    key: key,
+                    app: app,
                     title: title,
                     subtitle: subtitle,
                     body: body,
                     contactPhotoData: contactPhotoData,
-                    iconFileUrl: hasAppIcon ? iconFileUrl : nil
+                    iconFileUrl: iconFileUrl
                 )
             }
         }
@@ -157,7 +209,9 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
     ) {
         let content = UNMutableNotificationContent()
         content.title = title
-        content.subtitle = subtitle
+        if !subtitle.isEmpty {
+            content.subtitle = subtitle
+        }
         content.body = body
         content.sound = .default
         
@@ -184,49 +238,12 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
         }
         
         let request = UNNotificationRequest(identifier: key, content: content, trigger: nil)
-        center.add(request) { [weak self] error in
+        center.add(request) { error in
             if let error = error {
-                LogManager.shared.log("Failed to schedule UNNotification: \(error), falling back to direct delivery", level: .error)
-                self?.deliverViaNS(
-                    key: key,
-                    app: app,
-                    title: title,
-                    subtitle: subtitle,
-                    body: body,
-                    contactPhotoData: contactPhotoData,
-                    iconFileUrl: iconFileUrl
-                )
+                LogManager.shared.log("Failed to schedule UNNotification: \(error)", level: .error)
             } else {
                 LogManager.shared.log("Notification displayed: [\(app)] \(title) - \(body)")
             }
-        }
-    }
-    
-    private func deliverViaNS(
-        key: String,
-        app: String,
-        title: String,
-        subtitle: String,
-        body: String,
-        contactPhotoData: Data?,
-        iconFileUrl: URL?
-    ) {
-        DispatchQueue.main.async {
-            let notif = NSUserNotification()
-            notif.identifier = key
-            notif.title = title
-            notif.subtitle = subtitle
-            notif.informativeText = body
-            notif.soundName = NSUserNotificationDefaultSoundName
-            
-            if let photoData = contactPhotoData {
-                notif.contentImage = NSImage(data: photoData)
-            } else if let iconUrl = iconFileUrl {
-                notif.contentImage = NSImage(contentsOf: iconUrl)
-            }
-            
-            NSUserNotificationCenter.default.deliver(notif)
-            LogManager.shared.log("Notification displayed: [\(app)] \(title) - \(body)")
         }
     }
     
@@ -234,14 +251,6 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
     public func removeNotification(key: String) {
         center.removeDeliveredNotifications(withIdentifiers: [key])
         center.removePendingNotificationRequests(withIdentifiers: [key])
-        
-        DispatchQueue.main.async {
-            for delivered in NSUserNotificationCenter.default.deliveredNotifications {
-                if delivered.identifier == key {
-                    NSUserNotificationCenter.default.removeDeliveredNotification(delivered)
-                }
-            }
-        }
     }
 
     public func handleNotificationRemove(_ msg: NotifRemoveMessage) {
@@ -264,30 +273,15 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
             activeRingingCalls.insert(msg.id)
             let bodyText = (msg.name != nil && msg.number != nil) ? msg.number! : "Incoming phone call"
             
-            center.getNotificationSettings { [weak self] settings in
-                guard let self = self else { return }
-                if settings.authorizationStatus == .authorized {
-                    self.deliverViaUN(
-                        key: callKey,
-                        app: "Phone",
-                        title: "Incoming call",
-                        subtitle: callerLabel,
-                        body: bodyText,
-                        contactPhotoData: nil,
-                        iconFileUrl: nil
-                    )
-                } else {
-                    self.deliverViaNS(
-                        key: callKey,
-                        app: "Phone",
-                        title: "Incoming call",
-                        subtitle: callerLabel,
-                        body: bodyText,
-                        contactPhotoData: nil,
-                        iconFileUrl: nil
-                    )
-                }
-            }
+            postNotification(
+                key: callKey,
+                app: "Phone",
+                title: "Incoming call",
+                subtitle: callerLabel,
+                body: bodyText,
+                contactPhotoData: nil,
+                iconFileUrl: nil
+            )
             LogManager.shared.log("Notification displayed: [Call] Incoming call - \(callerLabel)")
             
         case "answered":
@@ -305,30 +299,15 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
                 let missedTitle = "Missed call from \(callerLabel)"
                 let missedBody = (msg.name != nil && msg.number != nil) ? "Missed call from \(callerLabel) (\(msg.number!))" : "Missed call from \(callerLabel)"
                 
-                center.getNotificationSettings { [weak self] settings in
-                    guard let self = self else { return }
-                    if settings.authorizationStatus == .authorized {
-                        self.deliverViaUN(
-                            key: missedKey,
-                            app: "Phone",
-                            title: missedTitle,
-                            subtitle: "Phone",
-                            body: missedBody,
-                            contactPhotoData: nil,
-                            iconFileUrl: nil
-                        )
-                    } else {
-                        self.deliverViaNS(
-                            key: missedKey,
-                            app: "Phone",
-                            title: missedTitle,
-                            subtitle: "Phone",
-                            body: missedBody,
-                            contactPhotoData: nil,
-                            iconFileUrl: nil
-                        )
-                    }
-                }
+                postNotification(
+                    key: missedKey,
+                    app: "Phone",
+                    title: missedTitle,
+                    subtitle: "Phone",
+                    body: missedBody,
+                    contactPhotoData: nil,
+                    iconFileUrl: nil
+                )
                 LogManager.shared.log("Notification displayed: [Call] Missed call from \(callerLabel)")
             } else {
                 LogManager.shared.log("Call ended after answer: id=\(msg.id)")
@@ -363,29 +342,14 @@ public final class MacNotificationManager: NSObject, UNUserNotificationCenterDel
         let subtitle = "Android Sync"
         let body = "Notifications are connected and working properly."
         
-        center.getNotificationSettings { [weak self] settings in
-            guard let self = self else { return }
-            if settings.authorizationStatus == .authorized {
-                self.deliverViaUN(
-                    key: key,
-                    app: "Bridge",
-                    title: title,
-                    subtitle: subtitle,
-                    body: body,
-                    contactPhotoData: nil,
-                    iconFileUrl: nil
-                )
-            } else {
-                self.deliverViaNS(
-                    key: key,
-                    app: "Bridge",
-                    title: title,
-                    subtitle: subtitle,
-                    body: body,
-                    contactPhotoData: nil,
-                    iconFileUrl: nil
-                )
-            }
-        }
+        postNotification(
+            key: key,
+            app: "Bridge",
+            title: title,
+            subtitle: subtitle,
+            body: body,
+            contactPhotoData: nil,
+            iconFileUrl: nil
+        )
     }
 }
