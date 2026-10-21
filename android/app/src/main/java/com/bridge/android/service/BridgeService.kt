@@ -67,6 +67,9 @@ class BridgeService : Service(), BridgeClientListener {
         handleClipboardChanged()
     }
 
+    @Volatile
+    private var isHandlingClipChange = false
+
     private val unlockReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == Intent.ACTION_USER_PRESENT) {
@@ -207,11 +210,20 @@ class BridgeService : Service(), BridgeClientListener {
 
     fun handleClipboardChanged() {
         if (!_isConnectedFlow.value) return
+        if (isHandlingClipChange) {
+            LogManager.d("handleClipboardChanged: Already in progress, ignoring duplicate trigger")
+            return
+        }
+        isHandlingClipChange = true
+
         try {
             val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             // 1. Try reading directly (succeeds if application has focus)
             val sent = clipboardSyncManager.sendLocalClipboardToMac(client, clipManager, force = false)
-            if (sent) return
+            if (sent) {
+                isHandlingClipChange = false
+                return
+            }
 
             // 2. Direct read failed (Android 10+ background restriction).
             //    Try AccessibilityService overlay first (no SYSTEM_ALERT_WINDOW needed).
@@ -228,12 +240,14 @@ class BridgeService : Service(), BridgeClientListener {
             // Use TYPE_ACCESSIBILITY_OVERLAY (privileged, no extra permission needed).
             // If it also fails, fall through to SYSTEM_ALERT_WINDOW overlay or activity.
             a11y.readClipboardViaAccessibilityOverlay(client, clipboardSyncManager) { sent ->
+                isHandlingClipChange = false
                 if (!sent) {
                     LogManager.d("Accessibility overlay read failed, trying next fallback")
                     performOverlayOrActivityFallback()
                 }
             }
         } else {
+            isHandlingClipChange = false
             performOverlayOrActivityFallback()
         }
     }

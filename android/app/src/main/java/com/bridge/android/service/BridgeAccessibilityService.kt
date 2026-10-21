@@ -2,13 +2,13 @@ package com.bridge.android.service
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
-import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.view.View
+import android.view.ViewTreeObserver
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -38,26 +38,11 @@ class BridgeAccessibilityService : AccessibilityService() {
         bridge.handleClipboardChanged()
     }
 
-    private val clipListener = ClipboardManager.OnPrimaryClipChangedListener {
-        LogManager.i("Accessibility: ClipboardManager onPrimaryClipChanged event detected")
-        // System clipboard changed; schedule read with minor delay to ensure write finished
-        mainHandler.removeCallbacks(syncRunnable)
-        mainHandler.postDelayed(syncRunnable, 40)
-    }
-
     override fun onServiceConnected() {
         super.onServiceConnected()
         isRunning = true
         instance = this
-        LogManager.i("BridgeAccessibilityService connected and monitoring copy events")
-
-        try {
-            val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            cm.addPrimaryClipChangedListener(clipListener)
-            LogManager.i("Accessibility: Registered OnPrimaryClipChangedListener")
-        } catch (e: Exception) {
-            LogManager.e("Accessibility: Failed to register OnPrimaryClipChangedListener", e)
-        }
+        LogManager.i("BridgeAccessibilityService connected and ready")
 
         val info = AccessibilityServiceInfo().apply {
             eventTypes = AccessibilityEvent.TYPE_VIEW_CLICKED or
@@ -66,7 +51,7 @@ class BridgeAccessibilityService : AccessibilityService() {
                     AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED or
                     AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
-            notificationTimeout = 40
+            notificationTimeout = 50
             flags = AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
                     AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
         }
@@ -74,13 +59,9 @@ class BridgeAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
-        try {
-            val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            cm.removePrimaryClipChangedListener(clipListener)
-        } catch (_: Exception) {}
-
         isRunning = false
         instance = null
+        mainHandler.removeCallbacksAndMessages(null)
         LogManager.i("BridgeAccessibilityService destroyed")
         super.onDestroy()
     }
@@ -92,53 +73,72 @@ class BridgeAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
-        val pkgName = event.packageName?.toString() ?: ""
-        if (pkgName == packageName) return // Ignore events from Bridge itself
+        try {
+            val pkgName = event.packageName?.toString() ?: ""
+            if (pkgName == packageName) return // Ignore events from Bridge itself
 
-        var detectedCopyAction = false
+            var detectedCopyAction = false
 
-        when (event.eventType) {
-            AccessibilityEvent.TYPE_VIEW_CLICKED,
-            AccessibilityEvent.TYPE_VIEW_LONG_CLICKED -> {
-                val text = event.text.joinToString(" ")
-                val desc = (event.contentDescription ?: "").toString()
-                val sourceNode = try { event.source } catch (_: Exception) { null }
+            when (event.eventType) {
+                AccessibilityEvent.TYPE_VIEW_CLICKED,
+                AccessibilityEvent.TYPE_VIEW_LONG_CLICKED -> {
+                    val text = event.text.joinToString(" ")
+                    val desc = (event.contentDescription ?: "").toString()
 
-                if (isCopyOrCutIdentifier(text, desc, "") || nodeMatchesCopyAction(sourceNode)) {
-                    LogManager.i("Accessibility: Copy action detected in $pkgName ($text / $desc)")
-                    detectedCopyAction = true
+                    if (isCopyOrCutIdentifier(text, desc, "")) {
+                        LogManager.i("Accessibility: Copy action detected in $pkgName ($text / $desc)")
+                        detectedCopyAction = true
+                    } else {
+                        // Safely inspect source node without leaking AccessibilityNodeInfo references
+                        var sourceNode: AccessibilityNodeInfo? = null
+                        try {
+                            sourceNode = event.source
+                            if (sourceNode != null && nodeMatchesCopyAction(sourceNode)) {
+                                LogManager.i("Accessibility: Copy action found in node hierarchy of $pkgName")
+                                detectedCopyAction = true
+                            }
+                        } catch (_: Throwable) {
+                        } finally {
+                            try {
+                                @Suppress("DEPRECATION")
+                                sourceNode?.recycle()
+                            } catch (_: Throwable) {}
+                        }
+                    }
                 }
-            }
 
-            AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED -> {
-                val text = event.text.joinToString(" ").lowercase()
-                if (text.contains("copi") || text.contains("copied") || text.contains("clipboard") || text.contains("copy")) {
-                    LogManager.i("Accessibility: Clipboard toast notification detected from $pkgName ($text)")
-                    detectedCopyAction = true
-                }
-            }
-
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
-                val className = (event.className ?: "").toString()
-                if (pkgName == "com.android.systemui" || pkgName.contains("launcher") || pkgName.contains("intentresolver")) {
+                AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED -> {
                     val text = event.text.joinToString(" ").lowercase()
-                    val desc = (event.contentDescription ?: "").toString().lowercase()
-                    if (className.contains("Clipboard", ignoreCase = true) ||
-                        className.contains("Overlay", ignoreCase = true) ||
-                        className.contains("Toast", ignoreCase = true) ||
-                        className.contains("Chooser", ignoreCase = true) ||
-                        text.contains("copi") || desc.contains("copi") ||
-                        text.contains("clip") || desc.contains("clip")
-                    ) {
-                        LogManager.i("Accessibility: SystemUI Clipboard/Share overlay appeared ($className)")
+                    if (text.contains("copi") || text.contains("copied") || text.contains("clipboard") || text.contains("copy")) {
+                        LogManager.i("Accessibility: Clipboard toast notification detected from $pkgName ($text)")
                         detectedCopyAction = true
                     }
                 }
-            }
-        }
 
-        if (detectedCopyAction) {
-            scheduleSpeculativeSync()
+                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                    val className = (event.className ?: "").toString()
+                    if (pkgName == "com.android.systemui" || pkgName.contains("launcher") || pkgName.contains("intentresolver")) {
+                        val text = event.text.joinToString(" ").lowercase()
+                        val desc = (event.contentDescription ?: "").toString().lowercase()
+                        if (className.contains("Clipboard", ignoreCase = true) ||
+                            className.contains("Overlay", ignoreCase = true) ||
+                            className.contains("Toast", ignoreCase = true) ||
+                            className.contains("Chooser", ignoreCase = true) ||
+                            text.contains("copi") || desc.contains("copi") ||
+                            text.contains("clip") || desc.contains("clip")
+                        ) {
+                            LogManager.i("Accessibility: SystemUI Clipboard/Share overlay appeared ($className)")
+                            detectedCopyAction = true
+                        }
+                    }
+                }
+            }
+
+            if (detectedCopyAction) {
+                scheduleSpeculativeSync()
+            }
+        } catch (t: Throwable) {
+            LogManager.d("Accessibility: Safe event catch: ${t.message}")
         }
     }
 
@@ -187,6 +187,7 @@ class BridgeAccessibilityService : AccessibilityService() {
         mainHandler.post {
             var overlayView: View? = null
             var windowManager: WindowManager? = null
+            var focusListener: ViewTreeObserver.OnWindowFocusChangeListener? = null
             var hasCompleted = false
 
             fun cleanup() {
@@ -194,18 +195,28 @@ class BridgeAccessibilityService : AccessibilityService() {
                 hasCompleted = true
                 try {
                     val v = overlayView
+                    val fl = focusListener
+                    if (v != null && fl != null) {
+                        try { v.viewTreeObserver.removeOnWindowFocusChangeListener(fl) } catch (_: Throwable) {}
+                    }
                     val wm = windowManager
                     if (v != null && v.isAttachedToWindow && wm != null) {
-                        wm.removeViewImmediate(v)
+                        wm.removeView(v)
                     }
-                } catch (_: Exception) {}
+                } catch (_: Throwable) {}
+                focusListener = null
                 overlayView = null
                 windowManager = null
                 isOverlayReading = false
             }
 
             try {
-                val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+                val wm = getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+                if (wm == null) {
+                    cleanup()
+                    onResult(false)
+                    return@post
+                }
                 windowManager = wm
 
                 val dummyView = View(this).apply {
@@ -232,7 +243,7 @@ class BridgeAccessibilityService : AccessibilityService() {
                 fun attemptRead(retryCount: Int) {
                     if (hasCompleted) return
                     try {
-                        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                         val sent = syncManager.sendLocalClipboardToMac(
                             client,
                             cm,
@@ -245,11 +256,10 @@ class BridgeAccessibilityService : AccessibilityService() {
                             onResult(true)
                             return
                         }
-                    } catch (e: Exception) {
-                        LogManager.e("Accessibility: Error reading overlay clipboard: ${e.message}")
+                    } catch (e: Throwable) {
+                        LogManager.e("Accessibility: Error reading overlay clipboard", e)
                     }
 
-                    // Retry up to 2 times for apps that write to clipboard asynchronously (e.g. Chrome copying images)
                     if (retryCount < 2) {
                         val delay = if (retryCount == 0) 100L else 180L
                         mainHandler.postDelayed({
@@ -261,17 +271,19 @@ class BridgeAccessibilityService : AccessibilityService() {
                     }
                 }
 
-                // If focus attaches quickly, read immediately; otherwise schedule at 60ms
-                dummyView.viewTreeObserver.addOnWindowFocusChangeListener { hasFocus ->
+                val fl = ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
                     if (hasFocus && !hasCompleted) {
                         attemptRead(0)
                     }
                 }
+                focusListener = fl
+                dummyView.viewTreeObserver.addOnWindowFocusChangeListener(fl)
+
                 mainHandler.postDelayed({
                     if (!hasCompleted) attemptRead(0)
                 }, 60)
 
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 LogManager.e("Accessibility: Failed to add overlay view", e)
                 cleanup()
                 onResult(false)
@@ -281,22 +293,34 @@ class BridgeAccessibilityService : AccessibilityService() {
 
     private fun nodeMatchesCopyAction(node: AccessibilityNodeInfo?): Boolean {
         if (node == null) return false
-        val text = (node.text ?: "").toString()
-        val desc = (node.contentDescription ?: "").toString()
-        val viewId = (node.viewIdResourceName ?: "").toString()
-        if (isCopyOrCutIdentifier(text, desc, viewId)) return true
+        try {
+            val text = (node.text ?: "").toString()
+            val desc = (node.contentDescription ?: "").toString()
+            val viewId = (node.viewIdResourceName ?: "").toString()
+            if (isCopyOrCutIdentifier(text, desc, viewId)) return true
 
-        // Check immediate children (context menu rows, button containers)
-        val count = try { node.childCount } catch (_: Throwable) { 0 }
-        for (i in 0 until minOf(count, 8)) {
-            val child = try { node.getChild(i) } catch (_: Throwable) { null } ?: continue
-            val cText = (child.text ?: "").toString()
-            val cDesc = (child.contentDescription ?: "").toString()
-            val cViewId = (child.viewIdResourceName ?: "").toString()
-            val matched = isCopyOrCutIdentifier(cText, cDesc, cViewId)
-            child.recycle()
-            if (matched) return true
-        }
+            val count = node.childCount
+            for (i in 0 until minOf(count, 6)) {
+                var child: AccessibilityNodeInfo? = null
+                try {
+                    child = node.getChild(i)
+                    if (child != null) {
+                        val cText = (child.text ?: "").toString()
+                        val cDesc = (child.contentDescription ?: "").toString()
+                        val cViewId = (child.viewIdResourceName ?: "").toString()
+                        if (isCopyOrCutIdentifier(cText, cDesc, cViewId)) {
+                            return true
+                        }
+                    }
+                } catch (_: Throwable) {
+                } finally {
+                    try {
+                        @Suppress("DEPRECATION")
+                        child?.recycle()
+                    } catch (_: Throwable) {}
+                }
+            }
+        } catch (_: Throwable) {}
         return false
     }
 
