@@ -172,20 +172,9 @@ public final class ClipboardManager {
             
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
-            
-            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            let isUrl = (trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://")) && URL(string: trimmed)?.host != nil
-            
-            let item = NSPasteboardItem()
-            item.setString(text, forType: .string)
-            if isUrl {
-                item.setString(trimmed, forType: .URL)
-                LogManager.shared.log("Applied remote link from Android to clipboard: \(trimmed)")
-            } else {
-                LogManager.shared.log("Applied remote text from Android to clipboard (\(text.count) chars)")
-            }
-            pasteboard.writeObjects([item])
+            pasteboard.setString(text, forType: .string)
             self.lastChangeCount = pasteboard.changeCount
+            LogManager.shared.log("Applied remote text from Android to clipboard (\(text.count) chars)")
         }
     }
     

@@ -79,220 +79,118 @@ class ClipboardSyncManager(private val context: Context) {
             }
 
             if (clip.itemCount == 0) return false
+
             val description = clip.description
-            val isExplicitImageClip = description != null && description.hasMimeType("image/*")
+            val mimeTypes = if (description != null) {
+                (0 until description.mimeTypeCount).map { description.getMimeType(it) }
+            } else {
+                emptyList()
+            }
 
-            // 1. First scan all items for Image content
-            for (i in 0 until clip.itemCount) {
-                val item = clip.getItemAt(i) ?: continue
-                val uri = item.uri ?: item.intent?.data
-                if (uri != null) {
-                    val mimeType = try {
-                        activeContext.contentResolver.getType(uri) ?: ""
-                    } catch (_: Throwable) {
-                        ""
-                    }
-                    val uriStr = uri.toString().lowercase()
-                    val hasImageExtension = uriStr.endsWith(".png") || uriStr.endsWith(".jpg") ||
-                            uriStr.endsWith(".jpeg") || uriStr.endsWith(".webp") ||
-                            uriStr.endsWith(".gif") || uriStr.endsWith(".bmp") ||
-                            uriStr.endsWith(".heic")
-                    val isImageMime = mimeType.startsWith("image/") || isExplicitImageClip
-
-                    if (isImageMime || hasImageExtension || ImageUtils.isImageUri(activeContext, uri)) {
-                        val processed = ImageUtils.processImageUri(activeContext, uri)
-                        if (processed != null) {
-                            val lowerHash = processed.hash.lowercase()
-                            val now = System.currentTimeMillis()
-                            if (!force && lowerHash == lastRemoteReceivedHash) {
-                                LogManager.d("Ignoring echo of remote image clip from Mac")
-                                return true
-                            }
-                            if (!force && lowerHash == lastLocalSentHash && (now - lastLocalSentTime < 1500)) {
-                                LogManager.d("Local image already dispatched within 1.5s")
-                                return true
-                            }
-                            lastLocalSentHash = lowerHash
-                            lastLocalSentTime = now
-                            lastRemoteReceivedHash = null
-
-                            LogManager.i("Sending local image to Mac (${processed.data.size} bytes, ${processed.totalChunks} chunks, mime=${processed.mime})")
-                            client.sendImage(processed.data, processed.mime, processed.hash, processed.totalChunks)
-                            return true
-                        }
-                    }
-                }
-
-                // Check for embedded base64 data image in text or html
-                val textCandidate = item.text?.toString() ?: ""
-                if (textCandidate.startsWith("data:image/")) {
-                    val commaIdx = textCandidate.indexOf(",")
-                    if (commaIdx != -1) {
-                        try {
-                            val b64 = textCandidate.substring(commaIdx + 1).trim()
-                            val rawBytes = Base64.decode(b64, Base64.DEFAULT)
-                            val processed = ImageUtils.processRawImageBytes(rawBytes)
-                            if (processed != null) {
-                                val lowerHash = processed.hash.lowercase()
-                                val now = System.currentTimeMillis()
-                                if (!force && lowerHash == lastRemoteReceivedHash) return true
-                                if (!force && lowerHash == lastLocalSentHash && (now - lastLocalSentTime < 1500)) return true
-                                lastLocalSentHash = lowerHash
-                                lastLocalSentTime = now
-                                lastRemoteReceivedHash = null
-
-                                LogManager.i("Sending local base64 image to Mac (${processed.data.size} bytes)")
-                                client.sendImage(processed.data, processed.mime, processed.hash, processed.totalChunks)
-                                return true
-                            }
-                        } catch (e: Throwable) {
-                            LogManager.d("Failed to parse base64 image from text: ${e.message}")
-                        }
-                    }
-                }
-
-                val htmlCandidate = item.htmlText ?: ""
-                if (htmlCandidate.contains("data:image/")) {
-                    val matcher = Pattern.compile("""src=["']data:image/[^;]+;base64,([^"']+)["']""").matcher(htmlCandidate)
-                    if (matcher.find()) {
-                        try {
-                            val b64 = matcher.group(1)
-                            val rawBytes = Base64.decode(b64, Base64.DEFAULT)
-                            val processed = ImageUtils.processRawImageBytes(rawBytes)
-                            if (processed != null) {
-                                val lowerHash = processed.hash.lowercase()
-                                val now = System.currentTimeMillis()
-                                if (!force && lowerHash == lastRemoteReceivedHash) return true
-                                if (!force && lowerHash == lastLocalSentHash && (now - lastLocalSentTime < 1500)) return true
-                                lastLocalSentHash = lowerHash
-                                lastLocalSentTime = now
-                                lastRemoteReceivedHash = null
-
-                                LogManager.i("Sending local HTML base64 image to Mac (${processed.data.size} bytes)")
-                                client.sendImage(processed.data, processed.mime, processed.hash, processed.totalChunks)
-                                return true
-                            }
-                        } catch (e: Throwable) {
-                            LogManager.d("Failed to parse base64 image from html: ${e.message}")
-                        }
-                    }
-                }
-
-                // Check for HTML <img> web URL source (e.g. Chrome "Copy image")
-                if (htmlCandidate.contains("<img", ignoreCase = true)) {
-                    val imgMatcher = Pattern.compile("""<img[^>]+src=["'](https?://[^"']+)["']""", Pattern.CASE_INSENSITIVE).matcher(htmlCandidate)
-                    if (imgMatcher.find()) {
-                        val imgUrl = imgMatcher.group(1)
-                        if (!imgUrl.isNullOrEmpty()) {
-                            try {
-                                val imgUri = Uri.parse(imgUrl)
-                                val rawBytes = ImageUtils.readBytesFromUri(activeContext, imgUri)
-                                if (rawBytes != null) {
-                                    val processed = ImageUtils.processRawImageBytes(rawBytes)
-                                    if (processed != null) {
-                                        val lowerHash = processed.hash.lowercase()
-                                        val now = System.currentTimeMillis()
-                                        if (!force && lowerHash == lastRemoteReceivedHash) return true
-                                        if (!force && lowerHash == lastLocalSentHash && (now - lastLocalSentTime < 1500)) return true
-                                        lastLocalSentHash = lowerHash
-                                        lastLocalSentTime = now
-                                        lastRemoteReceivedHash = null
-
-                                        LogManager.i("Sending local HTML web image to Mac (${processed.data.size} bytes)")
-                                        client.sendImage(processed.data, processed.mime, processed.hash, processed.totalChunks)
-                                        return true
-                                    }
-                                }
-                            } catch (e: Throwable) {
-                                LogManager.d("Failed to fetch HTML web image: ${e.message}")
-                            }
-                        }
+            // Image ONLY if the clip mime type is image/* AND the URI scheme is content or file.
+            val hasImageMime = description != null && description.hasMimeType("image/*")
+            var imageUri: Uri? = null
+            if (hasImageMime) {
+                for (i in 0 until clip.itemCount) {
+                    val item = clip.getItemAt(i) ?: continue
+                    val uri = item.uri ?: item.intent?.data
+                    val scheme = uri?.scheme?.lowercase()
+                    if (uri != null && (scheme == "content" || scheme == "file")) {
+                        imageUri = uri
+                        break
                     }
                 }
             }
 
-            // 2. Scan items for Web Links or Text
+            var attemptedImage = false
+            if (imageUri != null) {
+                attemptedImage = true
+                val processed = try {
+                    ImageUtils.processImageUri(activeContext, imageUri)
+                } catch (e: Throwable) {
+                    LogManager.w("Failed to process image URI: ${e.message}")
+                    null
+                }
+
+                if (processed != null) {
+                    val lowerHash = processed.hash.lowercase()
+                    val now = System.currentTimeMillis()
+                    if (!force && lowerHash == lastRemoteReceivedHash) {
+                        LogManager.d("Ignoring echo of remote image clip from Mac")
+                        return true
+                    }
+                    if (!force && lowerHash == lastLocalSentHash && (now - lastLocalSentTime < 1500)) {
+                        LogManager.d("Local image already dispatched within 1.5s")
+                        return true
+                    }
+                    lastLocalSentHash = lowerHash
+                    lastLocalSentTime = now
+                    lastRemoteReceivedHash = null
+
+                    LogManager.i("Clip: mimeTypes=$mimeTypes, branch=image, textLength=0")
+                    client.sendImage(processed.data, processed.mime, processed.hash, processed.totalChunks)
+                    return true
+                }
+                // If the image branch fails for any reason, fall back to coerceToText instead of dropping the clip.
+                LogManager.w("Image branch failed, falling back to coerceToText")
+            }
+
+            // Everything else: send item.coerceToText(context).toString() as plain text.
+            val textBuilder = StringBuilder()
             for (i in 0 until clip.itemCount) {
                 val item = clip.getItemAt(i) ?: continue
-
-                // Check text first (direct user copy)
-                var text = item.text?.toString()
-
-                // Check URI that represents an explicit web link
-                val uri = item.uri ?: item.intent?.data
-                if (text.isNullOrEmpty() && uri != null) {
-                    val scheme = uri.scheme?.lowercase()
-                    if (scheme == "http" || scheme == "https") {
-                        text = uri.toString().trim()
-                    }
+                var itemText = try {
+                    item.coerceToText(activeContext)?.toString()
+                } catch (e: Throwable) {
+                    LogManager.d("coerceToText failed for item $i: ${e.message}")
+                    null
                 }
-
-                // Check HTML for anchor href link if text is empty
-                if (text.isNullOrEmpty() && !item.htmlText.isNullOrEmpty()) {
-                    val html = item.htmlText!!
-                    val hrefMatcher = Pattern.compile("""href=["'](https?://[^"']+)["']""", Pattern.CASE_INSENSITIVE).matcher(html)
-                    if (hrefMatcher.find()) {
-                        text = hrefMatcher.group(1)?.trim()
-                    }
-                }
-
-                // Fallback to coerceToText
-                if (text.isNullOrEmpty()) {
-                    text = try {
-                        item.coerceToText(activeContext)?.toString()
+                if (itemText.isNullOrBlank() && !item.htmlText.isNullOrBlank()) {
+                    try {
+                        itemText = android.text.Html.fromHtml(item.htmlText, android.text.Html.FROM_HTML_MODE_LEGACY).toString()
                     } catch (_: Throwable) {
-                        null
+                        itemText = item.htmlText
                     }
                 }
-
-                // Fallback to Intent EXTRA_TEXT
-                if (text.isNullOrEmpty() && item.intent != null) {
-                    text = item.intent?.getStringExtra(Intent.EXTRA_TEXT)
-                }
-
-                // Fallback to URI string ONLY if not a private content:// URI
-                if (text.isNullOrEmpty() && uri != null && uri.scheme != "content") {
-                    text = uri.toString()
-                }
-
-                if (!text.isNullOrEmpty()) {
-                    val trimmed = text.trim()
-                    if (trimmed.isNotEmpty()) {
-                        val isLink = trimmed.startsWith("http://", ignoreCase = true) || trimmed.startsWith("https://", ignoreCase = true)
-                        val sourceLabel = if (isLink) "link" else "text"
-                        if (sendExtractedText(client, trimmed, force, sourceLabel)) {
-                            return true
-                        }
+                if (!itemText.isNullOrEmpty()) {
+                    if (textBuilder.isNotEmpty()) {
+                        textBuilder.append("\n")
                     }
+                    textBuilder.append(itemText)
                 }
             }
+
+            val text = textBuilder.toString()
+            if (text.isBlank()) {
+                LogManager.i("Clip: mimeTypes=$mimeTypes, branch=text, textLength=0 (dropped blank)")
+                return false
+            }
+
+            val hash = ImageUtils.sha256Hex(text.toByteArray(Charsets.UTF_8))
+            val lowerHash = hash.lowercase()
+            val now = System.currentTimeMillis()
+
+            if (!force && lowerHash == lastRemoteReceivedHash) {
+                LogManager.d("Ignoring echo of remote text from Mac")
+                return true
+            }
+            if (!force && lowerHash == lastLocalSentHash && (now - lastLocalSentTime < 1500)) {
+                LogManager.d("Local text already dispatched within 1.5s")
+                return true
+            }
+
+            lastLocalSentHash = lowerHash
+            lastLocalSentTime = now
+            lastRemoteReceivedHash = null
+
+            val branch = if (attemptedImage) "image_fallback_to_text" else "text"
+            LogManager.i("Clip: mimeTypes=$mimeTypes, branch=$branch, textLength=${text.length}")
+            client.sendTextMessage(text, hash)
+            return true
         } catch (e: Exception) {
             LogManager.e("Error reading local clipboard", e)
         }
         return false
-    }
-
-    private fun sendExtractedText(client: BridgeClient, text: String, force: Boolean, source: String): Boolean {
-        val hash = ImageUtils.sha256Hex(text.toByteArray(Charsets.UTF_8))
-        val lowerHash = hash.lowercase()
-        val now = System.currentTimeMillis()
-
-        if (!force && lowerHash == lastRemoteReceivedHash) {
-            LogManager.d("Ignoring echo of remote $source from Mac")
-            return true
-        }
-        if (!force && lowerHash == lastLocalSentHash && (now - lastLocalSentTime < 1500)) {
-            LogManager.d("Local $source already dispatched within 1.5s")
-            return true
-        }
-
-        lastLocalSentHash = lowerHash
-        lastLocalSentTime = now
-        lastRemoteReceivedHash = null
-
-        LogManager.i("Sending local $source to Mac (${text.length} chars)")
-        client.sendTextMessage(text, hash)
-        return true
     }
 
     fun sendLocalTextToMac(client: BridgeClient, text: String, force: Boolean = false): Boolean {
