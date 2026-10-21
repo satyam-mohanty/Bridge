@@ -10,10 +10,10 @@ public final class ClipboardManager {
     private var isAwake: Bool = true
     private var isConnected: Bool = false
     
-    // Loop prevention: store recent clip hashes
-    private var seenHashes: Set<String> = []
-    private var recentHashesQueue: [String] = []
-    private let maxSeenHashes = 50
+    // Loop prevention: track last received and sent hashes
+    private var lastRemoteReceivedHash: String?
+    private var lastLocalSentHash: String?
+    private var lastLocalSentTime: TimeInterval = 0
     private let lock = NSLock()
     
     private init() {
@@ -88,12 +88,23 @@ public final class ClipboardManager {
     
     private func handleLocalTextCopied(_ text: String) {
         guard let textData = text.data(using: .utf8) else { return }
-        let hashHex = ImageProcessor.sha256Hex(of: textData)
+        let hashHex = ImageProcessor.sha256Hex(of: textData).lowercased()
+        let now = Date().timeIntervalSince1970
         
-        if isHashSeen(hashHex) {
+        lock.lock()
+        if hashHex == lastRemoteReceivedHash {
+            lastRemoteReceivedHash = nil
+            lock.unlock()
             return
         }
-        recordSeenHash(hashHex)
+        if hashHex == lastLocalSentHash && (now - lastLocalSentTime < 1.5) {
+            lock.unlock()
+            return
+        }
+        lastLocalSentHash = hashHex
+        lastLocalSentTime = now
+        lastRemoteReceivedHash = nil
+        lock.unlock()
         
         LogManager.shared.log("Local text copied (\(text.count) chars), sending to Android")
         let msg = ClipboardTextMessage(origin: "mac", hash: hashHex, text: text)
@@ -107,10 +118,23 @@ public final class ClipboardManager {
                 return
             }
             
-            if self.isHashSeen(processed.hashHex) {
+            let hashHex = processed.hashHex.lowercased()
+            let now = Date().timeIntervalSince1970
+            
+            self.lock.lock()
+            if hashHex == self.lastRemoteReceivedHash {
+                self.lastRemoteReceivedHash = nil
+                self.lock.unlock()
                 return
             }
-            self.recordSeenHash(processed.hashHex)
+            if hashHex == self.lastLocalSentHash && (now - self.lastLocalSentTime < 1.5) {
+                self.lock.unlock()
+                return
+            }
+            self.lastLocalSentHash = hashHex
+            self.lastLocalSentTime = now
+            self.lastRemoteReceivedHash = nil
+            self.lock.unlock()
             
             LogManager.shared.log("Local image copied (\(processed.data.count) bytes, \(processed.totalChunks) chunks, \(processed.mime)), sending to Android")
             
@@ -140,10 +164,11 @@ public final class ClipboardManager {
     public func handleRemoteTextReceived(_ text: String, hash: String) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            if self.isHashSeen(hash) {
-                return
-            }
-            self.recordSeenHash(hash)
+            let lowerHash = hash.lowercased()
+            
+            self.lock.lock()
+            self.lastRemoteReceivedHash = lowerHash
+            self.lock.unlock()
             
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
@@ -167,10 +192,11 @@ public final class ClipboardManager {
     public func handleRemoteImageReceived(_ data: Data, hash: String) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            if self.isHashSeen(hash) {
-                return
-            }
-            self.recordSeenHash(hash)
+            let lowerHash = hash.lowercased()
+            
+            self.lock.lock()
+            self.lastRemoteReceivedHash = lowerHash
+            self.lock.unlock()
             
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
@@ -201,21 +227,4 @@ public final class ClipboardManager {
         }
     }
     
-    private func isHashSeen(_ hash: String) -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return seenHashes.contains(hash.lowercased())
-    }
-    
-    private func recordSeenHash(_ hash: String) {
-        lock.lock()
-        defer { lock.unlock() }
-        let lower = hash.lowercased()
-        seenHashes.insert(lower)
-        recentHashesQueue.append(lower)
-        if recentHashesQueue.count > maxSeenHashes {
-            let removed = recentHashesQueue.removeFirst()
-            seenHashes.remove(removed)
-        }
-    }
 }

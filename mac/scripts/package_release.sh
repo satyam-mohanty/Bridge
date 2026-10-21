@@ -164,6 +164,18 @@ if [[ ! -d "${APP_PATH}" ]]; then
     exit 1
 fi
 
+echo "--> Re-signing embedded frameworks and helpers (inside-out)..."
+SIGN_ID="${CODE_SIGN_IDENTITY:-"-"}"
+if [[ -d "${APP_PATH}/Contents/Frameworks" ]]; then
+    find "${APP_PATH}/Contents/Frameworks" -type d \( -name "*.xpc" -o -name "*.app" \) | while read -r helper; do
+        codesign --force --options runtime --sign "${SIGN_ID}" "${helper}" || true
+    done
+    find "${APP_PATH}/Contents/Frameworks" -maxdepth 1 -name "*.framework" | while read -r fw; do
+        codesign --force --options runtime --sign "${SIGN_ID}" "${fw}" || true
+    done
+fi
+codesign --force --options runtime --entitlements "${MAC_DIR}/Bridge.entitlements" --sign "${SIGN_ID}" "${APP_PATH}"
+
 echo "--> Verifying code signature..."
 codesign -dvv "${APP_PATH}" 2>&1 | head -n 10
 

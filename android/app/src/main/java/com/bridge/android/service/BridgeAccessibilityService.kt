@@ -115,19 +115,17 @@ class BridgeAccessibilityService : AccessibilityService() {
 
                 AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                     val className = (event.className ?: "").toString()
-                    if (pkgName == "com.android.systemui" || pkgName.contains("launcher") || pkgName.contains("intentresolver")) {
-                        val text = event.text.joinToString(" ").lowercase()
-                        val desc = (event.contentDescription ?: "").toString().lowercase()
-                        if (className.contains("Clipboard", ignoreCase = true) ||
-                            className.contains("Overlay", ignoreCase = true) ||
-                            className.contains("Toast", ignoreCase = true) ||
-                            className.contains("Chooser", ignoreCase = true) ||
-                            text.contains("copi") || desc.contains("copi") ||
-                            text.contains("clip") || desc.contains("clip")
-                        ) {
-                            LogManager.i("Accessibility: SystemUI Clipboard/Share overlay appeared ($className)")
-                            detectedCopyAction = true
-                        }
+                    val text = event.text.joinToString(" ").lowercase()
+                    val desc = (event.contentDescription ?: "").toString().lowercase()
+                    if (className.contains("Clipboard", ignoreCase = true) ||
+                        className.contains("Overlay", ignoreCase = true) ||
+                        className.contains("Toast", ignoreCase = true) ||
+                        className.contains("Chooser", ignoreCase = true) ||
+                        text.contains("copi") || desc.contains("copi") ||
+                        text.contains("clip") || desc.contains("clip")
+                    ) {
+                        LogManager.i("Accessibility: Clipboard/Share UI state appeared in $pkgName ($className)")
+                        detectedCopyAction = true
                     }
                 }
             }
@@ -158,6 +156,24 @@ class BridgeAccessibilityService : AccessibilityService() {
             val desc = (node.contentDescription ?: "").toString()
             val viewId = (node.viewIdResourceName ?: "").toString()
             if (isCopyOrCutIdentifier(text, desc, viewId)) return true
+
+            // Safely check parent node
+            var parent: AccessibilityNodeInfo? = null
+            try {
+                parent = node.parent
+                if (parent != null) {
+                    val pText = (parent.text ?: "").toString()
+                    val pDesc = (parent.contentDescription ?: "").toString()
+                    val pViewId = (parent.viewIdResourceName ?: "").toString()
+                    if (isCopyOrCutIdentifier(pText, pDesc, pViewId)) return true
+                }
+            } catch (_: Throwable) {
+            } finally {
+                try {
+                    @Suppress("DEPRECATION")
+                    parent?.recycle()
+                } catch (_: Throwable) {}
+            }
 
             val count = node.childCount
             for (i in 0 until minOf(count, 6)) {

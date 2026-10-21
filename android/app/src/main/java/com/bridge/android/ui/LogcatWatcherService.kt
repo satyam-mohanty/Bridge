@@ -24,7 +24,7 @@ object LogcatWatcherService {
                 var process: Process? = null
                 try {
                     // Monitor logcat on system and main buffers where ClipboardService events are published
-                    process = Runtime.getRuntime().exec(arrayOf("logcat", "-b", "system", "-b", "main", "-v", "brief"))
+                    process = Runtime.getRuntime().exec(arrayOf("logcat", "-T", "1", "-b", "system", "-b", "main", "-v", "brief"))
                     val reader = BufferedReader(InputStreamReader(process.inputStream))
 
                     var lastTriggerTime = 0L

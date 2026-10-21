@@ -18,21 +18,16 @@ import java.util.regex.Pattern
 
 class ClipboardSyncManager(private val context: Context) {
     private val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    private val seenHashes = Collections.synchronizedSet(
-        Collections.newSetFromMap(object : LinkedHashMap<String, Boolean>(50, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?): Boolean {
-                return size > 50
-            }
-        })
-    )
+    @Volatile
+    private var lastRemoteReceivedHash: String? = null
+    @Volatile
+    private var lastLocalSentHash: String? = null
+    @Volatile
+    private var lastLocalSentTime: Long = 0L
 
     fun handleRemoteText(text: String, hash: String) {
         val lowerHash = hash.lowercase()
-        if (seenHashes.contains(lowerHash)) {
-            LogManager.d("Ignoring duplicate/echo text clip ($hash)")
-            return
-        }
-        seenHashes.add(lowerHash)
+        lastRemoteReceivedHash = lowerHash
 
         try {
             val clip = ClipData.newPlainText("Bridge Text", text)
@@ -45,11 +40,7 @@ class ClipboardSyncManager(private val context: Context) {
 
     fun handleRemoteImage(data: ByteArray, hash: String) {
         val lowerHash = hash.lowercase()
-        if (seenHashes.contains(lowerHash)) {
-            LogManager.d("Ignoring duplicate/echo image clip ($hash)")
-            return
-        }
-        seenHashes.add(lowerHash)
+        lastRemoteReceivedHash = lowerHash
 
         try {
             ImageUtils.cleanOldCacheFiles(context)
@@ -112,11 +103,18 @@ class ClipboardSyncManager(private val context: Context) {
                         val processed = ImageUtils.processImageUri(activeContext, uri)
                         if (processed != null) {
                             val lowerHash = processed.hash.lowercase()
-                            if (!force && seenHashes.contains(lowerHash)) {
-                                LogManager.d("Local image hash already synced")
+                            val now = System.currentTimeMillis()
+                            if (!force && lowerHash == lastRemoteReceivedHash) {
+                                LogManager.d("Ignoring echo of remote image clip from Mac")
                                 return true
                             }
-                            seenHashes.add(lowerHash)
+                            if (!force && lowerHash == lastLocalSentHash && (now - lastLocalSentTime < 1500)) {
+                                LogManager.d("Local image already dispatched within 1.5s")
+                                return true
+                            }
+                            lastLocalSentHash = lowerHash
+                            lastLocalSentTime = now
+                            lastRemoteReceivedHash = null
 
                             LogManager.i("Sending local image to Mac (${processed.data.size} bytes, ${processed.totalChunks} chunks, mime=${processed.mime})")
                             client.sendImage(processed.data, processed.mime, processed.hash, processed.totalChunks)
@@ -136,8 +134,13 @@ class ClipboardSyncManager(private val context: Context) {
                             val processed = ImageUtils.processRawImageBytes(rawBytes)
                             if (processed != null) {
                                 val lowerHash = processed.hash.lowercase()
-                                if (!force && seenHashes.contains(lowerHash)) return true
-                                seenHashes.add(lowerHash)
+                                val now = System.currentTimeMillis()
+                                if (!force && lowerHash == lastRemoteReceivedHash) return true
+                                if (!force && lowerHash == lastLocalSentHash && (now - lastLocalSentTime < 1500)) return true
+                                lastLocalSentHash = lowerHash
+                                lastLocalSentTime = now
+                                lastRemoteReceivedHash = null
+
                                 LogManager.i("Sending local base64 image to Mac (${processed.data.size} bytes)")
                                 client.sendImage(processed.data, processed.mime, processed.hash, processed.totalChunks)
                                 return true
@@ -158,8 +161,13 @@ class ClipboardSyncManager(private val context: Context) {
                             val processed = ImageUtils.processRawImageBytes(rawBytes)
                             if (processed != null) {
                                 val lowerHash = processed.hash.lowercase()
-                                if (!force && seenHashes.contains(lowerHash)) return true
-                                seenHashes.add(lowerHash)
+                                val now = System.currentTimeMillis()
+                                if (!force && lowerHash == lastRemoteReceivedHash) return true
+                                if (!force && lowerHash == lastLocalSentHash && (now - lastLocalSentTime < 1500)) return true
+                                lastLocalSentHash = lowerHash
+                                lastLocalSentTime = now
+                                lastRemoteReceivedHash = null
+
                                 LogManager.i("Sending local HTML base64 image to Mac (${processed.data.size} bytes)")
                                 client.sendImage(processed.data, processed.mime, processed.hash, processed.totalChunks)
                                 return true
@@ -183,8 +191,13 @@ class ClipboardSyncManager(private val context: Context) {
                                     val processed = ImageUtils.processRawImageBytes(rawBytes)
                                     if (processed != null) {
                                         val lowerHash = processed.hash.lowercase()
-                                        if (!force && seenHashes.contains(lowerHash)) return true
-                                        seenHashes.add(lowerHash)
+                                        val now = System.currentTimeMillis()
+                                        if (!force && lowerHash == lastRemoteReceivedHash) return true
+                                        if (!force && lowerHash == lastLocalSentHash && (now - lastLocalSentTime < 1500)) return true
+                                        lastLocalSentHash = lowerHash
+                                        lastLocalSentTime = now
+                                        lastRemoteReceivedHash = null
+
                                         LogManager.i("Sending local HTML web image to Mac (${processed.data.size} bytes)")
                                         client.sendImage(processed.data, processed.mime, processed.hash, processed.totalChunks)
                                         return true
@@ -262,11 +275,21 @@ class ClipboardSyncManager(private val context: Context) {
     private fun sendExtractedText(client: BridgeClient, text: String, force: Boolean, source: String): Boolean {
         val hash = ImageUtils.sha256Hex(text.toByteArray(Charsets.UTF_8))
         val lowerHash = hash.lowercase()
-        if (!force && seenHashes.contains(lowerHash)) {
-            LogManager.d("Local $source hash already synced")
+        val now = System.currentTimeMillis()
+
+        if (!force && lowerHash == lastRemoteReceivedHash) {
+            LogManager.d("Ignoring echo of remote $source from Mac")
             return true
         }
-        seenHashes.add(lowerHash)
+        if (!force && lowerHash == lastLocalSentHash && (now - lastLocalSentTime < 1500)) {
+            LogManager.d("Local $source already dispatched within 1.5s")
+            return true
+        }
+
+        lastLocalSentHash = lowerHash
+        lastLocalSentTime = now
+        lastRemoteReceivedHash = null
+
         LogManager.i("Sending local $source to Mac (${text.length} chars)")
         client.sendTextMessage(text, hash)
         return true
@@ -277,11 +300,14 @@ class ClipboardSyncManager(private val context: Context) {
         try {
             val hash = ImageUtils.sha256Hex(text.toByteArray(Charsets.UTF_8))
             val lowerHash = hash.lowercase()
-            if (!force && seenHashes.contains(lowerHash)) {
-                LogManager.d("Local text hash already synced")
-                return true
-            }
-            seenHashes.add(lowerHash)
+            val now = System.currentTimeMillis()
+
+            if (!force && lowerHash == lastRemoteReceivedHash) return true
+            if (!force && lowerHash == lastLocalSentHash && (now - lastLocalSentTime < 1500)) return true
+
+            lastLocalSentHash = lowerHash
+            lastLocalSentTime = now
+            lastRemoteReceivedHash = null
 
             LogManager.i("Sending local text to Mac (${text.length} chars)")
             client.sendTextMessage(text, hash)
@@ -296,7 +322,9 @@ class ClipboardSyncManager(private val context: Context) {
         val mimeType = context.contentResolver.getType(uri) ?: ""
         if (mimeType.startsWith("image/") || ImageUtils.isImageUri(context, uri)) {
             val processed = ImageUtils.processImageUri(context, uri) ?: return
-            seenHashes.add(processed.hash.lowercase())
+            lastLocalSentHash = processed.hash.lowercase()
+            lastLocalSentTime = System.currentTimeMillis()
+            lastRemoteReceivedHash = null
             LogManager.i("Sharing image to Mac (${processed.data.size} bytes)")
             client.sendImage(processed.data, processed.mime, processed.hash, processed.totalChunks)
         } else {
@@ -305,7 +333,9 @@ class ClipboardSyncManager(private val context: Context) {
                 stream.bufferedReader().readText()
             } ?: return
             val hash = ImageUtils.sha256Hex(text.toByteArray(Charsets.UTF_8))
-            seenHashes.add(hash.lowercase())
+            lastLocalSentHash = hash.lowercase()
+            lastLocalSentTime = System.currentTimeMillis()
+            lastRemoteReceivedHash = null
             LogManager.i("Sharing text file content to Mac (${text.length} chars)")
             client.sendTextMessage(text, hash)
         }
