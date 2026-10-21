@@ -56,6 +56,17 @@ public struct MainWindowView: View {
                         
                         // Settings & Preferences
                         settingsSection
+                        
+                        // Footer Attribution
+                        HStack(spacing: 4) {
+                            Text("Built by")
+                                .foregroundColor(.secondary)
+                            Link("Satyam Mohanty", destination: URL(string: "https://www.satyammohanty.com")!)
+                                .foregroundColor(.accentColor)
+                        }
+                        .font(.system(size: 11, weight: .regular))
+                        .padding(.top, 8)
+                        .padding(.bottom, 12)
                     }
                     .padding(28)
                 }
