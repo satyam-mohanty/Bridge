@@ -74,26 +74,19 @@ public struct MainWindowView: View {
     // MARK: - Header
     private var headerSection: some View {
         HStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(Color.accentColor.opacity(0.16))
-                    .frame(width: 44, height: 44)
-                
-                if let logoUrl = Bundle.main.url(forResource: "BridgeLogo", withExtension: "png"),
-                   let image = NSImage(contentsOf: logoUrl) {
-                    Image(nsImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 32, height: 32)
-                        .clipShape(Circle())
-                } else {
-                    Image(systemName: "link")
-                        .font(.title2)
-                        .foregroundColor(.accentColor)
-                }
+            if let logoUrl = Bundle.main.url(forResource: "BridgeLogo", withExtension: "png"),
+               let image = NSImage(contentsOf: logoUrl) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 40, height: 40)
+                    .cornerRadius(8)
+            } else {
+                Image(systemName: "link")
+                    .font(.title2)
+                    .foregroundColor(.accentColor)
+                    .frame(width: 40, height: 40)
             }
-            .overlay(Circle().stroke(glassBorder, lineWidth: 1))
-            .shadow(color: Color.black.opacity(0.3), radius: 6, x: 0, y: 3)
             
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
