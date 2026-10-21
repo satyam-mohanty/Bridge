@@ -58,7 +58,11 @@ public struct MainWindowView: View {
                         settingsSection
                         
                         // Footer Attribution
-                        HStack(spacing: 4) {
+                        HStack(spacing: 6) {
+                            Text("© 2026 Bridge")
+                                .foregroundColor(.secondary)
+                            Text("•")
+                                .foregroundColor(.secondary.opacity(0.5))
                             Text("Built by")
                                 .foregroundColor(.secondary)
                             Link("Satyam Mohanty", destination: URL(string: "https://www.satyammohanty.com")!)
