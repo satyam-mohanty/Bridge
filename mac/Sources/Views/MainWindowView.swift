@@ -410,27 +410,52 @@ public struct MainWindowView: View {
     }
     
     private var notificationsSettingsContent: some View {
-        Form {
-            Section {
-                Toggle("Show Android notifications", isOn: $model.showAndroidNotifications)
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("PHONE NOTIFICATIONS")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(.secondary)
                 
-                Toggle("Show previews", isOn: $model.showNotificationPreviews)
-                    .disabled(!model.showAndroidNotifications)
-            } header: {
-                Text("Phone Notifications")
-            } footer: {
+                VStack(spacing: 0) {
+                    HStack {
+                        Text("Show Android notifications")
+                            .font(.subheadline)
+                        Spacer()
+                        Toggle("", isOn: $model.showAndroidNotifications)
+                            .labelsHidden()
+                    }
+                    .padding(12)
+                    
+                    Divider()
+                        .overlay(borderSubtle)
+                    
+                    HStack {
+                        Text("Show previews")
+                            .font(.subheadline)
+                        Spacer()
+                        Toggle("", isOn: $model.showNotificationPreviews)
+                            .labelsHidden()
+                            .disabled(!model.showAndroidNotifications)
+                    }
+                    .padding(12)
+                }
+                .background(bgCard)
+                .cornerRadius(10)
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(borderSubtle, lineWidth: 0.5))
+                
                 Text("When enabled, allowed notifications from your Android phone will be shown as native macOS banners.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .padding(.horizontal, 4)
             }
             
-            Section {
-                Button("Send test notification") {
-                    model.sendTestNotification()
-                }
+            Button("Send test notification") {
+                model.sendTestNotification()
             }
+            .buttonStyle(.bordered)
+            .controlSize(.regular)
         }
-        .formStyle(.grouped)
         .padding(.vertical, 4)
     }
     
