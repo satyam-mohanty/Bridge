@@ -38,6 +38,9 @@ public struct MainWindowView: View {
                     // Recent Transfers List
                     recentTransfersSection
                     
+                    // Recent Notifications List
+                    recentNotificationsSection
+                    
                     // Settings & Destination
                     settingsSection
                 }
@@ -274,6 +277,91 @@ public struct MainWindowView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
             }
+        }
+        .padding(10)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(8)
+    }
+    
+    // MARK: - Recent Notifications Section
+    private var recentNotificationsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Recent Notifications")
+                    .font(.headline)
+                Spacer()
+                if !model.recentNotifications.isEmpty {
+                    Button("Clear") {
+                        model.clearNotificationHistory()
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.accentColor)
+                    .font(.subheadline)
+                }
+            }
+            
+            if model.recentNotifications.isEmpty {
+                HStack {
+                    Spacer()
+                    VStack(spacing: 6) {
+                        Image(systemName: "bell.slash")
+                            .font(.title2)
+                            .foregroundColor(.secondary)
+                        Text("No recent notifications.")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 20)
+                    Spacer()
+                }
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                .cornerRadius(10)
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(model.recentNotifications.prefix(6)) { notif in
+                        notificationRow(item: notif)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func notificationRow(item: NotificationHistoryItem) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "bell.badge.fill")
+                .font(.title3)
+                .foregroundColor(.accentColor)
+                .padding(.top, 2)
+            
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    Text(item.app)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                    Spacer()
+                    Text(item.date, style: .time)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                
+                if !item.title.isEmpty {
+                    Text(item.title)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                }
+                
+                if !item.body.isEmpty {
+                    Text(item.body)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            
+            Spacer()
         }
         .padding(10)
         .background(Color(NSColor.controlBackgroundColor))
