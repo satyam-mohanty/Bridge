@@ -11,6 +11,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import com.bridge.android.clipboard.ClipboardSyncManager
 import com.bridge.android.network.BridgeClient
 import com.bridge.android.util.LogManager
@@ -39,9 +40,9 @@ class BridgeAccessibilityService : AccessibilityService() {
 
     private val clipListener = ClipboardManager.OnPrimaryClipChangedListener {
         LogManager.i("Accessibility: ClipboardManager onPrimaryClipChanged event detected")
-        // The clipboard actually changed in the system: execute promptly
+        // System clipboard changed; schedule read with minor delay to ensure write finished
         mainHandler.removeCallbacks(syncRunnable)
-        mainHandler.postDelayed(syncRunnable, 50)
+        mainHandler.postDelayed(syncRunnable, 40)
     }
 
     override fun onServiceConnected() {
@@ -65,7 +66,7 @@ class BridgeAccessibilityService : AccessibilityService() {
                     AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED or
                     AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
-            notificationTimeout = 50
+            notificationTimeout = 40
             flags = AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
                     AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
         }
@@ -99,17 +100,12 @@ class BridgeAccessibilityService : AccessibilityService() {
         when (event.eventType) {
             AccessibilityEvent.TYPE_VIEW_CLICKED,
             AccessibilityEvent.TYPE_VIEW_LONG_CLICKED -> {
-                val text = event.text.joinToString(" ").lowercase()
-                val desc = (event.contentDescription ?: "").toString().lowercase()
+                val text = event.text.joinToString(" ")
+                val desc = (event.contentDescription ?: "").toString()
                 val sourceNode = try { event.source } catch (_: Exception) { null }
-                val viewId = (sourceNode?.viewIdResourceName ?: "").lowercase()
-                val nodeText = (sourceNode?.text ?: "").toString().lowercase()
-                val nodeDesc = (sourceNode?.contentDescription ?: "").toString().lowercase()
 
-                if (isCopyOrCutIdentifier(text, desc, viewId) ||
-                    isCopyOrCutIdentifier(nodeText, nodeDesc, viewId)
-                ) {
-                    LogManager.i("Accessibility: Copy/Cut action clicked in $pkgName ($text / $desc / $viewId)")
+                if (isCopyOrCutIdentifier(text, desc, "") || nodeMatchesCopyAction(sourceNode)) {
+                    LogManager.i("Accessibility: Copy action detected in $pkgName ($text / $desc)")
                     detectedCopyAction = true
                 }
             }
@@ -124,17 +120,17 @@ class BridgeAccessibilityService : AccessibilityService() {
 
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 val className = (event.className ?: "").toString()
-                // Android 13+ SystemUI clipboard overlay popup detection
-                if (pkgName == "com.android.systemui") {
+                if (pkgName == "com.android.systemui" || pkgName.contains("launcher") || pkgName.contains("intentresolver")) {
                     val text = event.text.joinToString(" ").lowercase()
                     val desc = (event.contentDescription ?: "").toString().lowercase()
                     if (className.contains("Clipboard", ignoreCase = true) ||
                         className.contains("Overlay", ignoreCase = true) ||
                         className.contains("Toast", ignoreCase = true) ||
+                        className.contains("Chooser", ignoreCase = true) ||
                         text.contains("copi") || desc.contains("copi") ||
                         text.contains("clip") || desc.contains("clip")
                     ) {
-                        LogManager.i("Accessibility: SystemUI Clipboard overlay appeared ($className, text=$text)")
+                        LogManager.i("Accessibility: SystemUI Clipboard/Share overlay appeared ($className)")
                         detectedCopyAction = true
                     }
                 }
@@ -148,22 +144,20 @@ class BridgeAccessibilityService : AccessibilityService() {
 
     private fun scheduleSpeculativeSync() {
         val now = System.currentTimeMillis()
-        if (now - lastTriggerTime > 150) {
+        if (now - lastTriggerTime > 120) {
             lastTriggerTime = now
-            LogManager.i("Accessibility: Copy action clicked, scheduling sync in 120ms")
+            LogManager.i("Accessibility: Scheduling copy sync in 100ms")
             mainHandler.removeCallbacks(syncRunnable)
-            // Allow source app 120ms to commit data to system ClipboardService
-            mainHandler.postDelayed(syncRunnable, 120)
+            // Allow source app 100ms to commit data to system ClipboardService
+            mainHandler.postDelayed(syncRunnable, 100)
         }
     }
 
     /**
      * Attempts to read the clipboard using a TYPE_ACCESSIBILITY_OVERLAY window.
      * This is a privileged window type that AccessibilityServices can create without
-     * SYSTEM_ALERT_WINDOW permission, and it can gain window focus to bypass Android 10+
+     * SYSTEM_ALERT_WINDOW permission, and it gains window focus to bypass Android 10+
      * background clipboard restrictions.
-     *
-     * @param onResult Called with true if clipboard was read and sent, false otherwise.
      */
     fun readClipboardViaAccessibilityOverlay(
         client: BridgeClient,
@@ -171,31 +165,33 @@ class BridgeAccessibilityService : AccessibilityService() {
         onResult: (Boolean) -> Unit
     ) {
         if (isOverlayReading) {
-            // Already reading overlay; re-check in 150ms after current read completes
             mainHandler.postDelayed({
                 if (!isOverlayReading) {
                     readClipboardViaAccessibilityOverlay(client, syncManager, onResult)
                 } else {
                     onResult(false)
                 }
-            }, 150)
+            }, 120)
             return
         }
         isOverlayReading = true
 
-        // Safety timeout: auto-reset isOverlayReading after 2 seconds
+        // Safety timeout: auto-reset isOverlayReading after 1.5s
         mainHandler.postDelayed({
             if (isOverlayReading) {
                 LogManager.d("Accessibility: Overlay safety timeout reached, resetting state")
                 isOverlayReading = false
             }
-        }, 2000)
+        }, 1500)
 
         mainHandler.post {
             var overlayView: View? = null
             var windowManager: WindowManager? = null
+            var hasCompleted = false
 
             fun cleanup() {
+                if (hasCompleted) return
+                hasCompleted = true
                 try {
                     val v = overlayView
                     val wm = windowManager
@@ -218,8 +214,6 @@ class BridgeAccessibilityService : AccessibilityService() {
                 }
                 overlayView = dummyView
 
-                // TYPE_ACCESSIBILITY_OVERLAY is a privileged window type granted natively
-                // to AccessibilityServices without needing SYSTEM_ALERT_WINDOW permission.
                 val params = WindowManager.LayoutParams(
                     1, 1,
                     WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
@@ -235,20 +229,48 @@ class BridgeAccessibilityService : AccessibilityService() {
                 wm.addView(dummyView, params)
                 dummyView.requestFocus()
 
-                // Allow 120ms for WindowManager to establish focus (was 35ms — too short)
-                mainHandler.postDelayed({
+                fun attemptRead(retryCount: Int) {
+                    if (hasCompleted) return
                     try {
                         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        val sent = syncManager.sendLocalClipboardToMac(client, cm, force = false)
-                        LogManager.i("Accessibility: Read clipboard via overlay (sent=$sent)")
-                        onResult(sent)
+                        val sent = syncManager.sendLocalClipboardToMac(
+                            client,
+                            cm,
+                            force = false,
+                            activeContext = this@BridgeAccessibilityService
+                        )
+                        if (sent) {
+                            LogManager.i("Accessibility: Read and sent clipboard via overlay (sent=true)")
+                            cleanup()
+                            onResult(true)
+                            return
+                        }
                     } catch (e: Exception) {
-                        LogManager.e("Accessibility: Error reading overlay clipboard", e)
-                        onResult(false)
-                    } finally {
-                        cleanup()
+                        LogManager.e("Accessibility: Error reading overlay clipboard: ${e.message}")
                     }
-                }, 120)
+
+                    // Retry up to 2 times for apps that write to clipboard asynchronously (e.g. Chrome copying images)
+                    if (retryCount < 2) {
+                        val delay = if (retryCount == 0) 100L else 180L
+                        mainHandler.postDelayed({
+                            attemptRead(retryCount + 1)
+                        }, delay)
+                    } else {
+                        cleanup()
+                        onResult(false)
+                    }
+                }
+
+                // If focus attaches quickly, read immediately; otherwise schedule at 60ms
+                dummyView.viewTreeObserver.addOnWindowFocusChangeListener { hasFocus ->
+                    if (hasFocus && !hasCompleted) {
+                        attemptRead(0)
+                    }
+                }
+                mainHandler.postDelayed({
+                    if (!hasCompleted) attemptRead(0)
+                }, 60)
+
             } catch (e: Exception) {
                 LogManager.e("Accessibility: Failed to add overlay view", e)
                 cleanup()
@@ -257,27 +279,66 @@ class BridgeAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun isCopyOrCutIdentifier(text: String, desc: String, viewId: String): Boolean {
-        // Standard English identifiers
-        if (text.contains("copy") || text.contains("cut")) return true
-        if (desc.contains("copy") || desc.contains("cut")) return true
-        if (viewId.contains("copy") || viewId.contains("cut")) return true
-        if (viewId.contains("clipboard")) return true
+    private fun nodeMatchesCopyAction(node: AccessibilityNodeInfo?): Boolean {
+        if (node == null) return false
+        val text = (node.text ?: "").toString()
+        val desc = (node.contentDescription ?: "").toString()
+        val viewId = (node.viewIdResourceName ?: "").toString()
+        if (isCopyOrCutIdentifier(text, desc, viewId)) return true
 
-        // Link copy actions (e.g. "Copy link", "Copy address", "Copy URL", "Copy link to clipboard")
-        if (text.contains("link") || desc.contains("link") || viewId.contains("link") ||
-            text.contains("url") || desc.contains("url") || viewId.contains("url")
+        // Check immediate children (context menu rows, button containers)
+        val count = try { node.childCount } catch (_: Throwable) { 0 }
+        for (i in 0 until minOf(count, 8)) {
+            val child = try { node.getChild(i) } catch (_: Throwable) { null } ?: continue
+            val cText = (child.text ?: "").toString()
+            val cDesc = (child.contentDescription ?: "").toString()
+            val cViewId = (child.viewIdResourceName ?: "").toString()
+            val matched = isCopyOrCutIdentifier(cText, cDesc, cViewId)
+            child.recycle()
+            if (matched) return true
+        }
+        return false
+    }
+
+    private fun isCopyOrCutIdentifier(text: String, desc: String, viewId: String): Boolean {
+        val t = text.lowercase()
+        val d = desc.lowercase()
+        val v = viewId.lowercase()
+
+        // 1. Core keywords in text, contentDescription, or viewId
+        if (t.contains("copy") || t.contains("cut") ||
+            d.contains("copy") || d.contains("cut") ||
+            v.contains("copy") || v.contains("cut") ||
+            v.contains("clipboard") || v.contains("pasteboard")
+        ) return true
+
+        // 2. Link & Image copy actions (e.g. "Copy link address", "Copy link", "Copy URL", "Copy image", "Copy photo")
+        if (t.contains("link") || d.contains("link") || v.contains("link") ||
+            t.contains("url") || d.contains("url") || v.contains("url") ||
+            t.contains("image") || d.contains("image") || v.contains("image") ||
+            t.contains("photo") || d.contains("photo") || v.contains("photo")
         ) {
-            if (text.contains("cop") || desc.contains("cop") || viewId.contains("cop") ||
-                text.contains("address") || desc.contains("address")
+            if (t.contains("cop") || d.contains("cop") || v.contains("cop") ||
+                t.contains("address") || d.contains("address") ||
+                t.contains("clip") || d.contains("clip")
             ) {
                 return true
             }
         }
 
-        // Multilingual identifiers
-        if (text.contains("कॉपी") || desc.contains("कॉपी")) return true
-        if (text.contains("copier") || text.contains("copiar") || text.contains("kopieren") || text.contains("copia") || text.contains("salin")) return true
+        // 3. Android ShareSheet / Chooser button identifiers
+        if (v.contains("chooser_copy") || v.contains("copy_button") || v.contains("copy_link") ||
+            v.contains("button_copy") || v.contains("action_copy") || v.contains("context_menu_copy") ||
+            v.contains("url_action_container")
+        ) return true
+
+        // 4. Multilingual keywords
+        if (t.contains("कॉपी") || d.contains("कॉपी") ||
+            t.contains("copier") || t.contains("copiar") || t.contains("kopieren") ||
+            t.contains("copia") || t.contains("salin") || t.contains("копир") ||
+            t.contains("复制") || t.contains("複製") || t.contains("コピー") || t.contains("복사")
+        ) return true
+
         return false
     }
 }

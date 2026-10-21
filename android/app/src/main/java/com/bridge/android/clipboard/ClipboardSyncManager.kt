@@ -3,7 +3,9 @@ package com.bridge.android.clipboard
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
+import android.util.Base64
 import androidx.core.content.FileProvider
 import com.bridge.android.network.BridgeClient
 import com.bridge.android.util.ImageUtils
@@ -12,6 +14,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.Collections
 import java.util.LinkedHashMap
+import java.util.regex.Pattern
 
 class ClipboardSyncManager(private val context: Context) {
     private val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -75,11 +78,12 @@ class ClipboardSyncManager(private val context: Context) {
     fun sendLocalClipboardToMac(
         client: BridgeClient,
         clipManager: ClipboardManager = this.clipboardManager,
-        force: Boolean = false
+        force: Boolean = false,
+        activeContext: Context = this.context
     ): Boolean {
         try {
             val clip = clipManager.primaryClip ?: run {
-                LogManager.i("Local clipboard is empty")
+                LogManager.d("Local clipboard primaryClip is null")
                 return false
             }
 
@@ -90,10 +94,10 @@ class ClipboardSyncManager(private val context: Context) {
             // 1. First scan all items for Image content
             for (i in 0 until clip.itemCount) {
                 val item = clip.getItemAt(i) ?: continue
-                val uri = item.uri
+                val uri = item.uri ?: item.intent?.data
                 if (uri != null) {
                     val mimeType = try {
-                        context.contentResolver.getType(uri) ?: ""
+                        activeContext.contentResolver.getType(uri) ?: ""
                     } catch (_: Throwable) {
                         ""
                     }
@@ -104,8 +108,8 @@ class ClipboardSyncManager(private val context: Context) {
                             uriStr.endsWith(".heic")
                     val isImageMime = mimeType.startsWith("image/") || isExplicitImageClip
 
-                    if (isImageMime || hasImageExtension || ImageUtils.isImageUri(context, uri)) {
-                        val processed = ImageUtils.processImageUri(context, uri)
+                    if (isImageMime || hasImageExtension || ImageUtils.isImageUri(activeContext, uri)) {
+                        val processed = ImageUtils.processImageUri(activeContext, uri)
                         if (processed != null) {
                             val lowerHash = processed.hash.lowercase()
                             if (!force && seenHashes.contains(lowerHash)) {
@@ -114,9 +118,54 @@ class ClipboardSyncManager(private val context: Context) {
                             }
                             seenHashes.add(lowerHash)
 
-                            LogManager.i("Sending local image to Mac (${processed.data.size} bytes, ${processed.totalChunks} chunks)")
+                            LogManager.i("Sending local image to Mac (${processed.data.size} bytes, ${processed.totalChunks} chunks, mime=${processed.mime})")
                             client.sendImage(processed.data, processed.mime, processed.hash, processed.totalChunks)
                             return true
+                        }
+                    }
+                }
+
+                // Check for embedded base64 data image in text or html
+                val textCandidate = item.text?.toString() ?: ""
+                if (textCandidate.startsWith("data:image/")) {
+                    val commaIdx = textCandidate.indexOf(",")
+                    if (commaIdx != -1) {
+                        try {
+                            val b64 = textCandidate.substring(commaIdx + 1).trim()
+                            val rawBytes = Base64.decode(b64, Base64.DEFAULT)
+                            val processed = ImageUtils.processRawImageBytes(rawBytes)
+                            if (processed != null) {
+                                val lowerHash = processed.hash.lowercase()
+                                if (!force && seenHashes.contains(lowerHash)) return true
+                                seenHashes.add(lowerHash)
+                                LogManager.i("Sending local base64 image to Mac (${processed.data.size} bytes)")
+                                client.sendImage(processed.data, processed.mime, processed.hash, processed.totalChunks)
+                                return true
+                            }
+                        } catch (e: Throwable) {
+                            LogManager.d("Failed to parse base64 image from text: ${e.message}")
+                        }
+                    }
+                }
+
+                val htmlCandidate = item.htmlText ?: ""
+                if (htmlCandidate.contains("data:image/")) {
+                    val matcher = Pattern.compile("""src=["']data:image/[^;]+;base64,([^"']+)["']""").matcher(htmlCandidate)
+                    if (matcher.find()) {
+                        try {
+                            val b64 = matcher.group(1)
+                            val rawBytes = Base64.decode(b64, Base64.DEFAULT)
+                            val processed = ImageUtils.processRawImageBytes(rawBytes)
+                            if (processed != null) {
+                                val lowerHash = processed.hash.lowercase()
+                                if (!force && seenHashes.contains(lowerHash)) return true
+                                seenHashes.add(lowerHash)
+                                LogManager.i("Sending local HTML base64 image to Mac (${processed.data.size} bytes)")
+                                client.sendImage(processed.data, processed.mime, processed.hash, processed.totalChunks)
+                                return true
+                            }
+                        } catch (e: Throwable) {
+                            LogManager.d("Failed to parse base64 image from html: ${e.message}")
                         }
                     }
                 }
@@ -126,13 +175,25 @@ class ClipboardSyncManager(private val context: Context) {
             for (i in 0 until clip.itemCount) {
                 val item = clip.getItemAt(i) ?: continue
 
-                // Check for URI that represents a web link
-                val uri = item.uri
+                // Check for URI that represents an explicit web link
+                val uri = item.uri ?: item.intent?.data
                 if (uri != null) {
                     val scheme = uri.scheme?.lowercase()
                     if (scheme == "http" || scheme == "https") {
-                        val linkText = uri.toString()
-                        if (sendExtractedText(client, linkText, force, "web link URI")) {
+                        val linkText = uri.toString().trim()
+                        if (linkText.isNotEmpty() && sendExtractedText(client, linkText, force, "web link URI")) {
+                            return true
+                        }
+                    }
+                }
+
+                // Check HTML for anchor href links first (preserves clean target link from rich copy)
+                if (!item.htmlText.isNullOrEmpty()) {
+                    val html = item.htmlText!!
+                    val hrefMatcher = Pattern.compile("""href=["'](https?://[^"']+)["']""", Pattern.CASE_INSENSITIVE).matcher(html)
+                    if (hrefMatcher.find()) {
+                        val hrefUrl = hrefMatcher.group(1)?.trim() ?: ""
+                        if (hrefUrl.isNotEmpty() && sendExtractedText(client, hrefUrl, force, "html link")) {
                             return true
                         }
                     }
@@ -142,21 +203,15 @@ class ClipboardSyncManager(private val context: Context) {
                 var text = item.text?.toString()
                 if (text.isNullOrEmpty()) {
                     text = try {
-                        item.coerceToText(context)?.toString()
+                        item.coerceToText(activeContext)?.toString()
                     } catch (_: Throwable) {
                         null
                     }
                 }
 
-                // Check HTML href if available and text is empty
-                if (text.isNullOrEmpty() && !item.htmlText.isNullOrEmpty()) {
-                    val html = item.htmlText!!
-                    val hrefMatcher = java.util.regex.Pattern.compile("""href=["'](https?://[^"']+)["']""", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(html)
-                    if (hrefMatcher.find()) {
-                        text = hrefMatcher.group(1)
-                    } else {
-                        text = android.text.Html.fromHtml(html, android.text.Html.FROM_HTML_MODE_LEGACY).toString().trim()
-                    }
+                // Check Intent extra text fallback
+                if (text.isNullOrEmpty() && item.intent != null) {
+                    text = item.intent?.getStringExtra(Intent.EXTRA_TEXT)
                 }
 
                 // Check URI string fallback
@@ -214,7 +269,7 @@ class ClipboardSyncManager(private val context: Context) {
 
     fun sendSharedUriToMac(client: BridgeClient, uri: Uri) {
         val mimeType = context.contentResolver.getType(uri) ?: ""
-        if (mimeType.startsWith("image/")) {
+        if (mimeType.startsWith("image/") || ImageUtils.isImageUri(context, uri)) {
             val processed = ImageUtils.processImageUri(context, uri) ?: return
             seenHashes.add(processed.hash.lowercase())
             LogManager.i("Sharing image to Mac (${processed.data.size} bytes)")

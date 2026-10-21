@@ -147,9 +147,21 @@ public final class ClipboardManager {
             
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
-            pasteboard.setString(text, forType: .string)
+            
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let isUrl = (trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://")) && URL(string: trimmed)?.host != nil
+            
+            if isUrl, let url = URL(string: trimmed) {
+                pasteboard.declareTypes([.string, .URL], owner: nil)
+                pasteboard.setString(text, forType: .string)
+                pasteboard.setString(trimmed, forType: .URL)
+                pasteboard.writeObjects([url as NSURL, text as NSString])
+                LogManager.shared.log("Applied remote link from Android to clipboard: \(trimmed)")
+            } else {
+                pasteboard.setString(text, forType: .string)
+                LogManager.shared.log("Applied remote text from Android to clipboard (\(text.count) chars)")
+            }
             self.lastChangeCount = pasteboard.changeCount
-            LogManager.shared.log("Applied remote text from Android to clipboard (\(text.count) chars)")
         }
     }
     
@@ -163,10 +175,29 @@ public final class ClipboardManager {
             
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
-            if let image = NSImage(data: data) {
-                pasteboard.writeObjects([image])
+            
+            guard let image = NSImage(data: data) else {
+                LogManager.shared.log("Failed to create NSImage from received image bytes (\(data.count) bytes)", level: .error)
+                return
             }
-            pasteboard.setData(data, forType: .png)
+            
+            pasteboard.declareTypes([.tiff, .png], owner: nil)
+            
+            // 1. TIFF representation for native AppKit paste targets
+            if let tiffData = image.tiffRepresentation {
+                pasteboard.setData(tiffData, forType: .tiff)
+            }
+            
+            // 2. PNG representation for browsers, Electron, Slack, etc.
+            if let rep = (image.representations.first as? NSBitmapImageRep) ?? (image.tiffRepresentation.flatMap { NSBitmapImageRep(data: $0) }),
+               let pngData = rep.representation(using: .png, properties: [:]) {
+                pasteboard.setData(pngData, forType: .png)
+            } else {
+                pasteboard.setData(data, forType: .png)
+            }
+            
+            // 3. Write object for Cocoa pasteboard consumers
+            pasteboard.writeObjects([image])
             self.lastChangeCount = pasteboard.changeCount
             LogManager.shared.log("Applied remote image from Android to clipboard (\(data.count) bytes)")
         }

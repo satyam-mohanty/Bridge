@@ -29,6 +29,11 @@ object LogManager {
         Log.d(TAG, message)
     }
 
+    fun w(message: String) {
+        log("WARN", message)
+        Log.w(TAG, message)
+    }
+
     fun e(message: String, throwable: Throwable? = null) {
         val fullMsg = if (throwable != null) "$message: ${throwable.message}" else message
         log("ERROR", fullMsg)

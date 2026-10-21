@@ -61,7 +61,8 @@ class TransparentClipReaderActivity : Activity() {
                 val sent = service.getClipboardSyncManager().sendLocalClipboardToMac(
                     service.getClient(),
                     clipManager,
-                    force = force
+                    force = force,
+                    activeContext = this
                 )
                 LogManager.i("TransparentClipReader: Captured clipboard with focus (force=$force, sent=$sent)")
             }
