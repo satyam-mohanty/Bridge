@@ -7,11 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3C9B4832B2D308C7F77C59BA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ED1F9A0D6747EDD4616D35D6 /* Assets.xcassets */; };
 		4D55FBCBD7A3E849B87D730A /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 1C0540D877E4AB8B698A831D /* AppIcon.icns */; };
 		606DF41014DA4AC0F0F4C560 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B0D6028B1CBCA5FFD068D2F /* AppModel.swift */; };
 		699B096B598B1AE489493168 /* BridgeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CD8AD5AFC4BB1DE37370387 /* BridgeApp.swift */; };
 		6B619FF376AFABCC3E5DBB32 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 951E570BC26EECB562BFBAE4 /* Sparkle */; };
 		6B6C38677354E62C493336C3 /* MacNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0C2E971B392E7C1FA3F224F /* MacNotificationManager.swift */; };
+		6BD684FC12C3D7D4FF22A812 /* bridge_menu_not_connected.png in Resources */ = {isa = PBXBuildFile; fileRef = DF3258818D0EF8BA393E79EB /* bridge_menu_not_connected.png */; };
 		6D6D0127B8FA20C325902C36 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20EF774C4A758C61BE0B277A /* MenuBarView.swift */; };
 		6E3263BA1FDAD4F0D1FE1202 /* PairingQRView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73D38E121A6338F9EF13F37C /* PairingQRView.swift */; };
 		7DA4C69F42062B660864F0D4 /* MenuBarIcon@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 1D22A03F6D25C060A5EA5A64 /* MenuBarIcon@2x.png */; };
@@ -24,6 +26,7 @@
 		A99580B28811D31AABE8D237 /* FileManagerHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A98B1D8D643771197DFBE4D9 /* FileManagerHelper.swift */; };
 		B6041FDFCEFDC3CB098745EC /* ClipboardManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0E5200946959496DF4D7339 /* ClipboardManager.swift */; };
 		BDCB8CEC3A2368B0C8733F72 /* ImageProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40CEE42021522659D52A406E /* ImageProcessor.swift */; };
+		C82F1938C364251BC9FB6DDE /* bridge_menu_connected.png in Resources */ = {isa = PBXBuildFile; fileRef = C5244DF1E5619CF6B8027008 /* bridge_menu_connected.png */; };
 		CA907200ADD712268C7B7B66 /* BridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ABCFAC55FD0CC1EEB55C910 /* BridgeTests.swift */; };
 		CC51719394F1612E7B4FAF93 /* BridgeCrypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3270689A78F9754D6706AC5C /* BridgeCrypto.swift */; };
 		D0B78115E842AE6532B8A2A2 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA9608ED9644ABCECD06B58 /* NetworkMonitor.swift */; };
@@ -67,8 +70,11 @@
 		A1A9DEBA6DE0C2D234F09A1E /* BridgeProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeProtocol.swift; sourceTree = "<group>"; };
 		A98B1D8D643771197DFBE4D9 /* FileManagerHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileManagerHelper.swift; sourceTree = "<group>"; };
 		C0C2E971B392E7C1FA3F224F /* MacNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacNotificationManager.swift; sourceTree = "<group>"; };
+		C5244DF1E5619CF6B8027008 /* bridge_menu_connected.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = bridge_menu_connected.png; sourceTree = "<group>"; };
 		CA8411C590DC5D1A34EF78D7 /* MenuBarIcon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = MenuBarIcon.png; sourceTree = "<group>"; };
 		D8147949D8E42727719261CE /* NetworkServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkServer.swift; sourceTree = "<group>"; };
+		DF3258818D0EF8BA393E79EB /* bridge_menu_not_connected.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = bridge_menu_not_connected.png; sourceTree = "<group>"; };
+		ED1F9A0D6747EDD4616D35D6 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F0E5200946959496DF4D7339 /* ClipboardManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardManager.swift; sourceTree = "<group>"; };
 		FBCF51E7727DB59DFCDB4D77 /* DiscoveryBeacon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryBeacon.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -100,6 +106,9 @@
 			isa = PBXGroup;
 			children = (
 				1C0540D877E4AB8B698A831D /* AppIcon.icns */,
+				ED1F9A0D6747EDD4616D35D6 /* Assets.xcassets */,
+				C5244DF1E5619CF6B8027008 /* bridge_menu_connected.png */,
+				DF3258818D0EF8BA393E79EB /* bridge_menu_not_connected.png */,
 				5C97E3A63B80162C763EEF65 /* BridgeLogo.png */,
 				CA8411C590DC5D1A34EF78D7 /* MenuBarIcon.png */,
 				1D22A03F6D25C060A5EA5A64 /* MenuBarIcon@2x.png */,
@@ -261,9 +270,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D55FBCBD7A3E849B87D730A /* AppIcon.icns in Resources */,
+				3C9B4832B2D308C7F77C59BA /* Assets.xcassets in Resources */,
 				FB966711E568191CC2D858D4 /* BridgeLogo.png in Resources */,
 				EF2B90761ECDB02DF41E7B13 /* MenuBarIcon.png in Resources */,
 				7DA4C69F42062B660864F0D4 /* MenuBarIcon@2x.png in Resources */,
+				C82F1938C364251BC9FB6DDE /* bridge_menu_connected.png in Resources */,
+				6BD684FC12C3D7D4FF22A812 /* bridge_menu_not_connected.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -330,4 +330,12 @@ final class BridgeTests: XCTestCase {
         let parser = XMLParser(data: data)
         XCTAssertTrue(parser.parse(), "Sample appcast XML must parse cleanly")
     }
+    
+    func testMenuBarIconsExistAndLoad() throws {
+        let connectedImage = NSImage(named: "bridge_menu_connected") ?? Bundle.main.url(forResource: "bridge_menu_connected", withExtension: "png").flatMap { NSImage(contentsOf: $0) }
+        XCTAssertNotNil(connectedImage, "bridge_menu_connected image must exist and load")
+        
+        let notConnectedImage = NSImage(named: "bridge_menu_not_connected") ?? Bundle.main.url(forResource: "bridge_menu_not_connected", withExtension: "png").flatMap { NSImage(contentsOf: $0) }
+        XCTAssertNotNil(notConnectedImage, "bridge_menu_not_connected image must exist and load")
+    }
 }
