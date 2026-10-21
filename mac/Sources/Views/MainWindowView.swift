@@ -58,31 +58,35 @@ public struct MainWindowView: View {
                         settingsSection
                         
                         // Footer Attribution & Socials
-                        VStack(spacing: 6) {
-                            HStack(spacing: 6) {
-                                Text("© 2026 Bridge")
-                                    .foregroundColor(.secondary)
-                                Text("•")
-                                    .foregroundColor(.secondary.opacity(0.4))
-                                Text("Built by")
-                                    .foregroundColor(.secondary)
-                                Link("Satyam Mohanty", destination: URL(string: "https://www.satyammohanty.com")!)
-                                    .foregroundColor(.accentColor)
-                            }
-                            .font(.system(size: 11, weight: .regular))
-
-                            HStack(spacing: 12) {
-                                Link("X", destination: URL(string: "https://x.com/isatymm")!)
-                                Text("•").foregroundColor(.secondary.opacity(0.3))
-                                Link("LinkedIn", destination: URL(string: "https://www.linkedin.com/in/satyam-mohanty")!)
-                                Text("•").foregroundColor(.secondary.opacity(0.3))
-                                Link("GitHub", destination: URL(string: "https://github.com/satyam-mohanty")!)
-                                Text("•").foregroundColor(.secondary.opacity(0.3))
-                                Link("Instagram", destination: URL(string: "https://www.instagram.com/isatymm")!)
-                            }
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundColor(.secondary)
+                        HStack(spacing: 8) {
+                            Text("© 2026 Bridge")
+                                .foregroundColor(.secondary)
+                            Text("•")
+                                .foregroundColor(.secondary.opacity(0.4))
+                            Text("Built by")
+                                .foregroundColor(.secondary)
+                            Link("Satyam Mohanty", destination: URL(string: "https://www.satyammohanty.com")!)
+                                .foregroundColor(.accentColor)
+                            
+                            Text("•")
+                                .foregroundColor(.secondary.opacity(0.4))
+                            
+                            Link("X", destination: URL(string: "https://x.com/isatymm")!)
+                                .foregroundColor(.secondary)
+                            Text("•")
+                                .foregroundColor(.secondary.opacity(0.3))
+                            Link("LinkedIn", destination: URL(string: "https://www.linkedin.com/in/satyam-mohanty")!)
+                                .foregroundColor(.secondary)
+                            Text("•")
+                                .foregroundColor(.secondary.opacity(0.3))
+                            Link("GitHub", destination: URL(string: "https://github.com/satyam-mohanty")!)
+                                .foregroundColor(.secondary)
+                            Text("•")
+                                .foregroundColor(.secondary.opacity(0.3))
+                            Link("Instagram", destination: URL(string: "https://www.instagram.com/isatymm")!)
+                                .foregroundColor(.secondary)
                         }
+                        .font(.system(size: 11, weight: .regular))
                         .padding(.top, 4)
                         .padding(.bottom, 4)
                     }
