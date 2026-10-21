@@ -80,7 +80,7 @@ struct BridgeApp: App {
         let name = isConnected ? "bridge_menu_connected" : "bridge_menu_not_connected"
         if let image = NSImage(named: name) {
             let resized = image.copy() as! NSImage
-            resized.size = NSSize(width: 16, height: 16)
+            resized.size = NSSize(width: 19, height: 19)
             resized.isTemplate = true
             return Image(nsImage: resized)
         }
