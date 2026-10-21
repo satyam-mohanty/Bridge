@@ -385,8 +385,8 @@ class BridgeService : Service(), BridgeClientListener {
                 var sessionSucceeded = false
 
                 if (!lastIp.isNullOrBlank()) {
-                    _statusFlow.value = "Connecting to $lastIp…"
-                    updateNotification("Connecting to $lastIp…")
+                    _statusFlow.value = "Connecting to Mac…"
+                    updateNotification("Connecting to Mac…")
                     LogManager.i("Attempting connection to last known IP: $lastIp")
                     sessionSucceeded = client.runSession(lastIp, key)
                 }
@@ -401,8 +401,8 @@ class BridgeService : Service(), BridgeClientListener {
                     val discoveredIp = discoveryEngine.discoverMacIp(keyStoreManager)
                     if (discoveredIp != null) {
                         keyStoreManager.saveLastKnownIp(discoveredIp)
-                        _statusFlow.value = "Connecting to $discoveredIp…"
-                        updateNotification("Connecting to $discoveredIp…")
+                        _statusFlow.value = "Connecting to Mac…"
+                        updateNotification("Connecting to Mac…")
                         sessionSucceeded = client.runSession(discoveredIp, key)
                     }
                 }
@@ -426,9 +426,9 @@ class BridgeService : Service(), BridgeClientListener {
         serviceScope.launch(Dispatchers.Main) {
             backoffMs = 1000L
             val macName = keyStoreManager.getMacName() ?: "Mac"
-            _statusFlow.value = "Connected to $macName ($ip)"
+            _statusFlow.value = "Connected to $macName"
             _isConnectedFlow.value = true
-            updateNotification("Connected to $macName ($ip)")
+            updateNotification("Connected to $macName")
             LogManager.i("BridgeService: Link established with $ip")
             syncAutoModeState()
             com.bridge.android.notification.BridgeNotificationListenerService.rebind(this@BridgeService)

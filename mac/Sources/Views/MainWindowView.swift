@@ -109,12 +109,31 @@ public struct MainWindowView: View {
                         .clipShape(Capsule())
                 }
                 
-                Text(model.clientDescription ?? "Native AirDrop & Clipboard Sync")
+                Text("Native AirDrop & Clipboard Sync")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
             
             Spacer()
+            
+            // Buy Me a Coffee Button
+            Link(destination: URL(string: "https://buymeacoffee.com/satyammohanty")!) {
+                HStack(spacing: 6) {
+                    Image(systemName: "cup.and.saucer.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(Color(red: 1.0, green: 0.86, blue: 0.35))
+                    Text("Buy Me a Coffee")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundColor(.primary)
+                }
+                .padding(.horizontal, 11)
+                .padding(.vertical, 6)
+                .background(glassFill)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(glassBorder, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .help("Support Bridge development")
             
             // Connection Status Pill
             HStack(spacing: 8) {

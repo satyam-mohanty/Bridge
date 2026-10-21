@@ -28,15 +28,9 @@ public struct MenuBarView: View {
                         Text(model.isConnected ? "Connected" : "Listening...")
                             .font(.headline)
                     }
-                    if let client = model.clientDescription {
-                        Text(client)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } else {
-                        Text("Port 48250 • Beacon active")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                    Text("Port 48250 • Beacon active")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
             .padding(.horizontal, 4)
@@ -118,6 +112,11 @@ public struct MenuBarView: View {
             ))
             
             Divider()
+            
+            Link(destination: URL(string: "https://buymeacoffee.com/satyammohanty")!) {
+                Label("Buy Me a Coffee", systemImage: "cup.and.saucer.fill")
+            }
+            .buttonStyle(.plain)
             
             Button(action: {
                 model.copyDiagnostics()
