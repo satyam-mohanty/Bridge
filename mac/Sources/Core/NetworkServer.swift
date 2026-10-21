@@ -11,6 +11,7 @@ public protocol NetworkServerDelegate: AnyObject {
     func serverDidReceiveNotificationRemove(_ msg: NotifRemoveMessage)
     func serverDidReceiveIconResponse(_ msg: IconRespMessage)
     func serverDidReceiveCallEvent(_ msg: CallEventMessage)
+    func serverDidReceiveLockRequest()
 }
 
 public final class NetworkServer {
@@ -366,6 +367,10 @@ public final class NetworkServer {
                 LogManager.shared.log("Failed to decode CallEventMessage", level: .error)
             }
             
+        case BridgeMessageType.lockMac.rawValue:
+            LogManager.shared.log("Received remote lock command from Android")
+            delegate?.serverDidReceiveLockRequest()
+            
         default:
             LogManager.shared.log("Unknown message type: \(msgType)")
         }
@@ -592,7 +597,7 @@ public final class NetworkServer {
     }
     
     private func handleImageChunk(_ chunk: ClipboardImageChunkData) {
-        guard let start = self.pendingImageStart, start.id == chunk.transferId else {
+        guard let start = self.pendingImageStart, start.id.lowercased() == chunk.transferId.lowercased() else {
             return
         }
         

@@ -16,6 +16,7 @@ public enum BridgeMessageType: UInt8 {
     case iconResp = 0x0D
     case notifRemove = 0x0E
     case callEvent = 0x0F
+    case lockMac = 0x10
 }
 
 public struct PingMessage: Codable {
@@ -297,6 +298,13 @@ public struct CallEventMessage: Codable {
         self.number = number
         self.name = name
         self.ts = ts
+    }
+}
+
+public struct LockMacMessage: Codable {
+    public let t: Int64
+    public init(t: Int64 = Int64(Date().timeIntervalSince1970 * 1000)) {
+        self.t = t
     }
 }
 

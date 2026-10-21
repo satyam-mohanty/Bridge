@@ -9,7 +9,8 @@ import com.bridge.android.service.BridgeService
 import com.bridge.android.util.LogManager
 
 class TransparentClipReaderActivity : Activity() {
-    private var readAttempted = false
+    private var hasSucceeded = false
+    private var isExecuting = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,49 +29,64 @@ class TransparentClipReaderActivity : Activity() {
 
         // Safety timeout to ensure activity dismisses cleanly without lingering
         window.decorView.postDelayed({
-            if (!isFinishing && !readAttempted) {
-                attemptReadAndFinish()
+            if (!isFinishing && !hasSucceeded) {
+                attemptReadAndFinish(2)
             }
-        }, 350)
+        }, 400)
     }
 
     override fun onResume() {
         super.onResume()
         window.decorView.post {
-            if (hasWindowFocus() && !readAttempted) {
-                attemptReadAndFinish()
+            if (hasWindowFocus() && !hasSucceeded) {
+                attemptReadAndFinish(0)
             }
         }
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus && !readAttempted) {
-            attemptReadAndFinish()
+        if (hasFocus && !hasSucceeded) {
+            attemptReadAndFinish(0)
         }
     }
 
-    private fun attemptReadAndFinish() {
-        if (readAttempted) return
-        readAttempted = true
+    private fun attemptReadAndFinish(retryCount: Int) {
+        if (hasSucceeded || isFinishing) return
+        if (isExecuting && retryCount == 0) return
+        isExecuting = true
+
+        var sent = false
         try {
             val service = BridgeService.instance
             if (service != null && service.isConnectedFlow.value) {
                 val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 val force = intent?.getBooleanExtra("force", false) ?: false
-                val sent = service.getClipboardSyncManager().sendLocalClipboardToMac(
+                sent = service.getClipboardSyncManager().sendLocalClipboardToMac(
                     service.getClient(),
                     clipManager,
                     force = force,
                     activeContext = this
                 )
-                LogManager.i("TransparentClipReader: Captured clipboard with focus (force=$force, sent=$sent)")
+                LogManager.i("TransparentClipReader: Captured clipboard with focus (force=$force, sent=$sent, retry=$retryCount)")
             }
         } catch (e: Exception) {
             LogManager.e("Error reading clipboard in TransparentClipReader", e)
         } finally {
+            isExecuting = false
+        }
+
+        if (sent || retryCount >= 2) {
+            hasSucceeded = true
             finish()
             overridePendingTransition(0, 0)
+        } else {
+            // Source app might be finishing write; wait 60ms and retry
+            window.decorView.postDelayed({
+                if (!isFinishing && !hasSucceeded) {
+                    attemptReadAndFinish(retryCount + 1)
+                }
+            }, 60)
         }
     }
 }

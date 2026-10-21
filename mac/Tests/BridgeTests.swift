@@ -340,4 +340,14 @@ final class BridgeTests: XCTestCase {
         XCTAssertNotNil(notConnectedImage, "bridge_menu_not_connected image must exist in asset catalog")
         XCTAssertTrue(notConnectedImage?.isTemplate == true, "bridge_menu_not_connected must have template rendering intent")
     }
+    
+    func testLockMacMessageSerialization() throws {
+        XCTAssertEqual(BridgeMessageType.lockMac.rawValue, 0x10)
+        let msg = LockMacMessage(t: 123456789)
+        let data = try BridgeFrameHelper.encodeMessage(type: .lockMac, value: msg)
+        XCTAssertEqual(data[0], 0x10)
+        let payload = data.advanced(by: 1)
+        let decoded = try JSONDecoder().decode(LockMacMessage.self, from: payload)
+        XCTAssertEqual(decoded.t, 123456789)
+    }
 }

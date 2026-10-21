@@ -250,6 +250,20 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // Lock Mac Screen Remotely
+        binding.btnLockMac.setOnClickListener {
+            val service = BridgeService.instance
+            if (service == null || !service.isConnectedFlow.value) {
+                Toast.makeText(this, "Mac is not connected yet", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val success = service.sendLockMac()
+            if (success) {
+                it.performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK)
+                Toast.makeText(this, "Mac lock command sent ✓", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         // Quick Reconnect on card
         binding.btnQuickReconnect.setOnClickListener {
             triggerReconnect()

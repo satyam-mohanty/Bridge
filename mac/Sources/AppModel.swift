@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import ServiceManagement
 import AppKit
+import Darwin
 
 public struct FileTransferItem: Identifiable, Equatable {
     public let id: String
@@ -403,6 +404,32 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
                 showNotifications: self.showAndroidNotifications
             )
         }
+    }
+    
+    public nonisolated func serverDidReceiveLockRequest() {
+        Task { @MainActor in
+            LogManager.shared.log("Executing remote lock screen request")
+            self.lockMac()
+        }
+    }
+    
+    public func lockMac() {
+        typealias SACLockScreenImmediateFunc = @convention(c) () -> Int32
+        if let handle = dlopen("/System/Library/PrivateFrameworks/login.framework/login", RTLD_LAZY) {
+            defer { dlclose(handle) }
+            if let sym = dlsym(handle, "SACLockScreenImmediate") {
+                let lockFunc = unsafeBitCast(sym, to: SACLockScreenImmediateFunc.self)
+                let status = lockFunc()
+                LogManager.shared.log("SACLockScreenImmediate executed with result \(status)")
+                return
+            }
+        }
+        
+        LogManager.shared.log("SACLockScreenImmediate unavailable, falling back to pmset displaysleepnow")
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
+        process.arguments = ["displaysleepnow"]
+        try? process.run()
     }
     
     public func sendTestNotification() {

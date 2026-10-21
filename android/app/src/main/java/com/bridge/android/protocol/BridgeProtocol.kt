@@ -24,6 +24,7 @@ object BridgeProtocol {
     const val TYPE_ICON_RESP: Byte = 0x0D
     const val TYPE_NOTIF_REMOVE: Byte = 0x0E
     const val TYPE_CALL_EVENT: Byte = 0x0F
+    const val TYPE_LOCK_MAC: Byte = 0x10
 
     data class TextMessage(
         val id: String,
@@ -378,6 +379,25 @@ object BridgeProtocol {
                     number = if (json.has("number") && !json.isNull("number")) json.getString("number") else null,
                     name = if (json.has("name") && !json.isNull("name")) json.getString("name") else null,
                     ts = json.optLong("ts", System.currentTimeMillis())
+                )
+            }
+        }
+    }
+
+    data class LockMacMessage(
+        val t: Long = System.currentTimeMillis()
+    ) {
+        fun toJson(): String {
+            val json = JSONObject()
+            json.put("t", t)
+            return json.toString()
+        }
+
+        companion object {
+            fun fromJson(jsonStr: String): LockMacMessage {
+                val json = JSONObject(jsonStr)
+                return LockMacMessage(
+                    t = json.optLong("t", System.currentTimeMillis())
                 )
             }
         }

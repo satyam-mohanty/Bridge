@@ -30,8 +30,6 @@ class BridgeAccessibilityService : AccessibilityService() {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var lastTriggerTime = 0L
-    @Volatile
-    private var isOverlayReading = false
 
     private val syncRunnable = Runnable {
         val bridge = BridgeService.instance ?: return@Runnable
@@ -146,148 +144,10 @@ class BridgeAccessibilityService : AccessibilityService() {
         val now = System.currentTimeMillis()
         if (now - lastTriggerTime > 120) {
             lastTriggerTime = now
-            LogManager.i("Accessibility: Scheduling copy sync in 100ms")
+            LogManager.i("Accessibility: Scheduling copy sync in 80ms")
             mainHandler.removeCallbacks(syncRunnable)
-            // Allow source app 100ms to commit data to system ClipboardService
-            mainHandler.postDelayed(syncRunnable, 100)
-        }
-    }
-
-    /**
-     * Attempts to read the clipboard using a TYPE_ACCESSIBILITY_OVERLAY window.
-     * This is a privileged window type that AccessibilityServices can create without
-     * SYSTEM_ALERT_WINDOW permission, and it gains window focus to bypass Android 10+
-     * background clipboard restrictions.
-     */
-    fun readClipboardViaAccessibilityOverlay(
-        client: BridgeClient,
-        syncManager: ClipboardSyncManager,
-        onResult: (Boolean) -> Unit
-    ) {
-        if (isOverlayReading) {
-            mainHandler.postDelayed({
-                if (!isOverlayReading) {
-                    readClipboardViaAccessibilityOverlay(client, syncManager, onResult)
-                } else {
-                    onResult(false)
-                }
-            }, 120)
-            return
-        }
-        isOverlayReading = true
-
-        // Safety timeout: auto-reset isOverlayReading after 1.5s
-        mainHandler.postDelayed({
-            if (isOverlayReading) {
-                LogManager.d("Accessibility: Overlay safety timeout reached, resetting state")
-                isOverlayReading = false
-            }
-        }, 1500)
-
-        mainHandler.post {
-            var overlayView: View? = null
-            var windowManager: WindowManager? = null
-            var focusListener: ViewTreeObserver.OnWindowFocusChangeListener? = null
-            var hasCompleted = false
-
-            fun cleanup() {
-                if (hasCompleted) return
-                hasCompleted = true
-                try {
-                    val v = overlayView
-                    val fl = focusListener
-                    if (v != null && fl != null) {
-                        try { v.viewTreeObserver.removeOnWindowFocusChangeListener(fl) } catch (_: Throwable) {}
-                    }
-                    val wm = windowManager
-                    if (v != null && v.isAttachedToWindow && wm != null) {
-                        wm.removeView(v)
-                    }
-                } catch (_: Throwable) {}
-                focusListener = null
-                overlayView = null
-                windowManager = null
-                isOverlayReading = false
-            }
-
-            try {
-                val wm = getSystemService(Context.WINDOW_SERVICE) as? WindowManager
-                if (wm == null) {
-                    cleanup()
-                    onResult(false)
-                    return@post
-                }
-                windowManager = wm
-
-                val dummyView = View(this).apply {
-                    isFocusable = true
-                    isFocusableInTouchMode = true
-                }
-                overlayView = dummyView
-
-                val params = WindowManager.LayoutParams(
-                    1, 1,
-                    WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
-                    PixelFormat.TRANSLUCENT
-                ).apply {
-                    gravity = Gravity.START or Gravity.TOP
-                    x = 0
-                    y = 0
-                }
-
-                wm.addView(dummyView, params)
-                dummyView.requestFocus()
-
-                fun attemptRead(retryCount: Int) {
-                    if (hasCompleted) return
-                    try {
-                        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                        val sent = syncManager.sendLocalClipboardToMac(
-                            client,
-                            cm,
-                            force = false,
-                            activeContext = this@BridgeAccessibilityService
-                        )
-                        if (sent) {
-                            LogManager.i("Accessibility: Read and sent clipboard via overlay (sent=true)")
-                            cleanup()
-                            onResult(true)
-                            return
-                        }
-                    } catch (e: Throwable) {
-                        LogManager.e("Accessibility: Error reading overlay clipboard", e)
-                    }
-
-                    if (retryCount < 2) {
-                        val delay = if (retryCount == 0) 100L else 180L
-                        mainHandler.postDelayed({
-                            attemptRead(retryCount + 1)
-                        }, delay)
-                    } else {
-                        cleanup()
-                        onResult(false)
-                    }
-                }
-
-                val fl = ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
-                    if (hasFocus && !hasCompleted) {
-                        attemptRead(0)
-                    }
-                }
-                focusListener = fl
-                dummyView.viewTreeObserver.addOnWindowFocusChangeListener(fl)
-
-                mainHandler.postDelayed({
-                    if (!hasCompleted) attemptRead(0)
-                }, 60)
-
-            } catch (e: Throwable) {
-                LogManager.e("Accessibility: Failed to add overlay view", e)
-                cleanup()
-                onResult(false)
-            }
+            // Allow source app 80ms to commit data to system ClipboardService
+            mainHandler.postDelayed(syncRunnable, 80)
         }
     }
 

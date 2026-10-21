@@ -193,5 +193,10 @@ class BridgeCryptoTest {
         val remove = BridgeProtocol.NotifRemoveMessage("0|com.whatsapp|1234|tag")
         val parsedRemove = BridgeProtocol.NotifRemoveMessage.fromJson(remove.toJson())
         assertEquals(remove.key, parsedRemove.key)
+
+        val lockMsg = BridgeProtocol.LockMacMessage(1729432000000L)
+        val parsedLockMsg = BridgeProtocol.LockMacMessage.fromJson(lockMsg.toJson())
+        assertEquals(1729432000000L, parsedLockMsg.t)
+        assertEquals(0x10.toByte(), BridgeProtocol.TYPE_LOCK_MAC)
     }
 }

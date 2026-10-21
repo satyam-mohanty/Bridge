@@ -169,38 +169,61 @@ class ClipboardSyncManager(private val context: Context) {
                         }
                     }
                 }
+
+                // Check for HTML <img> web URL source (e.g. Chrome "Copy image")
+                if (htmlCandidate.contains("<img", ignoreCase = true)) {
+                    val imgMatcher = Pattern.compile("""<img[^>]+src=["'](https?://[^"']+)["']""", Pattern.CASE_INSENSITIVE).matcher(htmlCandidate)
+                    if (imgMatcher.find()) {
+                        val imgUrl = imgMatcher.group(1)
+                        if (!imgUrl.isNullOrEmpty()) {
+                            try {
+                                val imgUri = Uri.parse(imgUrl)
+                                val rawBytes = ImageUtils.readBytesFromUri(activeContext, imgUri)
+                                if (rawBytes != null) {
+                                    val processed = ImageUtils.processRawImageBytes(rawBytes)
+                                    if (processed != null) {
+                                        val lowerHash = processed.hash.lowercase()
+                                        if (!force && seenHashes.contains(lowerHash)) return true
+                                        seenHashes.add(lowerHash)
+                                        LogManager.i("Sending local HTML web image to Mac (${processed.data.size} bytes)")
+                                        client.sendImage(processed.data, processed.mime, processed.hash, processed.totalChunks)
+                                        return true
+                                    }
+                                }
+                            } catch (e: Throwable) {
+                                LogManager.d("Failed to fetch HTML web image: ${e.message}")
+                            }
+                        }
+                    }
+                }
             }
 
             // 2. Scan items for Web Links or Text
             for (i in 0 until clip.itemCount) {
                 val item = clip.getItemAt(i) ?: continue
 
-                // Check for URI that represents an explicit web link
+                // Check text first (direct user copy)
+                var text = item.text?.toString()
+
+                // Check URI that represents an explicit web link
                 val uri = item.uri ?: item.intent?.data
-                if (uri != null) {
+                if (text.isNullOrEmpty() && uri != null) {
                     val scheme = uri.scheme?.lowercase()
                     if (scheme == "http" || scheme == "https") {
-                        val linkText = uri.toString().trim()
-                        if (linkText.isNotEmpty() && sendExtractedText(client, linkText, force, "web link URI")) {
-                            return true
-                        }
+                        text = uri.toString().trim()
                     }
                 }
 
-                // Check HTML for anchor href links first (preserves clean target link from rich copy)
-                if (!item.htmlText.isNullOrEmpty()) {
+                // Check HTML for anchor href link if text is empty
+                if (text.isNullOrEmpty() && !item.htmlText.isNullOrEmpty()) {
                     val html = item.htmlText!!
                     val hrefMatcher = Pattern.compile("""href=["'](https?://[^"']+)["']""", Pattern.CASE_INSENSITIVE).matcher(html)
                     if (hrefMatcher.find()) {
-                        val hrefUrl = hrefMatcher.group(1)?.trim() ?: ""
-                        if (hrefUrl.isNotEmpty() && sendExtractedText(client, hrefUrl, force, "html link")) {
-                            return true
-                        }
+                        text = hrefMatcher.group(1)?.trim()
                     }
                 }
 
-                // Check text
-                var text = item.text?.toString()
+                // Fallback to coerceToText
                 if (text.isNullOrEmpty()) {
                     text = try {
                         item.coerceToText(activeContext)?.toString()
@@ -209,20 +232,22 @@ class ClipboardSyncManager(private val context: Context) {
                     }
                 }
 
-                // Check Intent extra text fallback
+                // Fallback to Intent EXTRA_TEXT
                 if (text.isNullOrEmpty() && item.intent != null) {
                     text = item.intent?.getStringExtra(Intent.EXTRA_TEXT)
                 }
 
-                // Check URI string fallback
-                if (text.isNullOrEmpty() && uri != null) {
+                // Fallback to URI string ONLY if not a private content:// URI
+                if (text.isNullOrEmpty() && uri != null && uri.scheme != "content") {
                     text = uri.toString()
                 }
 
                 if (!text.isNullOrEmpty()) {
                     val trimmed = text.trim()
                     if (trimmed.isNotEmpty()) {
-                        if (sendExtractedText(client, trimmed, force, "text/link")) {
+                        val isLink = trimmed.startsWith("http://", ignoreCase = true) || trimmed.startsWith("https://", ignoreCase = true)
+                        val sourceLabel = if (isLink) "link" else "text"
+                        if (sendExtractedText(client, trimmed, force, sourceLabel)) {
                             return true
                         }
                     }

@@ -395,6 +395,14 @@ class BridgeClient(
         }
     }
 
+    fun sendLockMac() {
+        scope.launch(Dispatchers.IO) {
+            val msg = BridgeProtocol.LockMacMessage()
+            send(BridgeProtocol.TYPE_LOCK_MAC, msg.toJson().toByteArray(Charsets.UTF_8), flush = true)
+            LogManager.i("Sent lock mac request to Mac")
+        }
+    }
+
     fun sendIconResp(pkg: String, versionCode: Long, iconBase64: String) {
         scope.launch(Dispatchers.IO) {
             val msg = BridgeProtocol.IconRespMessage(pkg, versionCode, iconBase64)
@@ -405,17 +413,18 @@ class BridgeClient(
     fun sendImage(bytes: ByteArray, mime: String, hash: String, totalChunks: Int) {
         scope.launch(Dispatchers.IO) {
             val transferId = java.util.UUID.randomUUID().toString()
+            val chunks = ImageUtils.chunkBytes(bytes)
+            val actualTotalChunks = chunks.size
             val startMsg = BridgeProtocol.ImageStartMessage(
                 id = transferId,
                 origin = "android",
                 hash = hash,
                 mime = mime,
                 size = bytes.size,
-                totalChunks = totalChunks
+                totalChunks = actualTotalChunks
             )
             send(BridgeProtocol.TYPE_CLIPBOARD_IMAGE_START, startMsg.toJson().toByteArray(Charsets.UTF_8), flush = true)
 
-            val chunks = ImageUtils.chunkBytes(bytes)
             for ((index, chunk) in chunks.withIndex()) {
                 val chunkObj = BridgeProtocol.ImageChunkData(
                     transferId = transferId,

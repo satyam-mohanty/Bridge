@@ -115,6 +115,7 @@ Bytes 1..N   : Payload
 | `0x0D` | `ICON_RESP` | UTF-8 JSON: Android app icon response (128px PNG) |
 | `0x0E` | `NOTIF_REMOVE` | UTF-8 JSON: Android notification removed |
 | `0x0F` | `CALL_EVENT` | UTF-8 JSON: Android incoming call state (ringing, answered, ended) |
+| `0x10` | `LOCK_MAC` | UTF-8 JSON: `{"t": <timestamp_ms>}` remote lock command |
 
 ---
 
@@ -353,6 +354,24 @@ Sent by Android to report incoming phone call lifecycle transitions.
        - Body: `"Missed call from <name or number>"`.
    - If the call was previously answered:
      - Ensures `bridge-call-<id>` is removed without posting a missed call alert.
+
+---
+
+## 9. Remote Lock Command (`0x10` LOCK_MAC)
+
+Sent by Android to request that the connected macOS host immediately locks its screen.
+
+### Payload:
+```json
+{
+  "t": 1729432000000
+}
+```
+
+### Mac Behavior:
+- Invokes Apple's private `SACLockScreenImmediate()` from `login.framework` to immediately trigger the macOS lock screen while preserving active network connections, apps, and TCP state.
+- Falls back to `pmset displaysleepnow` if `SACLockScreenImmediate()` is unavailable.
+
 
 
 

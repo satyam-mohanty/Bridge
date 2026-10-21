@@ -28,6 +28,7 @@ import android.content.ClipboardManager
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.provider.Settings
+import android.widget.Toast
 import com.bridge.android.ui.LogcatWatcherService
 import com.bridge.android.ui.MainActivity
 import com.bridge.android.util.AndroidFileManager
@@ -67,9 +68,6 @@ class BridgeService : Service(), BridgeClientListener {
         handleClipboardChanged()
     }
 
-    @Volatile
-    private var isHandlingClipChange = false
-
     private val unlockReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == Intent.ACTION_USER_PRESENT) {
@@ -108,6 +106,7 @@ class BridgeService : Service(), BridgeClientListener {
         const val ACTION_TOGGLE_SEARCH = "com.bridge.android.action.TOGGLE_SEARCH"
         const val ACTION_STOP_SEARCH = "com.bridge.android.action.STOP_SEARCH"
         const val ACTION_START_SEARCH = "com.bridge.android.action.START_SEARCH"
+        const val ACTION_LOCK_MAC = "com.bridge.android.action.LOCK_MAC"
 
         @Volatile
         var instance: BridgeService? = null
@@ -165,6 +164,19 @@ class BridgeService : Service(), BridgeClientListener {
                 LogManager.i("Received start search command")
                 resumeSearching()
             }
+            ACTION_LOCK_MAC -> {
+                LogManager.i("Received remote lock Mac command")
+                if (_isConnectedFlow.value) {
+                    client.sendLockMac()
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        Toast.makeText(applicationContext, "Lock command sent to Mac ✓", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        Toast.makeText(applicationContext, "Mac is not connected", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
         }
         return START_STICKY
     }
@@ -208,62 +220,27 @@ class BridgeService : Service(), BridgeClientListener {
         } catch (_: Exception) {}
     }
 
-    fun handleClipboardChanged() {
+    fun handleClipboardChanged(force: Boolean = false) {
         if (!_isConnectedFlow.value) return
-        if (isHandlingClipChange) {
-            LogManager.d("handleClipboardChanged: Already in progress, ignoring duplicate trigger")
-            return
-        }
-        isHandlingClipChange = true
 
         try {
             val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            // 1. Try reading directly (succeeds if application has focus)
-            val sent = clipboardSyncManager.sendLocalClipboardToMac(client, clipManager, force = false)
-            if (sent) {
-                isHandlingClipChange = false
-                return
-            }
+            // 1. Direct read (succeeds if application already has focus)
+            val sent = clipboardSyncManager.sendLocalClipboardToMac(client, clipManager, force = force, activeContext = this)
+            if (sent) return
+        } catch (_: Throwable) {}
 
-            // 2. Direct read failed (Android 10+ background restriction).
-            //    Try AccessibilityService overlay first (no SYSTEM_ALERT_WINDOW needed).
-            performClipboardFallbackRead()
-        } catch (e: Exception) {
-            LogManager.e("Error in handleClipboardChanged", e)
-            performClipboardFallbackRead()
-        }
-    }
-
-    private fun performClipboardFallbackRead() {
-        val a11y = BridgeAccessibilityService.instance
-        if (a11y != null) {
-            // Use TYPE_ACCESSIBILITY_OVERLAY (privileged, no extra permission needed).
-            // If it also fails, fall through to SYSTEM_ALERT_WINDOW overlay or activity.
-            a11y.readClipboardViaAccessibilityOverlay(client, clipboardSyncManager) { sent ->
-                isHandlingClipChange = false
-                if (!sent) {
-                    LogManager.d("Accessibility overlay read failed, trying next fallback")
-                    performOverlayOrActivityFallback()
-                }
-            }
-        } else {
-            isHandlingClipChange = false
-            performOverlayOrActivityFallback()
-        }
-    }
-
-    private fun performOverlayOrActivityFallback() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
-            com.bridge.android.clipboard.OverlayClipReader.readClipboardWithOverlay(this, force = false)
-        } else {
-            triggerTransparentClipReader(force = false)
-        }
+        // 2. Direct read failed (Android 10+ background restriction).
+        // Launch TransparentClipReaderActivity to gain momentary focus and capture the clip cleanly.
+        triggerTransparentClipReader(force = force)
     }
 
     fun triggerTransparentClipReader(force: Boolean = false) {
         if (!_isConnectedFlow.value) return
         try {
-            val intent = Intent(this, com.bridge.android.ui.TransparentClipReaderActivity::class.java).apply {
+            val a11y = BridgeAccessibilityService.instance
+            val launchContext: Context = if (a11y != null && BridgeAccessibilityService.isRunning) a11y else this
+            val intent = Intent(launchContext, com.bridge.android.ui.TransparentClipReaderActivity::class.java).apply {
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_NO_ANIMATION or
@@ -281,9 +258,9 @@ class BridgeService : Service(), BridgeClientListener {
                     val method = ActivityOptions::class.java.getMethod("setPendingIntentCreatorBackgroundActivityStartMode", Int::class.javaPrimitiveType)
                     method.invoke(options, ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
                 } catch (_: Throwable) {}
-                startActivity(intent, options.toBundle())
+                launchContext.startActivity(intent, options.toBundle())
             } else {
-                startActivity(intent)
+                launchContext.startActivity(intent)
             }
             LogManager.i("Triggered TransparentClipReaderActivity (force=$force)")
         } catch (e: Exception) {
@@ -318,6 +295,16 @@ class BridgeService : Service(), BridgeClientListener {
             triggerTransparentClipReader(force = true)
         } else {
             LogManager.i("Cannot send clipboard: Mac is not connected")
+        }
+    }
+
+    fun sendLockMac(): Boolean {
+        if (_isConnectedFlow.value) {
+            client.sendLockMac()
+            return true
+        } else {
+            LogManager.i("Cannot lock Mac: Mac is not connected")
+            return false
         }
     }
 
@@ -585,6 +572,16 @@ class BridgeService : Service(), BridgeClientListener {
 
         if (_isConnectedFlow.value) {
             builder.addAction(R.drawable.ic_clipboard, "Send to Mac", sendClipPendingIntent)
+            val lockMacIntent = Intent(this, BridgeService::class.java).apply {
+                action = ACTION_LOCK_MAC
+            }
+            val lockMacPendingIntent = PendingIntent.getService(
+                this,
+                3,
+                lockMacIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            builder.addAction(R.drawable.ic_lock, "Lock Mac", lockMacPendingIntent)
         }
 
         val isSearching = keyStoreManager.isSearchingEnabled()

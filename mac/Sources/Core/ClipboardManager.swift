@@ -180,23 +180,22 @@ public final class ClipboardManager {
                 return
             }
             
-            pasteboard.declareTypes([.tiff, .png], owner: nil)
+            let item = NSPasteboardItem()
             
-            // 1. TIFF representation for native AppKit paste targets
-            if let tiffData = image.tiffRepresentation {
-                pasteboard.setData(tiffData, forType: .tiff)
-            }
-            
-            // 2. PNG representation for browsers, Electron, Slack, etc.
+            // 1. PNG representation for browsers, Electron, Discord, Slack, etc.
             if let rep = (image.representations.first as? NSBitmapImageRep) ?? (image.tiffRepresentation.flatMap { NSBitmapImageRep(data: $0) }),
                let pngData = rep.representation(using: .png, properties: [:]) {
-                pasteboard.setData(pngData, forType: .png)
+                item.setData(pngData, forType: .png)
             } else {
-                pasteboard.setData(data, forType: .png)
+                item.setData(data, forType: .png)
             }
             
-            // 3. Write object for Cocoa pasteboard consumers
-            pasteboard.writeObjects([image])
+            // 2. TIFF representation for native AppKit paste targets
+            if let tiffData = image.tiffRepresentation {
+                item.setData(tiffData, forType: .tiff)
+            }
+            
+            pasteboard.writeObjects([item])
             self.lastChangeCount = pasteboard.changeCount
             LogManager.shared.log("Applied remote image from Android to clipboard (\(data.count) bytes)")
         }

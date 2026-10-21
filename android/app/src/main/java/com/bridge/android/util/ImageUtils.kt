@@ -66,6 +66,21 @@ object ImageUtils {
             }
         } catch (_: Throwable) {}
 
+        // 5. Fallback for http/https URIs
+        if (uri.scheme == "http" || uri.scheme == "https") {
+            try {
+                val conn = java.net.URL(uri.toString()).openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 3000
+                conn.readTimeout = 5000
+                conn.instanceFollowRedirects = true
+                conn.inputStream.use { stream ->
+                    return stream.readBytes()
+                }
+            } catch (e: Throwable) {
+                LogManager.d("HTTP image fetch failed for $uri: ${e.message}")
+            }
+        }
+
         return null
     }
 
