@@ -33,14 +33,34 @@ public struct NotificationHistoryItem: Identifiable, Equatable {
     public let body: String
     public let date: Date
     public let pkg: String
+    public var isUnread: Bool
     
-    public init(id: String = UUID().uuidString, app: String, title: String, body: String, date: Date = Date(), pkg: String = "") {
+    public init(id: String = UUID().uuidString, app: String, title: String, body: String, date: Date = Date(), pkg: String = "", isUnread: Bool = true) {
         self.id = id
         self.app = app
         self.title = title
         self.body = body
         self.date = date
         self.pkg = pkg
+        self.isUnread = isUnread
+    }
+}
+
+public struct ClipboardSnippetItem: Identifiable, Equatable {
+    public let id: String
+    public let text: String
+    public let origin: String // "Pixel → Mac" or "Mac → Pixel"
+    public let date: Date
+    public let isLink: Bool
+    public var isCurrent: Bool
+    
+    public init(id: String = UUID().uuidString, text: String, origin: String, date: Date = Date(), isLink: Bool = false, isCurrent: Bool = false) {
+        self.id = id
+        self.text = text
+        self.origin = origin
+        self.date = date
+        self.isLink = isLink
+        self.isCurrent = isCurrent
     }
 }
 
@@ -75,6 +95,23 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
     }
     @Published public var peerBatteryLevel: Int? = nil
     @Published public var isPeerCharging: Bool = false
+    @Published public var recentClipboardSnippets: [ClipboardSnippetItem] = []
+    @Published public var connectedDeviceName: String = UserDefaults.standard.string(forKey: "connectedDeviceName") ?? ""
+    @Published public var hasPairedDevice: Bool = (UserDefaults.standard.string(forKey: "connectedDeviceName") != nil)
+    @Published public var networkName: String = "Local Wi-Fi"
+    @Published public var deviceIpAddress: String = "—"
+    @Published public var pairingCode: String = "482 916"
+    @Published public var isClipboardSyncEnabled: Bool = true
+    @Published public var respectFocusOnMac: Bool = true
+    @Published public var appNotificationSettings: [String: Bool] = [:]
+
+    /// Appearance mode: "dark", "light", or "auto"
+    @Published public var appearanceMode: String = "auto" {
+        didSet {
+            UserDefaults.standard.set(appearanceMode, forKey: "appearanceMode")
+            applyAppearanceMode()
+        }
+    }
     
     private var batteryTimer: Timer?
     
@@ -93,10 +130,16 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
         
         self.showAndroidNotifications = UserDefaults.standard.object(forKey: "showAndroidNotifications") as? Bool ?? true
         self.showNotificationPreviews = UserDefaults.standard.object(forKey: "showNotificationPreviews") as? Bool ?? true
-        
+
+        // Load appearance mode
+        let savedMode = UserDefaults.standard.string(forKey: "appearanceMode")
+        self.appearanceMode = savedMode ?? "auto"
+
         if isTesting {
             return
         }
+
+        applyAppearanceMode()
         
         NSApp.setActivationPolicy(shouldHide ? .accessory : .regular)
         
@@ -116,6 +159,14 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
         beacon.start()
         clipboard.updateAwakeStatus(isAwake: true)
     }
+
+    private func applyAppearanceMode() {
+        switch appearanceMode {
+        case "light": NSApp.appearance = NSAppearance(named: .aqua)
+        case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
+        default: NSApp.appearance = nil
+        }
+    }
     
     public func restartServices() {
         LogManager.shared.log("Restarting Bridge host services")
@@ -127,11 +178,13 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
     
     public func disconnect() {
         LogManager.shared.log("User disconnected phone")
-        server.disconnectClient()
+        beacon.stop()
+        server.disconnectClient(reason: "user_disconnected")
     }
     
     public func reconnect() {
         LogManager.shared.log("User triggered reconnect")
+        server.isManuallyDisconnected = false
         server.stop()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
             guard let self = self else { return }
@@ -142,16 +195,54 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
     
     public func clearAndResetPairing() {
         LogManager.shared.log("User cleared pairing")
-        disconnect()
-        regenerateKey()
+        server.disconnectClient(reason: "unpaired")
+        beacon.stop()
+        UserDefaults.standard.removeObject(forKey: "connectedDeviceName")
+        self.connectedDeviceName = ""
+        self.hasPairedDevice = false
+        self.peerBatteryLevel = nil
+        self.isPeerCharging = false
+        self.deviceIpAddress = "—"
+        self.regenerateKey()
     }
-    
+
+    public func recordClipboardSnippet(text: String, origin: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let isLink = trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://")
+        for i in 0..<recentClipboardSnippets.count {
+            recentClipboardSnippets[i].isCurrent = false
+        }
+        let item = ClipboardSnippetItem(text: text, origin: origin, date: Date(), isLink: isLink, isCurrent: true)
+        recentClipboardSnippets.insert(item, at: 0)
+        if recentClipboardSnippets.count > 30 {
+            recentClipboardSnippets.removeLast()
+        }
+    }
+
+    public func clearClipboardHistory() {
+        recentClipboardSnippets.removeAll()
+    }
+
+    public func copySnippet(_ text: String) {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(text, forType: .string)
+    }
+
     private func updatePairingJson() {
         let machineName = Host.current().localizedName ?? "Mac"
         let base64Key = sharedKey.base64EncodedString()
         let info = PairingInfo(v: 1, name: machineName, key: base64Key, port: 48250)
         if let data = try? JSONEncoder().encode(info), let string = String(data: data, encoding: .utf8) {
             self.pairingJson = string
+        }
+        if sharedKey.count >= 4 {
+            let num1 = (UInt32(sharedKey[0]) << 8 | UInt32(sharedKey[1])) % 900 + 100
+            let num2 = (UInt32(sharedKey[2]) << 8 | UInt32(sharedKey[3])) % 900 + 100
+            self.pairingCode = "\(num1) \(num2)"
+        } else {
+            self.pairingCode = "482 916"
         }
     }
     
@@ -275,6 +366,21 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
         recentNotifications.removeAll()
         LogManager.shared.log("Cleared notification history")
     }
+
+    public func dismissNotification(_ item: NotificationHistoryItem) {
+        MacNotificationManager.shared.removeNotification(key: item.id)
+        recentNotifications.removeAll { $0.id == item.id }
+    }
+
+    public func dismissAllNotifications() {
+        recentNotifications.forEach { MacNotificationManager.shared.removeNotification(key: $0.id) }
+        clearNotificationHistory()
+    }
+
+    public func syncClipboardNow() {
+        guard isConnected else { return }
+        clipboard.syncCurrentClipboard()
+    }
     
     public func cancelActiveTransfer() {
         LogManager.shared.log("User cancelled active transfer: \(activeTransferName)")
@@ -295,19 +401,31 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
             
             if isConnected {
                 self.beacon.stop()
+                if let desc = clientDescription {
+                    let cleanIp = desc.components(separatedBy: ":").first ?? desc
+                    if !cleanIp.isEmpty {
+                        self.deviceIpAddress = cleanIp
+                    }
+                }
                 self.sendLocalBatteryStatus()
                 self.startBatterySyncTimer()
             } else {
-                self.beacon.start()
+                if !self.server.isManuallyDisconnected && self.hasPairedDevice {
+                    self.beacon.start()
+                }
                 self.stopBatterySyncTimer()
                 self.peerBatteryLevel = nil
                 self.isPeerCharging = false
+                self.deviceIpAddress = "—"
             }
         }
     }
     
     public nonisolated func serverDidReceiveText(text: String, hash: String) {
         clipboard.handleRemoteTextReceived(text, hash: hash)
+        Task { @MainActor in
+            self.recordClipboardSnippet(text: text, origin: "\(self.connectedDeviceName) → Mac")
+        }
     }
     
     public nonisolated func serverDidReceiveImage(data: Data, hash: String) {
@@ -433,6 +551,17 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
         Task { @MainActor in
             self.peerBatteryLevel = msg.level
             self.isPeerCharging = msg.isCharging
+            if let name = msg.deviceName, !name.trimmingCharacters(in: .whitespaces).isEmpty {
+                let trimmed = name.trimmingCharacters(in: .whitespaces)
+                self.connectedDeviceName = trimmed
+                self.hasPairedDevice = true
+                UserDefaults.standard.set(trimmed, forKey: "connectedDeviceName")
+                LogManager.shared.log("Updated connected device name: \(trimmed)")
+            } else if self.connectedDeviceName.isEmpty {
+                self.connectedDeviceName = "Android Device"
+                self.hasPairedDevice = true
+                UserDefaults.standard.set("Android Device", forKey: "connectedDeviceName")
+            }
             LogManager.shared.log("Received phone battery status: \(msg.level)%, isCharging=\(msg.isCharging)")
         }
     }
@@ -499,7 +628,12 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
     // MARK: - NetworkMonitorDelegate
     public nonisolated func networkPathDidChange() {
         Task { @MainActor in
-            self.restartServices()
+            // Force reconnect on network changes to handle IP changes, Wi-Fi drops, etc.
+            LogManager.shared.log("Network path changed - forcing reconnect")
+            self.server.forceReconnect(key: self.sharedKey)
+            if !self.isConnected {
+                self.beacon.start()
+            }
         }
     }
     
@@ -514,7 +648,12 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
     public nonisolated func systemDidWake() {
         Task { @MainActor in
             self.clipboard.updateAwakeStatus(isAwake: true)
-            self.restartServices()
+            // Force full reconnect after wake - ensures fresh connection
+            LogManager.shared.log("System woke - forcing reconnect")
+            self.server.forceReconnect(key: self.sharedKey)
+            if !self.isConnected {
+                self.beacon.start()
+            }
         }
     }
     

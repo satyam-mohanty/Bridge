@@ -43,6 +43,18 @@ object ConnectivityHelper {
         return getMissingConnectivityReason(isWifiEnabled(context))
     }
 
+    fun getWifiNetworkName(context: Context): String {
+        try {
+            val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+            val info = wifiManager?.connectionInfo
+            val ssid = info?.ssid?.replace("\"", "")
+            if (!ssid.isNullOrBlank() && ssid != "<unknown ssid>") {
+                return ssid
+            }
+        } catch (_: Exception) {}
+        return "Wi-Fi"
+    }
+
     fun openWifiPanelOrSettings(activity: Activity) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {

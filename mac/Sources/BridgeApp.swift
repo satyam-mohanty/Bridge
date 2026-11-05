@@ -5,6 +5,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var model: AppModel?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        UserDefaults.standard.register(defaults: [
+            "NSScreenLayoutAdjustOnWindowMove": false
+        ])
+        UserDefaults.standard.set(false, forKey: "NSScreenLayoutAdjustOnWindowMove")
+        
         NSApp.servicesProvider = self
         NSUpdateDynamicServices()
         _ = MacNotificationManager.shared
@@ -43,7 +48,6 @@ struct BridgeApp: App {
     var body: some Scene {
         WindowGroup("Bridge", id: "main") {
             MainWindowView(model: model)
-                .preferredColorScheme(.dark)
                 .onAppear {
                     appDelegate.model = model
                 }
@@ -54,7 +58,7 @@ struct BridgeApp: App {
         .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unified)
         .windowResizability(.contentMinSize)
-        .defaultSize(width: 680, height: 640)
+        .defaultSize(width: 1040, height: 740)
         .commands {
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") {

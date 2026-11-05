@@ -45,6 +45,8 @@ public final class NetworkServer {
     private var isTransferCancelled: Bool = false
     private let transferCancelLock = NSLock()
     
+    public var isManuallyDisconnected: Bool = false
+    
     private init() {}
     
     public func start(key: Data) {
@@ -54,6 +56,7 @@ public final class NetworkServer {
     }
     
     private func startInternal(key: Data) {
+        self.isManuallyDisconnected = false
         if let existing = self.listener, existing.state == .ready {
             LogManager.shared.log("TCP Server already listening on port 48250")
             return
@@ -62,24 +65,24 @@ public final class NetworkServer {
             self.crypto = try BridgeCrypto(key: key)
             let tcpOptions = NWProtocolTCP.Options()
             tcpOptions.enableKeepalive = true
-            tcpOptions.keepaliveIdle = 10
-            tcpOptions.keepaliveInterval = 5
-            tcpOptions.keepaliveCount = 3
+            tcpOptions.keepaliveIdle = 5      // Start keepalive after 5s of silence
+            tcpOptions.keepaliveInterval = 3  // Probe every 3s
+            tcpOptions.keepaliveCount = 4     // 4 failed probes = dead (5 + 3*4 = 17s total)
             tcpOptions.noDelay = true
-            
+
             let params = NWParameters(tls: nil, tcp: tcpOptions)
             params.allowLocalEndpointReuse = true
             params.includePeerToPeer = true
             params.serviceClass = .responsiveData
-            
+
             let listener = try NWListener(using: params, on: self.port)
             let machineName = Host.current().localizedName ?? "Mac"
             listener.service = NWListener.Service(name: machineName, type: "_bridge._tcp")
-            
+
             listener.newConnectionHandler = { [weak self] newConn in
                 self?.handleNewConnection(newConn)
             }
-            
+
             listener.stateUpdateHandler = { [weak self] state in
                 switch state {
                 case .ready:
@@ -93,7 +96,7 @@ public final class NetworkServer {
                     break
                 }
             }
-            
+
             listener.start(queue: self.queue)
             self.listener = listener
         } catch {
@@ -104,10 +107,8 @@ public final class NetworkServer {
     public func restart(key: Data) {
         queue.async { [weak self] in
             guard let self = self else { return }
-            if let existing = self.listener, existing.state == .ready {
-                LogManager.shared.log("TCP Server is already healthy on port 48250")
-                return
-            }
+            // Always restart to ensure clean state - listener state may be .ready even with dead connection
+            LogManager.shared.log("Restarting TCP Server (forced)")
             self.stopInternal()
             self.queue.asyncAfter(deadline: .now() + .milliseconds(500)) { [weak self] in
                 self?.startInternal(key: key)
@@ -121,13 +122,50 @@ public final class NetworkServer {
         }
     }
     
-    public func disconnectClient() {
+    public func disconnectClient(reason: String = "user_disconnected") {
         queue.async { [weak self] in
             guard let self = self else { return }
+            self.isManuallyDisconnected = (reason == "user_disconnected")
             if let conn = self.activeConnection {
-                LogManager.shared.log("User disconnected client connection")
+                LogManager.shared.log("Disconnecting client with reason: \(reason)")
+                let msg = DisconnectMessage(reason: reason)
+                if let payload = try? JSONEncoder().encode(msg),
+                   let crypto = self.crypto {
+                    var plaintext = Data([BridgeMessageType.disconnect.rawValue])
+                    plaintext.append(payload)
+                    do {
+                        let ciphertext = try crypto.encrypt(plaintext: plaintext, counter: self.outgoingCounter, direction: BridgeCrypto.directionMacToAndroid)
+                        self.outgoingCounter += 1
+                        let frame = BridgeFrameHelper.makeFrame(ciphertext: ciphertext)
+                        conn.send(content: frame, completion: .contentProcessed { [weak self, weak conn] _ in
+                            guard let self = self, let conn = conn else { return }
+                            self.queue.asyncAfter(deadline: .now() + .milliseconds(150)) {
+                                conn.cancel()
+                                self.cleanupConnection(conn)
+                            }
+                        })
+                        return
+                    } catch {
+                        LogManager.shared.log("Failed to send disconnect frame: \(error)", level: .error)
+                    }
+                }
                 conn.cancel()
                 self.cleanupConnection(conn)
+            }
+        }
+    }
+
+    /// Force a full reconnect - cancels active connection and restarts listener
+    public func forceReconnect(key: Data) {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            LogManager.shared.log("Force reconnect triggered")
+            if let conn = self.activeConnection {
+                conn.cancel()
+            }
+            self.stopInternal()
+            self.queue.asyncAfter(deadline: .now() + .milliseconds(500)) { [weak self] in
+                self?.startInternal(key: key)
             }
         }
     }
@@ -144,6 +182,11 @@ public final class NetworkServer {
     private func handleNewConnection(_ connection: NWConnection) {
         queue.async { [weak self] in
             guard let self = self else { return }
+            if self.isManuallyDisconnected {
+                LogManager.shared.log("Rejecting incoming connection from \(connection.endpoint): user manually disconnected")
+                connection.cancel()
+                return
+            }
             LogManager.shared.log("Incoming connection from \(connection.endpoint)")
             
             // If already connected, close the previous one cleanly
@@ -187,10 +230,13 @@ public final class NetworkServer {
         queue.async { [weak self] in
             guard let self = self else { return }
             if self.activeConnection === connection {
+                LogManager.shared.log("Cleaning up connection: \(connection.endpoint)")
                 self.stopHeartbeat()
                 self.activeConnection = nil
                 self.pendingImageStart = nil
                 self.receivedImageChunks.removeAll()
+                self.pendingFileStart = nil
+                self.receivedFileChunks.removeAll()
                 self.delegate?.serverDidUpdateConnectionStatus(isConnected: false, clientDescription: nil)
             }
         }
@@ -645,10 +691,10 @@ public final class NetworkServer {
                   let crypto = self.crypto else {
                 return
             }
-            
+
             var plaintext = Data([type.rawValue])
             plaintext.append(payload)
-            
+
             do {
                 let ciphertext = try crypto.encrypt(
                     plaintext: plaintext,
@@ -657,11 +703,20 @@ public final class NetworkServer {
                 )
                 self.outgoingCounter += 1
                 self.lastActivitySent = Date()
-                
+
                 let frame = BridgeFrameHelper.makeFrame(ciphertext: ciphertext)
-                connection.send(content: frame, completion: .contentProcessed({ error in
+                connection.send(content: frame, completion: .contentProcessed({ [weak self, weak connection] error in
                     if let error = error {
                         LogManager.shared.log("Send error: \(error)", level: .error)
+                        // Check for connection-related errors
+                        if let nwError = error as? NWError,
+                           case .posix(let posixCode) = nwError,
+                           (posixCode == .ECONNRESET || posixCode == .EPIPE || posixCode == .ETIMEDOUT || posixCode == .ENOTCONN) {
+                            LogManager.shared.log("Connection error detected (posix: \(posixCode)), forcing cleanup")
+                            if let conn = connection {
+                                self?.cleanupConnection(conn)
+                            }
+                        }
                     }
                 }))
             } catch {
@@ -673,23 +728,24 @@ public final class NetworkServer {
     private func startHeartbeat() {
         stopHeartbeat()
         let timer = DispatchSource.makeTimerSource(queue: queue)
-        timer.schedule(deadline: .now() + .seconds(15), repeating: .seconds(15), leeway: .seconds(1))
+        // Ping every 10s, detect dead after 25s (aligns with TCP keepalive: idle 10 + interval 5 * count 3 = 25s)
+        timer.schedule(deadline: .now() + .seconds(10), repeating: .seconds(10), leeway: .seconds(1))
         timer.setEventHandler { [weak self] in
             guard let self = self else { return }
             let now = Date()
-            
-            // Check dead timeout (40 seconds of silence)
-            if now.timeIntervalSince(self.lastActivityReceived) >= 40.0 {
-                LogManager.shared.log("Connection dead (40s silence). Terminating.", level: .error)
+
+            // Check dead timeout (25 seconds of silence - aligns with TCP keepalive)
+            if now.timeIntervalSince(self.lastActivityReceived) >= 25.0 {
+                LogManager.shared.log("Connection dead (25s silence). Terminating.", level: .error)
                 self.activeConnection?.cancel()
                 if let conn = self.activeConnection {
                     self.cleanupConnection(conn)
                 }
                 return
             }
-            
-            // If idle for >= 15s since last send, ping
-            if now.timeIntervalSince(self.lastActivitySent) >= 15.0 {
+
+            // If idle for >= 10s since last send, ping
+            if now.timeIntervalSince(self.lastActivitySent) >= 10.0 {
                 self.send(type: .ping, value: PingMessage())
             }
         }

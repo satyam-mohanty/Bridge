@@ -85,6 +85,20 @@ public final class ClipboardManager {
             return
         }
     }
+
+    /// Immediately sends the current text or image clipboard to the connected device.
+    public func syncCurrentClipboard() {
+        guard isConnected else { return }
+        let pasteboard = NSPasteboard.general
+        lastChangeCount = pasteboard.changeCount
+
+        if pasteboard.canReadItem(withDataConformingToTypes: [NSPasteboard.PasteboardType.png.rawValue, NSPasteboard.PasteboardType.tiff.rawValue]),
+           let image = NSImage(pasteboard: pasteboard) {
+            handleLocalImageCopied(image)
+        } else if let text = pasteboard.string(forType: .string), !text.isEmpty {
+            handleLocalTextCopied(text)
+        }
+    }
     
     private func handleLocalTextCopied(_ text: String) {
         guard let textData = text.data(using: .utf8) else { return }

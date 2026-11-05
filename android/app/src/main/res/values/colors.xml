@@ -1,30 +1,37 @@
 <resources>
-    <!-- Brand & Accent -->
-    <color name="primary">#0071E3</color>
-    <color name="primary_dark">#0051A8</color>
-    <color name="accent">#0071E3</color>
+    <!-- Brand & Accent (Figma Royal Blue) -->
+    <color name="primary">#1D61E0</color>
+    <color name="primary_dark">#154AB5</color>
+    <color name="accent">#1D61E0</color>
     
     <!-- Status Colors -->
-    <color name="status_green">#34C759</color>
-    <color name="status_orange">#FF9500</color>
-    <color name="status_red">#FF3B30</color>
-    <color name="status_gray">#8E8E93</color>
+    <color name="status_green">#16A34A</color>
+    <color name="status_orange">#EA580C</color>
+    <color name="status_red">#DC2626</color>
+    <color name="status_gray">#9CA3AF</color>
     
-    <!-- Light Mode Surfaces & Text (Clean, calm neutral slate) -->
+    <!-- Light Mode Surfaces & Text -->
     <color name="surface">#F8F9FA</color>
     <color name="card_background">#FFFFFF</color>
-    <color name="card_stroke">#ECEEF1</color>
+    <color name="card_stroke">#E8EAED</color>
     <color name="card_highlight">#F3F4F6</color>
-    <color name="icon_tint">#1F2937</color>
+    <color name="icon_tint">#111827</color>
     <color name="neutral_icon_bg">#F3F4F6</color>
+    <color name="blue_icon_bg">#EFF6FF</color>
     <color name="text_primary">#111827</color>
     <color name="text_secondary">#6B7280</color>
+    <color name="text_tertiary">#9CA3AF</color>
     <color name="chevron_color">#9CA3AF</color>
+
+    <!-- Nav Bar Colors -->
+    <color name="nav_active_indicator">#E0ECFD</color>
+    <color name="nav_active_tint">#1D61E0</color>
+    <color name="nav_inactive_tint">#6B7280</color>
 
     <!-- Subtle Tinted Status Pill Backgrounds -->
     <color name="pill_green_bg">#EDF9F0</color>
     <color name="pill_orange_bg">#FFF8ED</color>
-    <color name="pill_blue_bg">#EEF5FC</color>
-    <color name="pill_red_bg">#FDF2F2</color>
+    <color name="pill_blue_bg">#EFF6FF</color>
+    <color name="pill_red_bg">#FEF2F2</color>
     <color name="pill_gray_bg">#F3F4F6</color>
 </resources>

@@ -32,6 +32,8 @@ class ClipboardSyncManager(private val context: Context) {
         try {
             val clip = ClipData.newPlainText("Bridge Text", text)
             clipboardManager.setPrimaryClip(clip)
+            val macName = com.bridge.android.crypto.KeyStoreManager(context).getMacName()
+            com.bridge.android.history.ClipboardHistoryManager(context).addItem(text, isIncoming = true, macName = macName)
             LogManager.i("Applied remote text from Mac to clipboard (${text.length} chars)")
         } catch (e: Exception) {
             LogManager.e("Error setting clipboard text", e)
@@ -128,7 +130,7 @@ class ClipboardSyncManager(private val context: Context) {
                     lastRemoteReceivedHash = null
 
                     LogManager.i("Clip: mimeTypes=$mimeTypes, branch=image, textLength=0")
-                    client.sendImage(processed.data, processed.mime, processed.hash, processed.totalChunks)
+                    client.sendImage(processed.data, processed.mime, processed.hash)
                     return true
                 }
                 // If the image branch fails for any reason, fall back to coerceToText instead of dropping the clip.
@@ -186,6 +188,8 @@ class ClipboardSyncManager(private val context: Context) {
             val branch = if (attemptedImage) "image_fallback_to_text" else "text"
             LogManager.i("Clip: mimeTypes=$mimeTypes, branch=$branch, textLength=${text.length}")
             client.sendTextMessage(text, hash)
+            val macName = com.bridge.android.crypto.KeyStoreManager(activeContext).getMacName()
+            com.bridge.android.history.ClipboardHistoryManager(activeContext).addItem(text, isIncoming = false, macName = macName)
             return true
         } catch (e: Exception) {
             LogManager.e("Error reading local clipboard", e)
@@ -209,6 +213,8 @@ class ClipboardSyncManager(private val context: Context) {
 
             LogManager.i("Sending local text to Mac (${text.length} chars)")
             client.sendTextMessage(text, hash)
+            val macName = com.bridge.android.crypto.KeyStoreManager(context).getMacName()
+            com.bridge.android.history.ClipboardHistoryManager(context).addItem(text, isIncoming = false, macName = macName)
             return true
         } catch (e: Exception) {
             LogManager.e("Error sending local text to Mac", e)
@@ -224,7 +230,7 @@ class ClipboardSyncManager(private val context: Context) {
             lastLocalSentTime = System.currentTimeMillis()
             lastRemoteReceivedHash = null
             LogManager.i("Sharing image to Mac (${processed.data.size} bytes)")
-            client.sendImage(processed.data, processed.mime, processed.hash, processed.totalChunks)
+            client.sendImage(processed.data, processed.mime, processed.hash)
         } else {
             // Read as text
             val text = context.contentResolver.openInputStream(uri)?.use { stream ->

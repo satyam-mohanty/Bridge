@@ -42,3 +42,8 @@ mac/Config/Local.xcconfig
 scripts/release/keys/
 secrets/
 
+# Brag outputs
+brag-output/
+HOW_TO_RUN.md
+
+

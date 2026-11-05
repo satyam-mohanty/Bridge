@@ -1,31 +1,26 @@
 package com.bridge.android.ui
 
-import android.Manifest
-import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.provider.Settings
-import android.text.Editable
-import android.text.TextWatcher
 import android.util.LruCache
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bridge.android.R
+import com.bridge.android.crypto.KeyStoreManager
 import com.bridge.android.databinding.ActivityNotificationSettingsBinding
 import com.bridge.android.databinding.ItemAppNotificationBinding
-import com.bridge.android.notification.BridgeNotificationListenerService
 import com.bridge.android.notification.NotificationPreferences
 import com.bridge.android.util.LogManager
 import com.google.android.material.switchmaterial.SwitchMaterial
@@ -37,37 +32,17 @@ class NotificationSettingsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityNotificationSettingsBinding
     private lateinit var prefs: NotificationPreferences
+    private lateinit var keyStoreManager: KeyStoreManager
 
     private val iconCache = object : LruCache<String, Drawable>(120) {}
-    private var allAppsList = listOf<AppEntry>()
-    private var filteredAppsList = listOf<AppEntry>()
+    private var appsList = listOf<AppEntry>()
     private var appsAdapter: AppsAdapter? = null
-
-    private val callPermissions = arrayOf(
-        Manifest.permission.READ_PHONE_STATE,
-        Manifest.permission.READ_CALL_LOG,
-        Manifest.permission.READ_CONTACTS
-    )
-
-    private val requestCallPermissionsLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-            val missing = getMissingCallPermissions()
-            if (missing.isEmpty()) {
-                prefs.showIncomingCalls = true
-                binding.switchShowIncomingCalls.isChecked = true
-                LogManager.i("All call permissions granted; incoming call sync enabled")
-            } else {
-                prefs.showIncomingCalls = false
-                binding.switchShowIncomingCalls.isChecked = false
-                LogManager.i("Some call permissions denied: $missing")
-            }
-            updateCallPermissionsStatus()
-        }
 
     data class AppEntry(
         val packageName: String,
         val label: String,
-        val isSystem: Boolean
+        val isSystem: Boolean,
+        val isEnabled: Boolean
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -76,6 +51,7 @@ class NotificationSettingsActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         prefs = NotificationPreferences(this)
+        keyStoreManager = KeyStoreManager(this)
 
         setupUI()
         loadAppsList()
@@ -84,8 +60,7 @@ class NotificationSettingsActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateNotificationAccessStatus()
-        updateCallPermissionsStatus()
-        updateRecentAppsSection()
+        updateAppCounts()
     }
 
     private fun setupUI() {
@@ -93,65 +68,28 @@ class NotificationSettingsActivity : AppCompatActivity() {
             finish()
         }
 
-        // Master switch
-        binding.switchMasterNotifications.isChecked = prefs.isSyncEnabled
-        binding.switchMasterNotifications.setOnCheckedChangeListener { _, isChecked ->
-            prefs.isSyncEnabled = isChecked
-            LogManager.i("Notifications master switch set to $isChecked")
-            if (isChecked && !isNotificationAccessGranted()) {
-                openNotificationAccessSettings()
-            }
-        }
-
-        // Notification Access Row
-        binding.rowNotificationAccess.setOnClickListener {
+        binding.btnManageAndroidSettings.setOnClickListener {
             openNotificationAccessSettings()
         }
 
-        // Show previews switch
-        binding.switchShowPreviews.isChecked = prefs.showPreviews
-        binding.switchShowPreviews.setOnCheckedChangeListener { _, isChecked ->
-            prefs.showPreviews = isChecked
-            LogManager.i("Notifications showPreviews set to $isChecked")
+        // Privacy Switches
+        // "Hide sensitive content" = !showPreviews
+        binding.switchHideSensitive.isChecked = !prefs.showPreviews
+        binding.switchHideSensitive.setOnCheckedChangeListener { _, isChecked ->
+            prefs.showPreviews = !isChecked
+            LogManager.i("Hide sensitive content set to $isChecked (showPreviews=${!isChecked})")
         }
 
-        // Show incoming calls switch
-        val hasAllCallPerms = getMissingCallPermissions().isEmpty()
-        binding.switchShowIncomingCalls.isChecked = prefs.showIncomingCalls && hasAllCallPerms
-        updateCallPermissionsStatus()
-
-        binding.switchShowIncomingCalls.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                val missing = getMissingCallPermissions()
-                if (missing.isNotEmpty()) {
-                    requestCallPermissionsLauncher.launch(missing.toTypedArray())
-                } else {
-                    prefs.showIncomingCalls = true
-                    updateCallPermissionsStatus()
-                    LogManager.i("Incoming call sync enabled")
-                }
-            } else {
-                prefs.showIncomingCalls = false
-                updateCallPermissionsStatus()
-                LogManager.i("Incoming call sync disabled")
-            }
+        // "Only when Mac is unlocked"
+        binding.switchOnlyWhenMacUnlocked.isChecked = prefs.onlyWhenMacUnlocked
+        binding.switchOnlyWhenMacUnlocked.setOnCheckedChangeListener { _, isChecked ->
+            prefs.onlyWhenMacUnlocked = isChecked
+            LogManager.i("Only when Mac is unlocked set to $isChecked")
         }
 
-        // Show system apps switch
-        binding.switchShowSystemApps.isChecked = prefs.showSystemApps
-        binding.switchShowSystemApps.setOnCheckedChangeListener { _, isChecked ->
-            prefs.showSystemApps = isChecked
-            filterAndDisplayApps(binding.etSearchApps.text?.toString() ?: "")
-        }
-
-        // Search text watcher
-        binding.etSearchApps.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                filterAndDisplayApps(s?.toString() ?: "")
-            }
-            override fun afterTextChanged(s: Editable?) {}
-        })
+        // Mac name in footer
+        val macName = keyStoreManager.getMacName() ?: "Mac"
+        binding.tvNotifFooterSecurity.text = "Notifications are encrypted and shared only with $macName."
 
         // RecyclerView
         appsAdapter = AppsAdapter()
@@ -167,41 +105,13 @@ class NotificationSettingsActivity : AppCompatActivity() {
     private fun updateNotificationAccessStatus() {
         val granted = isNotificationAccessGranted()
         if (granted) {
-            binding.tvNotificationAccessStatus.text = "Allowed"
-            binding.tvNotificationAccessStatus.setTextColor(ContextCompat.getColor(this, R.color.status_green))
+            binding.ivAccessShield.setColorFilter(ContextCompat.getColor(this, R.color.status_green))
+            binding.tvAccessTitle.text = "Notification access enabled"
+            binding.tvAccessSubtitle.text = "Bridge can share selected notifications."
         } else {
-            binding.tvNotificationAccessStatus.text = "Not allowed"
-            binding.tvNotificationAccessStatus.setTextColor(ContextCompat.getColor(this, R.color.status_red))
-        }
-    }
-
-    private fun getMissingCallPermissions(): List<String> {
-        return callPermissions.filter {
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }
-    }
-
-    private fun updateCallPermissionsStatus() {
-        val missing = getMissingCallPermissions()
-        if (missing.isEmpty()) {
-            if (prefs.showIncomingCalls) {
-                binding.tvCallPermissionsStatus.text = "Allowed"
-                binding.tvCallPermissionsStatus.setTextColor(ContextCompat.getColor(this, R.color.status_green))
-            } else {
-                binding.tvCallPermissionsStatus.text = "Alert on phone calls while ringing"
-                binding.tvCallPermissionsStatus.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
-            }
-        } else {
-            val names = missing.map {
-                when (it) {
-                    Manifest.permission.READ_PHONE_STATE -> "Phone"
-                    Manifest.permission.READ_CALL_LOG -> "Call log"
-                    Manifest.permission.READ_CONTACTS -> "Contacts"
-                    else -> it
-                }
-            }.joinToString(", ")
-            binding.tvCallPermissionsStatus.text = "Missing permissions: $names"
-            binding.tvCallPermissionsStatus.setTextColor(ContextCompat.getColor(this, R.color.status_red))
+            binding.ivAccessShield.setColorFilter(ContextCompat.getColor(this, R.color.status_orange))
+            binding.tvAccessTitle.text = "Notification access disabled"
+            binding.tvAccessSubtitle.text = "Bridge needs notification access to forward notifications to your Mac."
         }
     }
 
@@ -210,158 +120,124 @@ class NotificationSettingsActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
-    private fun loadAppsList() {
-        binding.pbLoadingApps.visibility = View.VISIBLE
+    private fun updateAppCounts() {
+        val count = prefs.getEnabledPackages().size
+        binding.tvSharedAppsCount.text = "$count enabled"
+    }
 
+    private fun loadAppsList() {
         lifecycleScope.launch(Dispatchers.IO) {
             val pm = packageManager
             val installed = pm.getInstalledApplications(PackageManager.GET_META_DATA)
             val currentPkg = packageName
+            val enabledSet = prefs.getEnabledPackages()
+
+            // Common messaging packages to prioritize at top
+            val priorityPrefixes = listOf(
+                "com.whatsapp",
+                "com.google.android.apps.messaging",
+                "com.Slack",
+                "com.google.android.gm",
+                "org.telegram.messenger",
+                "com.discord",
+                "com.instagram.android",
+                "com.twitter.android",
+                "com.microsoft.teams"
+            )
 
             val list = mutableListOf<AppEntry>()
             for (info in installed) {
                 if (info.packageName == currentPkg) continue
+                val hasLaunchIntent = pm.getLaunchIntentForPackage(info.packageName) != null
+                val isSystem = !hasLaunchIntent && ((info.flags and ApplicationInfo.FLAG_SYSTEM) != 0)
+                if (isSystem) continue // Skip internal Android OS processes
+
                 val label = try {
                     pm.getApplicationLabel(info).toString()
                 } catch (_: Exception) {
                     info.packageName
                 }
-                val hasLaunchIntent = pm.getLaunchIntentForPackage(info.packageName) != null
-                // System app: flagged as system AND lacks a launcher intent (internal OS service)
-                val isSystem = !hasLaunchIntent && ((info.flags and ApplicationInfo.FLAG_SYSTEM) != 0)
-                list.add(AppEntry(info.packageName, label, isSystem))
+                list.add(
+                    AppEntry(
+                        packageName = info.packageName,
+                        label = label,
+                        isSystem = isSystem,
+                        isEnabled = enabledSet.contains(info.packageName)
+                    )
+                )
             }
 
-            // Alphabetical sort by label
-            list.sortBy { it.label.lowercase() }
+            // Sort: Priority apps first, then enabled apps, then alphabetically
+            list.sortWith(
+                compareByDescending<AppEntry> { entry ->
+                    priorityPrefixes.any { entry.packageName.startsWith(it, ignoreCase = true) }
+                }
+                .thenByDescending { it.isEnabled }
+                .thenBy { it.label.lowercase() }
+            )
 
             withContext(Dispatchers.Main) {
-                allAppsList = list
-                binding.pbLoadingApps.visibility = View.GONE
-                filterAndDisplayApps(binding.etSearchApps.text?.toString() ?: "")
-                updateRecentAppsSection()
+                appsList = list
+                appsAdapter?.submitList(appsList)
+                updateAppCounts()
             }
         }
     }
 
-    private fun filterAndDisplayApps(query: String) {
-        val showSystem = prefs.showSystemApps
-        val q = query.trim().lowercase()
+    inner class AppsAdapter : RecyclerView.Adapter<AppsAdapter.AppViewHolder>() {
+        private var items = listOf<AppEntry>()
 
-        filteredAppsList = allAppsList.filter { entry ->
-            val matchesSystem = showSystem || !entry.isSystem
-            val matchesQuery = q.isEmpty() || entry.label.lowercase().contains(q) || entry.packageName.lowercase().contains(q)
-            matchesSystem && matchesQuery
+        fun submitList(newList: List<AppEntry>) {
+            items = newList
+            notifyDataSetChanged()
         }
 
-        appsAdapter?.notifyDataSetChanged()
-    }
-
-    private fun updateRecentAppsSection() {
-        val recentPackages = prefs.getRecentPackages()
-        binding.containerRecentApps.removeAllViews()
-
-        if (recentPackages.isEmpty()) {
-            binding.tvHeaderRecent.visibility = View.GONE
-            binding.cardRecentApps.visibility = View.GONE
-            return
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
+            val binding = ItemAppNotificationBinding.inflate(
+                LayoutInflater.from(parent.context), parent, false
+            )
+            return AppViewHolder(binding)
         }
 
-        val pm = packageManager
-        var addedCount = 0
-
-        for (pkg in recentPackages) {
-            if (pkg == packageName) continue
-            val appInfo = try {
-                pm.getApplicationInfo(pkg, 0)
-            } catch (_: Exception) {
-                continue
-            }
-            val label = pm.getApplicationLabel(appInfo).toString()
-
-            val itemBinding = ItemAppNotificationBinding.inflate(layoutInflater, binding.containerRecentApps, false)
-            itemBinding.tvAppName.text = label
-            itemBinding.tvAppPackage.text = pkg
-
-            val isEnabled = prefs.isPackageEnabled(pkg)
-            itemBinding.switchAppEnabled.isChecked = isEnabled
-            itemBinding.switchAppEnabled.setOnCheckedChangeListener { _, isChecked ->
-                prefs.setPackageEnabled(pkg, isChecked)
-                appsAdapter?.notifyDataSetChanged()
-            }
-
-            loadAppIconAsync(pkg, itemBinding.ivAppIcon)
-
-            binding.containerRecentApps.addView(itemBinding.root)
-            addedCount++
-            if (addedCount >= 5) break // Show top 5 recent
+        override fun onBindViewHolder(holder: AppViewHolder, position: Int) {
+            holder.bind(items[position], isLast = position == items.size - 1)
         }
 
-        if (addedCount > 0) {
-            binding.tvHeaderRecent.visibility = View.VISIBLE
-            binding.cardRecentApps.visibility = View.VISIBLE
-        } else {
-            binding.tvHeaderRecent.visibility = View.GONE
-            binding.cardRecentApps.visibility = View.GONE
-        }
-    }
+        override fun getItemCount(): Int = items.size
 
-    private fun loadAppIconAsync(packageName: String, imageView: ImageView) {
-        imageView.tag = packageName
-        val cached = iconCache.get(packageName)
-        if (cached != null) {
-            imageView.setImageDrawable(cached)
-            return
-        }
+        inner class AppViewHolder(private val itemBinding: ItemAppNotificationBinding) :
+            RecyclerView.ViewHolder(itemBinding.root) {
 
-        imageView.setImageDrawable(null)
-        lifecycleScope.launch(Dispatchers.IO) {
-            val drawable = try {
-                packageManager.getApplicationIcon(packageName)
-            } catch (_: Exception) {
-                null
-            }
-            if (drawable != null) {
-                iconCache.put(packageName, drawable)
-                withContext(Dispatchers.Main) {
-                    if (imageView.tag == packageName) {
-                        imageView.setImageDrawable(drawable)
+            fun bind(entry: AppEntry, isLast: Boolean) {
+                itemBinding.tvAppName.text = entry.label
+                itemBinding.dividerLine.visibility = if (isLast) View.GONE else View.VISIBLE
+
+                // Load Icon
+                val cached = iconCache.get(entry.packageName)
+                if (cached != null) {
+                    itemBinding.ivAppIcon.setImageDrawable(cached)
+                } else {
+                    itemBinding.ivAppIcon.setImageResource(R.drawable.ic_notifications_outline)
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        try {
+                            val icon = packageManager.getApplicationIcon(entry.packageName)
+                            iconCache.put(entry.packageName, icon)
+                            withContext(Dispatchers.Main) {
+                                itemBinding.ivAppIcon.setImageDrawable(icon)
+                            }
+                        } catch (_: Exception) {}
                     }
+                }
+
+                itemBinding.switchAppEnabled.setOnCheckedChangeListener(null)
+                itemBinding.switchAppEnabled.isChecked = prefs.isPackageEnabled(entry.packageName)
+
+                itemBinding.switchAppEnabled.setOnCheckedChangeListener { _, isChecked ->
+                    prefs.setPackageEnabled(entry.packageName, isChecked)
+                    updateAppCounts()
+                    LogManager.i("App ${entry.label} (${entry.packageName}) notification sharing set to $isChecked")
                 }
             }
         }
-    }
-
-    inner class AppsAdapter : RecyclerView.Adapter<AppsAdapter.ViewHolder>() {
-
-        inner class ViewHolder(val binding: ItemAppNotificationBinding) : RecyclerView.ViewHolder(binding.root)
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val itemBinding = ItemAppNotificationBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-            return ViewHolder(itemBinding)
-        }
-
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val entry = filteredAppsList[position]
-            holder.binding.tvAppName.text = entry.label
-            holder.binding.tvAppPackage.text = entry.packageName
-
-            // Clear listener before updating checked state to avoid recursion
-            holder.binding.switchAppEnabled.setOnCheckedChangeListener(null)
-            holder.binding.switchAppEnabled.isChecked = prefs.isPackageEnabled(entry.packageName)
-
-            holder.binding.switchAppEnabled.setOnCheckedChangeListener { _, isChecked ->
-                prefs.setPackageEnabled(entry.packageName, isChecked)
-                updateRecentAppsSection()
-            }
-
-            holder.binding.root.setOnClickListener {
-                holder.binding.switchAppEnabled.toggle()
-            }
-
-            loadAppIconAsync(entry.packageName, holder.binding.ivAppIcon)
-        }
-
-        override fun getItemCount(): Int = filteredAppsList.size
     }
 }

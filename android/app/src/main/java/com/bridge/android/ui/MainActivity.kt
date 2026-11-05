@@ -14,35 +14,32 @@ import android.os.PowerManager
 import android.provider.OpenableColumns
 import android.provider.Settings
 import android.text.TextUtils
-import android.util.Base64
+import android.text.format.DateUtils
+import android.text.format.Formatter
+import android.view.Gravity
 import android.view.View
-import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.bridge.android.R
 import com.bridge.android.crypto.KeyStoreManager
 import com.bridge.android.databinding.ActivityMainBinding
+import com.bridge.android.history.ClipboardHistoryItem
+import com.bridge.android.history.ClipboardHistoryManager
 import com.bridge.android.history.RecentNotificationHistoryManager
 import com.bridge.android.history.TransferHistoryManager
+import com.bridge.android.history.TransferItem
 import com.bridge.android.notification.NotificationPreferences
-import com.bridge.android.protocol.BridgeProtocol
 import com.bridge.android.service.BridgeAccessibilityService
 import com.bridge.android.service.BridgeService
-import com.bridge.android.util.LogManager
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileInputStream
 import com.bridge.android.update.UpdateManager
 import com.bridge.android.update.data.ManifestFetchResult
 import com.bridge.android.update.installer.InstallationResult
@@ -50,13 +47,31 @@ import com.bridge.android.update.installer.UpdateInstaller
 import com.bridge.android.update.model.UpdateManifest
 import com.bridge.android.update.model.UpdateState
 import com.bridge.android.update.notification.UpdateNotificationHelper
+import com.bridge.android.util.ConnectivityHelper
+import com.bridge.android.util.LogManager
+import com.bridge.android.util.ThemeManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileInputStream
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var keyStoreManager: KeyStoreManager
     private lateinit var updateManager: UpdateManager
+    private lateinit var clipboardHistoryManager: ClipboardHistoryManager
+    private lateinit var transferHistoryManager: TransferHistoryManager
+    private lateinit var notificationHistoryManager: RecentNotificationHistoryManager
+
+    private var currentActivityFilter = FilterMode.ALL
     private var pendingInstallApk: File? = null
+
+    private enum class FilterMode {
+        ALL, SENT, RECEIVED
+    }
 
     private val unknownSourcesLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         val apk = pendingInstallApk
@@ -74,17 +89,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ThemeManager.applyTheme(this)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         keyStoreManager = KeyStoreManager(this)
         updateManager = UpdateManager.getInstance(this)
+        clipboardHistoryManager = ClipboardHistoryManager(this)
+        transferHistoryManager = TransferHistoryManager(this)
+        notificationHistoryManager = RecentNotificationHistoryManager(this)
 
         setupNavigation()
         setupListeners()
-        setupUpdateListeners()
         observeServiceState()
-        observeUpdateState()
         checkAndRequestNotificationPermission()
 
         BridgeService.start(this)
@@ -119,7 +136,11 @@ class MainActivity : AppCompatActivity() {
         val service = BridgeService.instance
         if (service != null && service.isConnectedFlow.value) {
             val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            service.getClipboardSyncManager().sendLocalClipboardToMac(service.getClient(), clipManager)
+            service.getClipboardSyncManager().sendLocalClipboardToMac(
+                service.getClient(),
+                clipManager,
+                activeContext = this
+            )
         }
         updateClipboardPreview()
     }
@@ -130,8 +151,7 @@ class MainActivity : AppCompatActivity() {
         updateContinuityPills()
         updateSettingsValues()
         updateClipboardPreview()
-        renderRecentTransfers()
-        renderRecentNotifications()
+        renderActivityList()
         BridgeService.instance?.syncAutoModeState()
         try {
             val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -148,7 +168,11 @@ class MainActivity : AppCompatActivity() {
                 val service = BridgeService.instance
                 if (service != null && service.isConnectedFlow.value) {
                     val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    service.getClipboardSyncManager().sendLocalClipboardToMac(service.getClient(), clipManager)
+                    service.getClipboardSyncManager().sendLocalClipboardToMac(
+                        service.getClient(),
+                        clipManager,
+                        activeContext = this
+                    )
                 }
             } catch (e: Exception) {
                 LogManager.e("Error reading clipboard in onWindowFocusChanged", e)
@@ -176,6 +200,8 @@ class MainActivity : AppCompatActivity() {
                     binding.tabContentBridge.visibility = View.VISIBLE
                     binding.tabContentActivity.visibility = View.GONE
                     binding.tabContentSettings.visibility = View.GONE
+                    binding.ivAppLogo.visibility = View.VISIBLE
+                    binding.tvAppTitle.text = "Bridge"
                     updateConnectionStatus()
                     updateContinuityPills()
                     true
@@ -184,14 +210,17 @@ class MainActivity : AppCompatActivity() {
                     binding.tabContentBridge.visibility = View.GONE
                     binding.tabContentActivity.visibility = View.VISIBLE
                     binding.tabContentSettings.visibility = View.GONE
-                    renderRecentTransfers()
-                    renderRecentNotifications()
+                    binding.ivAppLogo.visibility = View.GONE
+                    binding.tvAppTitle.text = "Activity"
+                    renderActivityList()
                     true
                 }
                 R.id.nav_settings -> {
                     binding.tabContentBridge.visibility = View.GONE
                     binding.tabContentActivity.visibility = View.GONE
                     binding.tabContentSettings.visibility = View.VISIBLE
+                    binding.ivAppLogo.visibility = View.GONE
+                    binding.tvAppTitle.text = "Settings"
                     updateSettingsValues()
                     true
                 }
@@ -201,56 +230,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
-        // Header Reconnect Button
-        binding.btnHeaderReconnect.setOnClickListener {
-            triggerReconnect()
+        // Top Overflow Kebab Menu
+        binding.btnTopOverflow.setOnClickListener { v ->
+            showOverflowMenu(v)
         }
 
-        // ==================== UNPAIRED HERO ONBOARDING ====================
-        binding.btnPairScanQr.setOnClickListener {
-            startQrScanner()
-        }
-
-        binding.btnPairEnterCode.setOnClickListener {
-            showPastePairingDialog()
-        }
-
-        binding.btnPairManualIp.setOnClickListener {
-            showManualIpDialog()
-        }
-
-        // ==================== PAIRED DASHBOARD ====================
-        // Send Files to Mac
-        binding.btnSendFileToMac.setOnClickListener {
-            val service = BridgeService.instance
-            if (service == null || !service.isConnectedFlow.value) {
-                Toast.makeText(this, "Mac is not connected yet", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            pickFilesLauncher.launch("*/*")
-        }
-
-        // Send Current Clipboard
-        binding.btnSendClipboardToMac.setOnClickListener {
-            val service = BridgeService.instance
-            if (service == null || !service.isConnectedFlow.value) {
-                Toast.makeText(this, "Mac is not connected yet", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val sent = service.getClipboardSyncManager().sendLocalClipboardToMac(
-                service.getClient(),
-                clipManager,
-                force = true
-            )
-            if (sent) {
-                Toast.makeText(this, "Clipboard sent to Mac ✓", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "Clipboard is empty", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        // Lock Mac Screen Remotely
+        // ==================== TAB 1: BRIDGE DASHBOARD ====================
+        // Lock Mac
         binding.btnLockMac.setOnClickListener {
             val service = BridgeService.instance
             if (service == null || !service.isConnectedFlow.value) {
@@ -264,21 +250,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Quick Reconnect on card
-        binding.btnQuickReconnect.setOnClickListener {
-            triggerReconnect()
-        }
-
-        // Active Discovery & Sync Toggle
-        binding.switchSearchSync.setOnCheckedChangeListener { _, isChecked ->
+        // Discovery & Sync switches (both connected and disconnected card views)
+        val onSearchToggle = { isChecked: Boolean ->
             keyStoreManager.setSearchingEnabled(isChecked)
             val service = BridgeService.instance
             if (isChecked) {
-                if (service != null) {
-                    service.resumeSearching()
-                } else {
-                    BridgeService.start(this)
-                }
+                if (service != null) service.resumeSearching()
+                else BridgeService.start(this)
                 Toast.makeText(this, "Discovery & sync resumed", Toast.LENGTH_SHORT).show()
             } else {
                 service?.pauseSearching()
@@ -286,273 +264,293 @@ class MainActivity : AppCompatActivity() {
             }
             updateConnectionStatus()
         }
+        binding.switchSearchSync.setOnCheckedChangeListener { _, isChecked ->
+            if (binding.switchDisconnectedSearchSync.isChecked != isChecked) {
+                binding.switchDisconnectedSearchSync.isChecked = isChecked
+            }
+            onSearchToggle(isChecked)
+        }
+        binding.switchDisconnectedSearchSync.setOnCheckedChangeListener { _, isChecked ->
+            if (binding.switchSearchSync.isChecked != isChecked) {
+                binding.switchSearchSync.isChecked = isChecked
+            }
+            onSearchToggle(isChecked)
+        }
 
-        // Continuity Services Shortcuts on Dashboard
+        // Send Files
+        binding.btnSendFileToMac.setOnClickListener {
+            val service = BridgeService.instance
+            if (service == null || !service.isConnectedFlow.value) {
+                Toast.makeText(this, "Mac is not connected yet", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            startActivity(Intent(this, SendFilesActivity::class.java))
+        }
+
+        // Send Clipboard
+        binding.btnSendClipboardToMac.setOnClickListener {
+            val service = BridgeService.instance
+            if (service == null || !service.isConnectedFlow.value) {
+                Toast.makeText(this, "Mac is not connected yet", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val sent = service.getClipboardSyncManager().sendLocalClipboardToMac(
+                service.getClient(),
+                clipManager,
+                force = true,
+                activeContext = this
+            )
+            if (sent) {
+                Toast.makeText(this, "Clipboard sent to Mac ✓", Toast.LENGTH_SHORT).show()
+                updateClipboardPreview()
+            } else {
+                Toast.makeText(this, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // Services: Notifications
         binding.rowNotificationSync.setOnClickListener {
             startActivity(Intent(this, NotificationSettingsActivity::class.java))
         }
 
+        // Services: Clipboard Sync
         binding.rowClipboardSync.setOnClickListener {
-            showClipboardOptionsDialog()
+            startActivity(Intent(this, ClipboardSyncActivity::class.java))
         }
 
+        // Services: Background Sync
         binding.rowBackgroundReliability.setOnClickListener {
             showReliabilityOptionsDialog()
         }
 
-        // ==================== ACTIVITY TAB ====================
-        binding.chipFilterAll.setOnClickListener {
-            binding.sectionTransfers.visibility = View.VISIBLE
-            binding.sectionNotifications.visibility = View.VISIBLE
+        // Disconnected State: Try Reconnecting
+        binding.btnTryReconnecting.setOnClickListener {
+            triggerReconnect()
         }
 
-        binding.chipFilterTransfers.setOnClickListener {
-            binding.sectionTransfers.visibility = View.VISIBLE
-            binding.sectionNotifications.visibility = View.GONE
+        // Disconnected State: Pair another Mac
+        binding.btnPairAnotherMac.setOnClickListener {
+            startActivity(Intent(this, PairActivity::class.java))
         }
 
-        binding.chipFilterNotifications.setOnClickListener {
-            binding.sectionTransfers.visibility = View.GONE
-            binding.sectionNotifications.visibility = View.VISIBLE
+        // Disconnected State: Help & Troubleshooting
+        binding.btnHelpTroubleshooting.setOnClickListener {
+            showHelpDialog()
         }
 
-        // Clear Activity
-        binding.btnClearAllHistory.setOnClickListener {
-            val options = arrayOf("Clear All", "Clear Transfers Only", "Clear Notifications Only")
-            AlertDialog.Builder(this)
-                .setTitle("Clear History")
-                .setItems(options) { _, which ->
-                    when (which) {
-                        0 -> {
-                            TransferHistoryManager(this).clearTransfers()
-                            RecentNotificationHistoryManager(this).clearNotifications()
-                            Toast.makeText(this, "All history cleared", Toast.LENGTH_SHORT).show()
-                        }
-                        1 -> {
-                            TransferHistoryManager(this).clearTransfers()
-                            Toast.makeText(this, "Transfer history cleared", Toast.LENGTH_SHORT).show()
-                        }
-                        2 -> {
-                            RecentNotificationHistoryManager(this).clearNotifications()
-                            Toast.makeText(this, "Notification history cleared", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                    renderRecentTransfers()
-                    renderRecentNotifications()
+        // ==================== TAB 2: ACTIVITY ====================
+        binding.btnFilterAll.setOnClickListener {
+            setFilter(FilterMode.ALL)
+        }
+
+        binding.btnFilterSent.setOnClickListener {
+            setFilter(FilterMode.SENT)
+        }
+
+        binding.btnFilterReceived.setOnClickListener {
+            setFilter(FilterMode.RECEIVED)
+        }
+
+        binding.btnClearActivity.setOnClickListener {
+            showClearActivityDialog()
+        }
+
+        // ==================== TAB 3: SETTINGS ====================
+        binding.btnSettingsReconnect.setOnClickListener {
+            triggerReconnect()
+        }
+
+        binding.btnSettingsManageDevice.setOnClickListener {
+            showManageDeviceDialog()
+        }
+
+        binding.switchSettingsSearchSync.setOnCheckedChangeListener { _, isChecked ->
+            binding.switchSearchSync.isChecked = isChecked
+        }
+
+        binding.switchSettingsClipboardSync.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                if (isAccessibilityServiceEnabled()) {
+                    Toast.makeText(this, "Clipboard sync active ✓", Toast.LENGTH_SHORT).show()
+                } else {
+                    showClipboardOptionsDialog()
                 }
-                .setNegativeButton("Cancel", null)
-                .show()
+            } else {
+                Toast.makeText(this, "Turn off Accessibility to disable background capture", Toast.LENGTH_SHORT).show()
+            }
         }
 
-        // ==================== SETTINGS TAB ====================
-        binding.rowSettingsScanQr.setOnClickListener {
-            startQrScanner()
-        }
-
-        binding.rowSettingsPastePairing.setOnClickListener {
-            showPastePairingDialog()
-        }
-
-        binding.rowSettingsManualIp.setOnClickListener {
-            showManualIpDialog()
+        binding.switchSettingsBackgroundSync.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                requestDisableBatteryOptimization()
+            } else {
+                Toast.makeText(this, "Background sync adjusted", Toast.LENGTH_SHORT).show()
+            }
         }
 
         binding.rowSettingsNotifications.setOnClickListener {
             startActivity(Intent(this, NotificationSettingsActivity::class.java))
         }
 
-        binding.rowSettingsBatteryOpt.setOnClickListener {
-            requestDisableBatteryOptimization()
+        // Appearance / Theme
+        binding.rowSettingsColorMode.setOnClickListener {
+            showThemeSelectionDialog()
         }
 
-        binding.rowSettingsAutostart.setOnClickListener {
-            showOemInstructionsDialog()
+        // Support & About
+        binding.rowSettingsBuyCoffee.setOnClickListener {
+            openUrl("https://buymeacoffee.com/satyam")
         }
 
-        binding.rowSettingsAccessibilityService.setOnClickListener {
-            openAccessibilitySettings()
+        binding.rowSettingsHelp.setOnClickListener {
+            showHelpDialog()
         }
 
-        binding.switchSettingsAutoMode.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                if (checkSelfPermission("android.permission.READ_LOGS") == PackageManager.PERMISSION_GRANTED) {
-                    keyStoreManager.setAutoModeEnabled(true)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-                        binding.switchSettingsAutoMode.isChecked = false
-                        showOverlayPermissionDialog()
-                        BridgeService.instance?.syncAutoModeState()
-                        return@setOnCheckedChangeListener
-                    }
-                    BridgeService.instance?.syncAutoModeState()
-                    Toast.makeText(this, "Auto-sync mode enabled", Toast.LENGTH_SHORT).show()
-                } else {
-                    binding.switchSettingsAutoMode.isChecked = false
-                    showAdbPermissionDialog()
-                }
-            } else {
-                keyStoreManager.setAutoModeEnabled(false)
-                BridgeService.instance?.syncAutoModeState()
-                Toast.makeText(this, "Auto-sync mode disabled", Toast.LENGTH_SHORT).show()
+        binding.rowSettingsAbout.setOnClickListener {
+            showAboutDialog()
+        }
+    }
+
+    private fun setFilter(mode: FilterMode) {
+        currentActivityFilter = mode
+
+        // Update Pill Backgrounds
+        binding.btnFilterAll.setBackgroundResource(
+            if (mode == FilterMode.ALL) R.drawable.bg_segmented_selected else 0
+        )
+        binding.btnFilterAll.setTextColor(
+            ContextCompat.getColor(this, if (mode == FilterMode.ALL) R.color.text_primary else R.color.text_secondary)
+        )
+        binding.btnFilterAll.setTypeface(null, if (mode == FilterMode.ALL) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+
+        binding.btnFilterSent.setBackgroundResource(
+            if (mode == FilterMode.SENT) R.drawable.bg_segmented_selected else 0
+        )
+        binding.btnFilterSent.setTextColor(
+            ContextCompat.getColor(this, if (mode == FilterMode.SENT) R.color.text_primary else R.color.text_secondary)
+        )
+        binding.btnFilterSent.setTypeface(null, if (mode == FilterMode.SENT) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+
+        binding.btnFilterReceived.setBackgroundResource(
+            if (mode == FilterMode.RECEIVED) R.drawable.bg_segmented_selected else 0
+        )
+        binding.btnFilterReceived.setTextColor(
+            ContextCompat.getColor(this, if (mode == FilterMode.RECEIVED) R.color.text_primary else R.color.text_secondary)
+        )
+        binding.btnFilterReceived.setTypeface(null, if (mode == FilterMode.RECEIVED) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+
+        renderActivityList()
+    }
+
+    private fun showOverflowMenu(anchor: View) {
+        val popup = PopupMenu(this, anchor)
+        popup.menu.add(0, 1, 0, "Try reconnecting")
+        popup.menu.add(0, 2, 1, "Pair a Mac")
+        popup.menu.add(0, 3, 2, "Check for updates")
+        popup.menu.add(0, 4, 3, "Diagnostics & logs")
+        popup.menu.add(0, 5, 4, "Help & troubleshooting")
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                1 -> triggerReconnect()
+                2 -> startActivity(Intent(this, PairActivity::class.java))
+                3 -> performManualUpdateCheck()
+                4 -> copyDiagnostics()
+                5 -> showHelpDialog()
             }
-            updateContinuityPills()
+            true
+        }
+        popup.show()
+    }
+
+    private fun showThemeSelectionDialog() {
+        val modes = arrayOf("Auto (Follow system)", "Light mode", "Dark mode")
+        val current = ThemeManager.getThemeMode(this)
+        val selectedIndex = when (current) {
+            ThemeManager.MODE_LIGHT -> 1
+            ThemeManager.MODE_DARK -> 2
+            else -> 0
         }
 
-        binding.rowSettingsCopyLogs.setOnClickListener {
-            val logs = LogManager.getDiagnostics()
-            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("Bridge Diagnostics", logs))
-            Toast.makeText(this, "Diagnostics copied to clipboard", Toast.LENGTH_SHORT).show()
-        }
-
-        binding.rowSettingsUnpair.setOnClickListener {
-            AlertDialog.Builder(this)
-                .setTitle("Unpair Mac")
-                .setMessage("Are you sure you want to unpair from this Mac? You will need to scan a new QR code to reconnect.")
-                .setPositiveButton("Unpair") { _, _ ->
-                    keyStoreManager.clear()
-                    BridgeService.instance?.triggerReconnect()
-                    updateConnectionStatus()
-                    binding.bottomNav.selectedItemId = R.id.nav_home
-                    Toast.makeText(this, "Unpaired from Mac", Toast.LENGTH_SHORT).show()
+        AlertDialog.Builder(this)
+            .setTitle("Color mode")
+            .setSingleChoiceItems(modes, selectedIndex) { dialog, which ->
+                val newMode = when (which) {
+                    1 -> ThemeManager.MODE_LIGHT
+                    2 -> ThemeManager.MODE_DARK
+                    else -> ThemeManager.MODE_AUTO
                 }
-                .setNegativeButton("Cancel", null)
-                .show()
-        }
-
-        // Footer Social Links & Attribution
-        setupFooterLinks()
-    }
-
-    private fun openUrl(url: String) {
-        try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-            startActivity(intent)
-        } catch (e: Exception) {
-            Toast.makeText(this, "Could not open link", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun setupFooterLinks() {
-        val websiteUrl = "https://www.satyammohanty.com"
-        val xUrl = "https://x.com/isatymm"
-        val linkedinUrl = "https://www.linkedin.com/in/satyam-mohanty"
-        val githubUrl = "https://github.com/satyam-mohanty"
-        val instagramUrl = "https://www.instagram.com/isatymm"
-
-        // Dashboard footer
-        binding.btnSocialX.setOnClickListener { openUrl(xUrl) }
-        binding.btnSocialLinkedin.setOnClickListener { openUrl(linkedinUrl) }
-        binding.btnSocialGithub.setOnClickListener { openUrl(githubUrl) }
-        binding.btnSocialInstagram.setOnClickListener { openUrl(instagramUrl) }
-        binding.btnAuthorName.setOnClickListener { openUrl(websiteUrl) }
-
-        // Settings footer
-        binding.btnSocialXSettings.setOnClickListener { openUrl(xUrl) }
-        binding.btnSocialLinkedinSettings.setOnClickListener { openUrl(linkedinUrl) }
-        binding.btnSocialGithubSettings.setOnClickListener { openUrl(githubUrl) }
-        binding.btnSocialInstagramSettings.setOnClickListener { openUrl(instagramUrl) }
-        binding.btnAuthorNameSettings.setOnClickListener { openUrl(websiteUrl) }
-    }
-
-    private fun setupUpdateListeners() {
-        binding.btnUpdateBannerDismiss.setOnClickListener {
-            val state = updateManager.updateState.value
-            if (state is UpdateState.UpdateAvailable) {
-                updateManager.dismissUpdate(state.manifest.versionCode)
-            } else {
-                binding.cardUpdateBanner.visibility = View.GONE
+                ThemeManager.setThemeMode(this, newMode)
+                binding.tvSettingsColorModeValue.text = ThemeManager.getThemeLabel(this)
+                dialog.dismiss()
             }
-        }
-
-        binding.rowSettingsCheckUpdates.setOnClickListener {
-            performManualUpdateCheck()
-        }
-
-        binding.switchSettingsUpdateNotifications.setOnCheckedChangeListener { _, isChecked ->
-            updateManager.preferences.isNotificationEnabled = isChecked
-        }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
-    private fun observeUpdateState() {
-        lifecycleScope.launch {
-            updateManager.updateState.collectLatest { state ->
-                when (state) {
-                    is UpdateState.Idle -> {
-                        binding.cardUpdateBanner.visibility = View.GONE
-                        binding.layoutUpdateProgress.visibility = View.GONE
+    private fun showManageDeviceDialog() {
+        val macName = keyStoreManager.getMacName() ?: "Mac"
+        val options = arrayOf("Reconnect now", "Pair another Mac", "Unpair $macName", "Cancel")
+        AlertDialog.Builder(this)
+            .setTitle(macName)
+            .setItems(options) { dialog, which ->
+                when (which) {
+                    0 -> triggerReconnect()
+                    1 -> startActivity(Intent(this, PairActivity::class.java))
+                    2 -> {
+                        keyStoreManager.clear()
+                        BridgeService.instance?.triggerReconnect()
+                        updateConnectionStatus()
+                        Toast.makeText(this, "Unpaired from $macName", Toast.LENGTH_SHORT).show()
                     }
-                    is UpdateState.Checking -> {
-                        binding.tvSettingsUpdateStatus.text = "Checking…"
-                        binding.tvSettingsUpdateStatus.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.accent))
-                    }
-                    is UpdateState.UpdateAvailable -> {
-                        val manifest = state.manifest
-                        if (manifest.versionCode > updateManager.preferences.dismissedVersionCode) {
-                            binding.cardUpdateBanner.visibility = View.VISIBLE
-                            binding.tvUpdateBannerTitle.text = "Update Available: v${manifest.versionName}"
-                            binding.tvUpdateBannerNotes.text = manifest.releaseNotes
-                            binding.layoutUpdateProgress.visibility = View.GONE
-                            binding.btnUpdateBannerAction.text = "Download & Install"
-                            binding.btnUpdateBannerAction.isEnabled = true
-                            binding.btnUpdateBannerAction.setOnClickListener {
-                                updateManager.startDownload(manifest)
-                            }
-                        }
-                        binding.tvSettingsUpdateStatus.text = "v${manifest.versionName} Available"
-                        binding.tvSettingsUpdateStatus.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.accent))
-                    }
-                    is UpdateState.Downloading -> {
-                        binding.cardUpdateBanner.visibility = View.VISIBLE
-                        binding.layoutUpdateProgress.visibility = View.VISIBLE
-                        binding.progressUpdateDownload.isIndeterminate = state.progressPercent <= 0
-                        if (state.progressPercent > 0) {
-                            binding.progressUpdateDownload.progress = state.progressPercent
-                        }
-                        val mbDownloaded = state.bytesDownloaded.toDouble() / (1024 * 1024)
-                        val mbTotal = state.totalBytes.toDouble() / (1024 * 1024)
-                        binding.tvUpdateProgressStatus.text = if (state.totalBytes > 0) {
-                            String.format("Downloading... %d%% (%.1f MB / %.1f MB)", state.progressPercent, mbDownloaded, mbTotal)
-                        } else {
-                            String.format("Downloading... (%.1f MB)", mbDownloaded)
-                        }
-                        binding.btnUpdateBannerAction.isEnabled = false
-                        binding.btnUpdateBannerAction.text = "Downloading…"
-                    }
-                    is UpdateState.ReadyToInstall -> {
-                        binding.cardUpdateBanner.visibility = View.VISIBLE
-                        binding.layoutUpdateProgress.visibility = View.GONE
-                        binding.btnUpdateBannerAction.isEnabled = true
-                        binding.btnUpdateBannerAction.text = "Install Update"
-                        binding.btnUpdateBannerAction.setOnClickListener {
-                            triggerInstall(state.apkFile)
-                        }
-                        binding.tvSettingsUpdateStatus.text = "Ready to Install"
-                        binding.tvSettingsUpdateStatus.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.status_green))
-                    }
-                    is UpdateState.UpToDate -> {
-                        binding.cardUpdateBanner.visibility = View.GONE
-                        binding.tvSettingsUpdateStatus.text = "Latest ✓"
-                        binding.tvSettingsUpdateStatus.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.status_green))
-                    }
-                    is UpdateState.Error -> {
-                        binding.layoutUpdateProgress.visibility = View.GONE
-                        binding.btnUpdateBannerAction.isEnabled = true
-                        binding.btnUpdateBannerAction.text = "Retry"
-                        binding.btnUpdateBannerAction.setOnClickListener {
-                            val cached = updateManager.preferences.getCachedManifest()
-                            if (cached != null) updateManager.startDownload(cached)
-                            else performManualUpdateCheck()
-                        }
-                        binding.tvSettingsUpdateStatus.text = "Check"
-                        binding.tvSettingsUpdateStatus.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.accent))
-                    }
+                    else -> dialog.dismiss()
                 }
             }
+            .show()
+    }
+
+    private fun showHelpDialog() {
+        val message = """
+            Bridge connects your Android phone and Mac seamlessly over Wi-Fi:
+            
+            • Both devices must be on the same local Wi-Fi network.
+            • Clipboard sync happens in real time without cloud servers.
+            • You can send photos, docs, or files directly from the app.
+            • To automatically wake connection, keep Background sync optimized.
+        """.trimIndent()
+
+        AlertDialog.Builder(this)
+            .setTitle("Help & Troubleshooting")
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    private fun showAboutDialog() {
+        val version = try {
+            packageManager.getPackageInfo(packageName, 0).versionName
+        } catch (_: Exception) {
+            "1.4.2"
         }
+
+        AlertDialog.Builder(this)
+            .setTitle("Bridge for Android & Mac")
+            .setMessage("Version $version\n\nCross-device continuity, clipboard sync, notifications, and file transfer built with native LAN encryption.")
+            .setPositiveButton("Check for Updates") { _, _ ->
+                performManualUpdateCheck()
+            }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    private fun copyDiagnostics() {
+        val logs = LogManager.getDiagnostics()
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("Bridge Diagnostics", logs))
+        Toast.makeText(this, "Diagnostics copied to clipboard", Toast.LENGTH_SHORT).show()
     }
 
     private fun performManualUpdateCheck() {
-        binding.tvSettingsUpdateStatus.text = "Checking…"
         lifecycleScope.launch {
             val result = updateManager.checkForUpdate(isManual = true)
             when (result) {
@@ -586,7 +584,6 @@ class MainActivity : AppCompatActivity() {
             .setTitle("Bridge ${manifest.versionName} Available")
             .setMessage("Release Notes:\n${manifest.releaseNotes.ifBlank { "Performance updates and security improvements." }}\n\nSize$sizeStr")
             .setPositiveButton("Download & Install") { _, _ ->
-                binding.bottomNav.selectedItemId = R.id.nav_home
                 updateManager.startDownload(manifest)
             }
             .setNegativeButton("Later", null)
@@ -632,6 +629,15 @@ class MainActivity : AppCompatActivity() {
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun openUrl(url: String) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            startActivity(intent)
+        } catch (_: Exception) {
+            Toast.makeText(this, "Could not open link", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun triggerReconnect() {
@@ -690,6 +696,66 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun requestDisableBatteryOptimization() {
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:$packageName")
+            }
+            try {
+                startActivity(intent)
+            } catch (_: Exception) {
+                Toast.makeText(this, "Could not open battery settings directly", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(this, "Battery optimization is already disabled for Bridge", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun showOemInstructionsDialog() {
+        val message = """
+            To ensure Android keeps Bridge connected in the background:
+            
+            • Samsung (One UI):
+              Settings → Battery → Background usage limits → Never sleeping apps → Add Bridge.
+              Also disable 'Put unused apps to sleep'.
+              
+            • Xiaomi / Redmi / POCO (MIUI / HyperOS):
+              Settings → Apps → Manage Apps → Bridge → Enable 'Autostart'.
+              Battery Saver → Select 'No restrictions'.
+              
+            • Pixel / OnePlus / Oppo / Realme:
+              App Info → Battery usage → Allow background activity.
+        """.trimIndent()
+
+        AlertDialog.Builder(this)
+            .setTitle("OEM Background Instructions")
+            .setMessage(message)
+            .setPositiveButton("Got It", null)
+            .show()
+    }
+
+    private fun showAdbPermissionDialog() {
+        val message = """
+            To enable automatic background clipboard sync via ADB:
+            
+            adb shell pm grant com.bridge.android android.permission.READ_LOGS
+            
+            Once granted, flip this switch on!
+        """.trimIndent()
+
+        AlertDialog.Builder(this)
+            .setTitle("Grant READ_LOGS via ADB")
+            .setMessage(message)
+            .setPositiveButton("Copy ADB Command") { _, _ ->
+                val clip = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clip.setPrimaryClip(ClipData.newPlainText("adb command", "adb shell pm grant com.bridge.android android.permission.READ_LOGS"))
+                Toast.makeText(this, "Command copied to clipboard", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
     private fun updateClipboardPreview() {
         try {
             val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -697,95 +763,437 @@ class MainActivity : AppCompatActivity() {
             if (clip != null && clip.itemCount > 0) {
                 val text = clip.getItemAt(0).text?.toString()?.trim()
                 if (!text.isNullOrBlank()) {
-                    val preview = if (text.length > 32) text.take(32) + "…" else text
+                    val preview = if (text.length > 28) text.take(28) + "…" else text
                     binding.tvClipboardPreview.text = "“$preview”"
                     return
                 }
             }
-            binding.tvClipboardPreview.text = "Push copied content"
+            binding.tvClipboardPreview.text = "Push clipboard content"
         } catch (_: Exception) {
-            binding.tvClipboardPreview.text = "Push copied content"
+            binding.tvClipboardPreview.text = "Push clipboard content"
         }
     }
 
     private fun updateContinuityPills() {
-        val secondaryColor = ContextCompat.getColor(this, R.color.text_secondary)
-        val orangeColor = ContextCompat.getColor(this, R.color.status_orange)
-
-        // Notification status text
         val notifPrefs = NotificationPreferences(this)
         val notifCount = notifPrefs.getEnabledPackages().size
-        binding.tvNotificationStatusPill.background = null
-        if (notifPrefs.isSyncEnabled) {
-            binding.tvNotificationStatusPill.text = if (notifCount == 1) "1 app" else "$notifCount apps"
-            binding.tvNotificationStatusPill.setTextColor(secondaryColor)
+        binding.tvNotificationStatusPill.text = if (notifPrefs.isSyncEnabled) {
+            if (notifCount == 1) "1 app" else "$notifCount apps"
         } else {
-            binding.tvNotificationStatusPill.text = "Off"
-            binding.tvNotificationStatusPill.setTextColor(secondaryColor)
+            "Off"
         }
 
-        // Clipboard status text
         val isA11y = isAccessibilityServiceEnabled()
-        val isAuto = keyStoreManager.isAutoModeEnabled() && checkSelfPermission("android.permission.READ_LOGS") == PackageManager.PERMISSION_GRANTED
-        binding.tvClipboardStatusPill.background = null
-        if (isA11y) {
-            binding.tvClipboardStatusPill.text = "Real-time"
-            binding.tvClipboardStatusPill.setTextColor(secondaryColor)
-        } else if (isAuto) {
-            binding.tvClipboardStatusPill.text = "Foreground"
-            binding.tvClipboardStatusPill.setTextColor(secondaryColor)
-        } else {
-            binding.tvClipboardStatusPill.text = "Manual"
-            binding.tvClipboardStatusPill.setTextColor(secondaryColor)
-        }
+        binding.tvClipboardStatusPill.text = if (isA11y) "Real-time" else "Foreground"
 
-        // Battery status text
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         val isIgnoring = pm.isIgnoringBatteryOptimizations(packageName)
-        binding.tvBatteryStatusPill.background = null
-        if (isIgnoring) {
-            binding.tvBatteryStatusPill.text = "Optimized"
-            binding.tvBatteryStatusPill.setTextColor(secondaryColor)
-        } else {
-            binding.tvBatteryStatusPill.text = "Restricted"
-            binding.tvBatteryStatusPill.setTextColor(orangeColor)
-        }
+        binding.tvBatteryStatusPill.text = if (isIgnoring) "Optimized" else "Restricted"
     }
 
     private fun updateSettingsValues() {
-        val currentIp = keyStoreManager.getLastKnownIp()
-        binding.tvSettingsCurrentIp.text = if (currentIp.isNullOrBlank()) "Auto" else currentIp
+        val macName = keyStoreManager.getMacName() ?: "Mac"
+        val phoneModel = Build.MODEL ?: "Android"
+        binding.tvSettingsDeviceName.text = macName
+        binding.tvSettingsThisPhone.text = "This phone · $phoneModel"
+
+        val service = BridgeService.instance
+        val isConnected = service?.isConnectedFlow?.value == true
+        val isSearching = keyStoreManager.isSearchingEnabled()
+        val networkName = ConnectivityHelper.getWifiNetworkName(this)
+
+        val statusDot = binding.dotSettingsStatus.background as? GradientDrawable
+        if (isConnected) {
+            binding.tvSettingsStatusText.text = "Connected · $networkName"
+            statusDot?.setColor(ContextCompat.getColor(this, R.color.status_green))
+        } else if (isSearching) {
+            binding.tvSettingsStatusText.text = "Searching · $networkName"
+            statusDot?.setColor(ContextCompat.getColor(this, R.color.status_orange))
+        } else {
+            binding.tvSettingsStatusText.text = "Offline"
+            statusDot?.setColor(ContextCompat.getColor(this, R.color.status_gray))
+        }
+
+        val peerBattery = BridgeService.peerBatteryFlow.value
+        if (isConnected && peerBattery != null) {
+            val (level, isCharging) = peerBattery
+            binding.tvSettingsMacBattery.visibility = View.VISIBLE
+            binding.tvSettingsMacBattery.text = if (isCharging) "$level% · Charging" else "$level%"
+        } else {
+            binding.tvSettingsMacBattery.visibility = View.GONE
+        }
+
+        binding.switchSettingsSearchSync.isChecked = isSearching
+        binding.switchSettingsClipboardSync.isChecked = isAccessibilityServiceEnabled()
+        binding.switchSettingsBackgroundSync.isChecked = (getSystemService(Context.POWER_SERVICE) as PowerManager).isIgnoringBatteryOptimizations(packageName)
 
         val notifPrefs = NotificationPreferences(this)
         val notifCount = notifPrefs.getEnabledPackages().size
-        binding.tvSettingsNotificationStatus.text = if (notifPrefs.isSyncEnabled) "$notifCount active" else "Off"
+        binding.tvSettingsNotificationCount.text = "$notifCount shared apps · All access granted"
 
-        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-        val isIgnoringBattery = pm.isIgnoringBatteryOptimizations(packageName)
-        if (isIgnoringBattery) {
-            binding.tvSettingsBatteryOptStatus.text = "Disabled ✓"
-            binding.tvSettingsBatteryOptStatus.setTextColor(ContextCompat.getColor(this, R.color.status_green))
+        binding.tvSettingsColorModeValue.text = ThemeManager.getThemeLabel(this)
+
+        val version = try {
+            packageManager.getPackageInfo(packageName, 0).versionName
+        } catch (_: Exception) {
+            "1.4.2"
+        }
+        binding.tvSettingsAppVersion.text = version
+        binding.tvSettingsFooterVersion.text = "Bridge $version · Made for Android & Mac"
+    }
+
+    private fun updateConnectionStatus() {
+        val service = BridgeService.instance
+        val isConnected = service?.isConnectedFlow?.value == true
+        val hasKey = keyStoreManager.hasKey()
+        val isSearching = keyStoreManager.isSearchingEnabled()
+        val macName = keyStoreManager.getMacName() ?: "Mac"
+
+        binding.tvDeviceName.text = macName
+        binding.tvDisconnectedDeviceName.text = macName
+
+        val networkName = ConnectivityHelper.getWifiNetworkName(this)
+
+        if (hasKey && isConnected) {
+            binding.layoutConnectedState.visibility = View.VISIBLE
+            binding.layoutDisconnectedState.visibility = View.GONE
+
+            val dot = binding.dotConnectedStatus.background as? GradientDrawable
+            dot?.setColor(ContextCompat.getColor(this, R.color.status_green))
+            binding.tvConnectedStatusText.text = "Connected"
+
+            val peerBattery = BridgeService.peerBatteryFlow.value
+            if (peerBattery != null) {
+                val (level, isCharging) = peerBattery
+                binding.tvMacBatteryStatus.visibility = View.VISIBLE
+                binding.tvMacBatteryStatus.text = if (isCharging) "$level% · Charging" else "$level%"
+            } else {
+                binding.tvMacBatteryStatus.visibility = View.GONE
+            }
+
+            binding.tvDiscoverySubtitle.text = "Search for Mac and maintain sync"
         } else {
-            binding.tvSettingsBatteryOptStatus.text = "Enable"
-            binding.tvSettingsBatteryOptStatus.setTextColor(ContextCompat.getColor(this, R.color.accent))
+            binding.layoutConnectedState.visibility = View.GONE
+            binding.layoutDisconnectedState.visibility = View.VISIBLE
+
+            binding.tvDisconnectedStatusSubtitle.text = if (isSearching) "Searching on $networkName" else "Offline"
+            binding.tvDisconnectedSearchSubtitle.text = if (isSearching) "Searching on $networkName" else "Paused"
         }
 
-        val isA11yEnabled = isAccessibilityServiceEnabled()
-        if (isA11yEnabled) {
-            binding.tvSettingsAccessibilityStatus.text = "Active ✓"
-            binding.tvSettingsAccessibilityStatus.setTextColor(ContextCompat.getColor(this, R.color.status_green))
-        } else {
-            binding.tvSettingsAccessibilityStatus.text = "Enable"
-            binding.tvSettingsAccessibilityStatus.setTextColor(ContextCompat.getColor(this, R.color.accent))
+        binding.switchSearchSync.isChecked = isSearching
+        binding.switchDisconnectedSearchSync.isChecked = isSearching
+
+        val phoneModel = Build.MODEL ?: "Pixel"
+        binding.tvActivitySubtitle.text = "Between your $phoneModel and $macName."
+    }
+
+    private fun observeServiceState() {
+        lifecycleScope.launch {
+            while (true) {
+                updateConnectionStatus()
+                updateContinuityPills()
+                kotlinx.coroutines.delay(1000)
+            }
         }
 
-        val hasReadLogs = checkSelfPermission("android.permission.READ_LOGS") == PackageManager.PERMISSION_GRANTED
-        val canLaunchReader = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
-        binding.switchSettingsAutoMode.isChecked = keyStoreManager.isAutoModeEnabled() && hasReadLogs && canLaunchReader
+        lifecycleScope.launch {
+            while (true) {
+                if (binding.tabContentActivity.visibility == View.VISIBLE) {
+                    renderActivityList()
+                }
+                kotlinx.coroutines.delay(5000)
+            }
+        }
+    }
 
-        // Updates
-        binding.tvSettingsVersionCode.text = "Version ${updateManager.getCurrentVersionName()} (Build ${updateManager.getCurrentVersionCode()})"
-        binding.switchSettingsUpdateNotifications.isChecked = updateManager.preferences.isNotificationEnabled
+    private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
+
+    private fun showClearActivityDialog() {
+        val options = arrayOf("Clear All Activity", "Clear Transfers Only", "Clear Clipboard History Only")
+        AlertDialog.Builder(this)
+            .setTitle("Clear History")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> {
+                        transferHistoryManager.clearTransfers()
+                        clipboardHistoryManager.clearHistory()
+                        notificationHistoryManager.clearNotifications()
+                        Toast.makeText(this, "All activity cleared", Toast.LENGTH_SHORT).show()
+                    }
+                    1 -> {
+                        transferHistoryManager.clearTransfers()
+                        Toast.makeText(this, "Transfer history cleared", Toast.LENGTH_SHORT).show()
+                    }
+                    2 -> {
+                        clipboardHistoryManager.clearHistory()
+                        Toast.makeText(this, "Clipboard history cleared", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                renderActivityList()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun renderActivityList() {
+        val container = binding.llActivityItemsContainer
+        container.removeAllViews()
+
+        val macName = keyStoreManager.getMacName() ?: "Mac"
+        val phoneModel = Build.MODEL ?: "Pixel"
+
+        // Gather real items
+        val transfers = transferHistoryManager.getTransfers()
+        val clipboards = clipboardHistoryManager.getItems()
+        val notifications = notificationHistoryManager.getNotifications()
+
+        data class UnifiedActivity(
+            val title: String,
+            val subtitle: String,
+            val status: String,
+            val timestamp: Long,
+            val isIncoming: Boolean,
+            val type: String, // "clip", "file", "notif"
+            val pkg: String? = null
+        )
+
+        val list = mutableListOf<UnifiedActivity>()
+
+        for (c in clipboards) {
+            val isInc = c.isIncoming
+            val direction = if (isInc) "$macName → $phoneModel" else "$phoneModel → $macName"
+            val snippet = if (c.text.startsWith("http://") || c.text.startsWith("https://")) "Link" else "Text snippet"
+            val status = if (isInc) "Received" else "Delivered"
+            list.add(
+                UnifiedActivity(
+                    title = "Clipboard synced",
+                    subtitle = "$direction · $snippet",
+                    status = status,
+                    timestamp = c.timestamp,
+                    isIncoming = isInc,
+                    type = "clip"
+                )
+            )
+        }
+
+        for (t in transfers) {
+            val isInc = t.isIncoming
+            val direction = if (isInc) "$macName → $phoneModel" else "$phoneModel → $macName"
+            val sizeStr = Formatter.formatFileSize(this, t.size)
+            val status = if (isInc) "Received · Saved to Downloads" else "Sent · Complete"
+            list.add(
+                UnifiedActivity(
+                    title = t.name,
+                    subtitle = "$direction · $sizeStr",
+                    status = status,
+                    timestamp = t.timestamp,
+                    isIncoming = isInc,
+                    type = "file"
+                )
+            )
+        }
+
+        for (n in notifications) {
+            list.add(
+                UnifiedActivity(
+                    title = n.app.ifEmpty { "Notification" },
+                    subtitle = "$phoneModel → $macName · ${n.title}",
+                    status = "Forwarded to Mac",
+                    timestamp = n.timestamp,
+                    isIncoming = false,
+                    type = "notif",
+                    pkg = n.pkg
+                )
+            )
+        }
+
+        // Apply filter
+        val filtered = when (currentActivityFilter) {
+            FilterMode.ALL -> list
+            FilterMode.SENT -> list.filter { !it.isIncoming }
+            FilterMode.RECEIVED -> list.filter { it.isIncoming }
+        }.sortedByDescending { it.timestamp }
+
+        if (filtered.isEmpty()) {
+            val emptyView = TextView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                setPadding(16.dp, 24.dp, 16.dp, 24.dp)
+                gravity = Gravity.CENTER
+                text = "No activity recorded yet"
+                textSize = 14f
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
+            }
+            container.addView(emptyView)
+            return
+        }
+
+        val now = System.currentTimeMillis()
+        val todayStart = now - (now % (24 * 60 * 60 * 1000))
+        val todayItems = filtered.filter { it.timestamp >= todayStart }
+        val yesterdayItems = filtered.filter { it.timestamp < todayStart }
+
+        // Render Today
+        renderGroupedActivityItems(container, todayItems.ifEmpty { filtered.take(15) })
+
+        // Render Yesterday if exists
+        if (yesterdayItems.isNotEmpty() && todayItems.isNotEmpty()) {
+            binding.layoutYesterdayHeader.visibility = View.VISIBLE
+            binding.llYesterdayItemsContainer.visibility = View.VISIBLE
+            binding.llYesterdayItemsContainer.removeAllViews()
+            renderGroupedActivityItems(binding.llYesterdayItemsContainer, yesterdayItems.take(15))
+        } else {
+            binding.layoutYesterdayHeader.visibility = View.GONE
+            binding.llYesterdayItemsContainer.visibility = View.GONE
+        }
+    }
+
+    private fun renderGroupedActivityItems(
+        container: LinearLayout,
+        items: List<Any>
+    ) {
+        val pm = packageManager
+        for ((index, obj) in items.withIndex()) {
+            val item = obj as? Any ?: continue
+            val title: String
+            val subtitle: String
+            val status: String
+            val timestamp: Long
+            val isIncoming: Boolean
+            val type: String
+            val pkg: String?
+
+            // Reflect fields
+            try {
+                val tField = item.javaClass.getDeclaredField("title").apply { isAccessible = true }
+                val subField = item.javaClass.getDeclaredField("subtitle").apply { isAccessible = true }
+                val stField = item.javaClass.getDeclaredField("status").apply { isAccessible = true }
+                val tsField = item.javaClass.getDeclaredField("timestamp").apply { isAccessible = true }
+                val inField = item.javaClass.getDeclaredField("isIncoming").apply { isAccessible = true }
+                val typeField = item.javaClass.getDeclaredField("type").apply { isAccessible = true }
+                val pkgField = item.javaClass.getDeclaredField("pkg").apply { isAccessible = true }
+
+                title = tField.get(item) as String
+                subtitle = subField.get(item) as String
+                status = stField.get(item) as String
+                timestamp = tsField.get(item) as Long
+                isIncoming = inField.get(item) as Boolean
+                type = typeField.get(item) as String
+                pkg = pkgField.get(item) as? String
+            } catch (_: Exception) {
+                continue
+            }
+
+            if (index > 0) {
+                val divider = View(this).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, 1
+                    ).apply {
+                        topMargin = 12.dp
+                        bottomMargin = 12.dp
+                    }
+                    setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.card_stroke))
+                }
+                container.addView(divider)
+            }
+
+            val row = LinearLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+
+            // Left squircle icon
+            val iconFrame = FrameLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams(40.dp, 40.dp).apply { marginEnd = 12.dp }
+                setBackgroundResource(R.drawable.bg_rounded_inset)
+            }
+            val iconImg = ImageView(this).apply {
+                layoutParams = FrameLayout.LayoutParams(20.dp, 20.dp, Gravity.CENTER)
+                when (type) {
+                    "clip" -> {
+                        setImageResource(R.drawable.ic_clipboard_synced)
+                        setColorFilter(ContextCompat.getColor(this@MainActivity, R.color.icon_tint))
+                    }
+                    "file" -> {
+                        setImageResource(if (isIncoming) R.drawable.ic_arrow_down_left else R.drawable.ic_arrow_up_right)
+                        setColorFilter(ContextCompat.getColor(this@MainActivity, R.color.icon_tint))
+                    }
+                    else -> {
+                        if (pkg != null) {
+                            try {
+                                val d = pm.getApplicationIcon(pkg)
+                                setImageDrawable(d)
+                            } catch (_: Exception) {
+                                setImageResource(R.drawable.ic_notifications_outline)
+                            }
+                        } else {
+                            setImageResource(R.drawable.ic_notifications_outline)
+                        }
+                    }
+                }
+            }
+            iconFrame.addView(iconImg)
+            row.addView(iconFrame)
+
+            // Center details
+            val textCol = LinearLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                orientation = LinearLayout.VERTICAL
+            }
+
+            val titleView = TextView(this).apply {
+                text = title
+                textSize = 15f
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
+            }
+            textCol.addView(titleView)
+
+            val subtitleView = TextView(this).apply {
+                text = subtitle
+                textSize = 13f
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
+            }
+            textCol.addView(subtitleView)
+
+            // Status + Timestamp line
+            val statusRow = LinearLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = 2.dp }
+                orientation = LinearLayout.HORIZONTAL
+            }
+
+            val statusView = TextView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                text = status
+                textSize = 12f
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
+            }
+            statusRow.addView(statusView)
+
+            val timeView = TextView(this).apply {
+                val timeStr = DateUtils.formatDateTime(
+                    this@MainActivity, timestamp, DateUtils.FORMAT_SHOW_TIME
+                )
+                text = timeStr
+                textSize = 12f
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
+            }
+            statusRow.addView(timeView)
+            textCol.addView(statusRow)
+
+            row.addView(textCol)
+            container.addView(row)
+        }
     }
 
     private fun sendSelectedFiles(uris: List<Uri>) {
@@ -817,10 +1225,12 @@ class MainActivity : AppCompatActivity() {
                             FileInputStream(pfd.fileDescriptor).use { it.readBytes() }
                         }
                     }
+
                     if (bytes != null && bytes.isNotEmpty()) {
                         service.sendFile(fileName, bytes, mime)
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(this@MainActivity, "Sent $fileName to Mac ✓", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@MainActivity, "Sent $fileName ✓", Toast.LENGTH_SHORT).show()
+                            renderActivityList()
                         }
                     }
                 } catch (e: Exception) {
@@ -831,506 +1241,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-    }
-
-    private fun observeServiceState() {
-        lifecycleScope.launch {
-            while (true) {
-                updateConnectionStatus()
-                updateContinuityPills()
-                kotlinx.coroutines.delay(1000)
-            }
-        }
-
-        // Active File Transfer Progress
-        lifecycleScope.launch {
-            val service = BridgeService.instance
-            service?.transferFlow?.collectLatest { transfer ->
-                if (transfer != null && !transfer.isCompleted) {
-                    binding.cardActiveTransfer.visibility = View.VISIBLE
-                    val action = if (transfer.isIncoming) "Receiving" else "Sending"
-                    val pct = (transfer.progress * 100).toInt()
-                    binding.tvTransferLabel.text = "$action ${transfer.fileName} • $pct%"
-                    binding.progressBarTransfer.progress = pct
-                } else if (transfer != null && transfer.isCompleted) {
-                    binding.cardActiveTransfer.visibility = View.VISIBLE
-                    val action = if (transfer.isIncoming) "Received" else "Sent"
-                    binding.tvTransferLabel.text = "$action ${transfer.fileName} ✓"
-                    binding.progressBarTransfer.progress = 100
-                    kotlinx.coroutines.delay(2500)
-                    binding.cardActiveTransfer.visibility = View.GONE
-                } else {
-                    binding.cardActiveTransfer.visibility = View.GONE
-                }
-            }
-        }
-
-        // Last Received File
-        lifecycleScope.launch {
-            val service = BridgeService.instance
-            service?.lastReceivedFileFlow?.collectLatest { fileName ->
-                if (!fileName.isNullOrBlank()) {
-                    binding.tvLastReceivedInfo.text = "✓ Last received: $fileName (saved in Downloads)"
-                    renderRecentTransfers()
-                }
-            }
-        }
-
-        // Periodic refresh of recent lists
-        lifecycleScope.launch {
-            while (true) {
-                if (binding.tabContentActivity.visibility == View.VISIBLE) {
-                    renderRecentTransfers()
-                    renderRecentNotifications()
-                }
-                kotlinx.coroutines.delay(5000)
-            }
-        }
-    }
-
-    private fun updateConnectionStatus() {
-        val service = BridgeService.instance
-        val isSearching = keyStoreManager.isSearchingEnabled()
-        val isConnected = service?.isConnectedFlow?.value == true
-        val hasKey = keyStoreManager.hasKey()
-        val macName = keyStoreManager.getMacName() ?: "Mac"
-
-        val statusText = when {
-            !hasKey -> "Not Paired"
-            !isSearching -> "Paused"
-            isConnected -> service?.statusFlow?.value ?: "Connected"
-            else -> service?.statusFlow?.value ?: "Searching for Mac…"
-        }
-
-        // Top Status Dot and indicator styling
-        val topDot = binding.topStatusDot.background as? GradientDrawable
-        val cardDot = binding.statusIndicator.background as? GradientDrawable
-
-        if (!hasKey) {
-            // UNPAIRED STATE
-            binding.cardUnpaired.visibility = View.VISIBLE
-            binding.layoutPaired.visibility = View.GONE
-
-            binding.tvTopStatusText.text = "Not Paired"
-            binding.tvTopStatusText.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
-            topDot?.setColor(ContextCompat.getColor(this, R.color.status_red))
-            binding.btnHeaderReconnect.visibility = View.GONE
-        } else {
-            // PAIRED STATE
-            binding.cardUnpaired.visibility = View.GONE
-            binding.layoutPaired.visibility = View.VISIBLE
-
-            binding.tvDeviceName.text = macName
-            binding.tvConnectionStatus.text = statusText
-            if (binding.switchSearchSync.isChecked != isSearching) {
-                binding.switchSearchSync.isChecked = isSearching
-            }
-
-            if (!isSearching) {
-                topDot?.setColor(ContextCompat.getColor(this, R.color.status_gray))
-                cardDot?.setColor(ContextCompat.getColor(this, R.color.status_gray))
-                binding.tvTopStatusText.text = "Paused"
-                binding.tvTopStatusText.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
-                binding.tvSecurityBadge.text = "Discovery paused"
-                binding.btnQuickReconnect.visibility = View.GONE
-                binding.btnHeaderReconnect.visibility = View.GONE
-            } else if (isConnected) {
-                topDot?.setColor(ContextCompat.getColor(this, R.color.status_green))
-                cardDot?.setColor(ContextCompat.getColor(this, R.color.status_green))
-                binding.tvTopStatusText.text = "Connected"
-                binding.tvTopStatusText.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
-                binding.tvSecurityBadge.text = "Encrypted • Port 48250"
-                binding.btnQuickReconnect.visibility = View.GONE
-                binding.btnHeaderReconnect.visibility = View.GONE
-            } else {
-                topDot?.setColor(ContextCompat.getColor(this, R.color.status_orange))
-                cardDot?.setColor(ContextCompat.getColor(this, R.color.status_orange))
-                binding.tvTopStatusText.text = "Searching…"
-                binding.tvTopStatusText.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
-                binding.tvSecurityBadge.text = "Searching on local network"
-                binding.btnQuickReconnect.visibility = View.VISIBLE
-                binding.btnHeaderReconnect.visibility = View.VISIBLE
-            }
-
-            // Mac Battery Status Badge
-            val peerBattery = BridgeService.peerBatteryFlow.value
-            if (isConnected && peerBattery != null) {
-                val (level, isCharging) = peerBattery
-                binding.layoutMacBattery.visibility = View.VISIBLE
-                binding.tvMacBattery.text = if (isCharging) "$level% ⚡" else "$level%"
-                if (isCharging) {
-                    binding.ivMacBattery.setImageResource(R.drawable.ic_battery_opt)
-                    binding.ivMacBattery.imageTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.status_green))
-                } else {
-                    binding.ivMacBattery.setImageResource(R.drawable.ic_battery_full)
-                    val color = if (level <= 20) R.color.status_orange else R.color.text_secondary
-                    binding.ivMacBattery.imageTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, color))
-                }
-            } else {
-                binding.layoutMacBattery.visibility = View.GONE
-            }
-        }
-    }
-
-    private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
-
-    private fun renderRecentTransfers() {
-        val container = binding.llRecentTransfersContainer
-        container.removeAllViews()
-        val items = TransferHistoryManager(this).getTransfers()
-
-        if (items.isEmpty()) {
-            val emptyView = TextView(this).apply {
-                text = "No transfers yet"
-                textSize = 13f
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
-            }
-            container.addView(emptyView)
-            return
-        }
-
-        for ((index, item) in items.take(15).withIndex()) {
-            if (index > 0) {
-                val divider = View(this).apply {
-                    layoutParams = android.widget.LinearLayout.LayoutParams(
-                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1
-                    ).apply {
-                        topMargin = 10.dp
-                        bottomMargin = 10.dp
-                    }
-                    setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.card_stroke))
-                }
-                container.addView(divider)
-            }
-
-            val row = android.widget.LinearLayout(this).apply {
-                orientation = android.widget.LinearLayout.HORIZONTAL
-                gravity = android.view.Gravity.CENTER_VERTICAL
-                layoutParams = android.widget.LinearLayout.LayoutParams(
-                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-            }
-
-            val icon = android.widget.ImageView(this).apply {
-                layoutParams = android.widget.LinearLayout.LayoutParams(24.dp, 24.dp).apply { marginEnd = 12.dp }
-                setImageResource(R.drawable.ic_file_upload)
-                rotation = if (item.isIncoming) 180f else 0f
-                setColorFilter(ContextCompat.getColor(this@MainActivity, R.color.accent))
-            }
-            row.addView(icon)
-
-            val textCol = android.widget.LinearLayout(this).apply {
-                orientation = android.widget.LinearLayout.VERTICAL
-                layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            }
-
-            val nameView = TextView(this).apply {
-                text = item.name
-                textSize = 14f
-                maxLines = 1
-                ellipsize = TextUtils.TruncateAt.END
-                setTypeface(null, android.graphics.Typeface.BOLD)
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
-            }
-            textCol.addView(nameView)
-
-            val metaView = TextView(this).apply {
-                val action = if (item.isIncoming) "Received" else "Sent"
-                val sizeStr = android.text.format.Formatter.formatFileSize(this@MainActivity, item.size)
-                val timeStr = android.text.format.DateUtils.getRelativeTimeSpanString(
-                    item.timestamp, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS
-                )
-                text = "$action • $sizeStr • $timeStr"
-                textSize = 12f
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
-            }
-            textCol.addView(metaView)
-
-            row.addView(textCol)
-            container.addView(row)
-        }
-    }
-
-    private fun renderRecentNotifications() {
-        val container = binding.llRecentNotificationsContainer
-        container.removeAllViews()
-        val items = RecentNotificationHistoryManager(this).getNotifications()
-
-        if (items.isEmpty()) {
-            val emptyView = TextView(this).apply {
-                text = "No recent notifications forwarded"
-                textSize = 13f
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
-            }
-            container.addView(emptyView)
-            return
-        }
-
-        val pm = packageManager
-        for ((index, item) in items.take(15).withIndex()) {
-            if (index > 0) {
-                val divider = View(this).apply {
-                    layoutParams = android.widget.LinearLayout.LayoutParams(
-                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1
-                    ).apply {
-                        topMargin = 10.dp
-                        bottomMargin = 10.dp
-                    }
-                    setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.card_stroke))
-                }
-                container.addView(divider)
-            }
-
-            val row = android.widget.LinearLayout(this).apply {
-                orientation = android.widget.LinearLayout.HORIZONTAL
-                gravity = android.view.Gravity.CENTER_VERTICAL
-                layoutParams = android.widget.LinearLayout.LayoutParams(
-                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-            }
-
-            val icon = android.widget.ImageView(this).apply {
-                layoutParams = android.widget.LinearLayout.LayoutParams(28.dp, 28.dp).apply { marginEnd = 12.dp }
-                try {
-                    val appIcon = pm.getApplicationIcon(item.pkg)
-                    setImageDrawable(appIcon)
-                } catch (_: Exception) {
-                    setImageResource(R.drawable.ic_bridge_notification)
-                }
-            }
-            row.addView(icon)
-
-            val textCol = android.widget.LinearLayout(this).apply {
-                orientation = android.widget.LinearLayout.VERTICAL
-                layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            }
-
-            val titleRow = android.widget.LinearLayout(this).apply {
-                orientation = android.widget.LinearLayout.HORIZONTAL
-                gravity = android.view.Gravity.CENTER_VERTICAL
-            }
-
-            val appNameView = TextView(this).apply {
-                text = item.app.ifEmpty { "Notification" }
-                textSize = 13f
-                setTypeface(null, android.graphics.Typeface.BOLD)
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
-                layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            }
-            titleRow.addView(appNameView)
-
-            val timeView = TextView(this).apply {
-                val timeStr = android.text.format.DateUtils.getRelativeTimeSpanString(
-                    item.timestamp, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS
-                )
-                text = timeStr
-                textSize = 11f
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
-            }
-            titleRow.addView(timeView)
-            textCol.addView(titleRow)
-
-            if (item.title.isNotEmpty()) {
-                val titleView = TextView(this).apply {
-                    text = item.title
-                    textSize = 13f
-                    maxLines = 1
-                    ellipsize = TextUtils.TruncateAt.END
-                    setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
-                }
-                textCol.addView(titleView)
-            }
-
-            if (item.text.isNotEmpty()) {
-                val previewView = TextView(this).apply {
-                    text = item.text
-                    textSize = 12f
-                    maxLines = 2
-                    ellipsize = TextUtils.TruncateAt.END
-                    setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
-                }
-                textCol.addView(previewView)
-            }
-
-            row.addView(textCol)
-            container.addView(row)
-        }
-    }
-
-    private fun startQrScanner() {
-        val options = GmsBarcodeScannerOptions.Builder()
-            .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
-            .enableAutoZoom()
-            .build()
-
-        val scanner = GmsBarcodeScanning.getClient(this, options)
-        scanner.startScan()
-            .addOnSuccessListener { barcode ->
-                val rawValue = barcode.rawValue
-                if (rawValue != null) {
-                    processPairingPayload(rawValue)
-                } else {
-                    Toast.makeText(this, "Empty QR code scanned", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .addOnFailureListener { e ->
-                LogManager.e("Barcode scanner failed", e)
-                Toast.makeText(this, "Scanner error: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-    }
-
-    private fun processPairingPayload(payload: String) {
-        try {
-            val pairing = BridgeProtocol.PairingInfo.fromJson(payload)
-            val keyBytes = Base64.decode(pairing.key, Base64.DEFAULT)
-            if (keyBytes.size != 32) {
-                Toast.makeText(this, "Invalid key length in QR code (${keyBytes.size} bytes)", Toast.LENGTH_LONG).show()
-                return
-            }
-
-            keyStoreManager.saveSharedKey(keyBytes, pairing.name)
-            Toast.makeText(this, "Paired successfully with ${pairing.name}!", Toast.LENGTH_SHORT).show()
-            LogManager.i("Paired with ${pairing.name}. Triggering reconnect.")
-            BridgeService.start(this)
-            BridgeService.instance?.triggerReconnect()
-            updateConnectionStatus()
-            updateContinuityPills()
-            binding.bottomNav.selectedItemId = R.id.nav_home
-        } catch (e: Exception) {
-            LogManager.e("Failed to process pairing payload", e)
-            Toast.makeText(this, "Invalid Bridge pairing code format", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    private fun showPastePairingDialog() {
-        val input = EditText(this).apply {
-            hint = "Paste pairing JSON or base64 key here"
-            setPadding(40, 30, 40, 30)
-        }
-
-        AlertDialog.Builder(this)
-            .setTitle(R.string.btn_paste_pairing)
-            .setMessage("Paste the pairing code copied from your Mac:")
-            .setView(input)
-            .setPositiveButton("Pair") { _, _ ->
-                val text = input.text.toString().trim()
-                if (text.isNotEmpty()) {
-                    processPairingPayload(text)
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    private fun showManualIpDialog() {
-        val currentIp = keyStoreManager.getLastKnownIp() ?: ""
-        val input = EditText(this).apply {
-            hint = "e.g. 192.168.1.100"
-            setText(currentIp)
-            setPadding(40, 30, 40, 30)
-        }
-
-        AlertDialog.Builder(this)
-            .setTitle(R.string.btn_manual_ip)
-            .setMessage("Optionally set Mac LAN IP directly (useful if Wi-Fi blocks broadcast discovery):")
-            .setView(input)
-            .setPositiveButton("Save & Connect") { _, _ ->
-                val ip = input.text.toString().trim()
-                if (ip.isNotEmpty()) {
-                    keyStoreManager.saveLastKnownIp(ip)
-                    BridgeService.instance?.triggerReconnect()
-                    updateSettingsValues()
-                    Toast.makeText(this, "Saved IP: $ip", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNeutralButton("Clear IP") { _, _ ->
-                keyStoreManager.saveLastKnownIp("")
-                BridgeService.instance?.triggerReconnect()
-                updateSettingsValues()
-                Toast.makeText(this, "Cleared manual IP", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    private fun requestDisableBatteryOptimization() {
-        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                data = Uri.parse("package:$packageName")
-            }
-            try {
-                startActivity(intent)
-            } catch (e: Exception) {
-                Toast.makeText(this, "Could not open battery settings directly", Toast.LENGTH_SHORT).show()
-            }
-        } else {
-            Toast.makeText(this, "Battery optimization is already disabled for Bridge", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun showOemInstructionsDialog() {
-        val message = """
-            To ensure Android keeps Bridge connected in the background:
-            
-            • Samsung (One UI):
-              Settings → Battery → Background usage limits → Never sleeping apps → Add Bridge.
-              Also disable 'Put unused apps to sleep'.
-              
-            • Xiaomi / Redmi / POCO (MIUI / HyperOS):
-              Settings → Apps → Manage Apps → Bridge → Enable 'Autostart'.
-              Battery Saver → Select 'No restrictions'.
-              
-            • OnePlus / Oppo / Realme (OxygenOS / ColorOS):
-              App Info → Battery usage → Allow background activity + Allow auto-launch.
-        """.trimIndent()
-
-        AlertDialog.Builder(this)
-            .setTitle("OEM Background Instructions")
-            .setMessage(message)
-            .setPositiveButton("Got It", null)
-            .show()
-    }
-
-    private fun showAdbPermissionDialog() {
-        val message = """
-            Android blocks background apps from reading the clipboard unless triggered by user action (Quick Settings Tile or Share Sheet).
-            
-            To enable 100% automatic phone-to-Mac sync without tapping anything, connect your phone to your Mac once and run:
-            
-            adb shell pm grant com.bridge.android android.permission.READ_LOGS
-            
-            Once granted, flip this switch on!
-        """.trimIndent()
-
-        AlertDialog.Builder(this)
-            .setTitle("Grant READ_LOGS via ADB")
-            .setMessage(message)
-            .setPositiveButton("Copy ADB Command") { _, _ ->
-                val clip = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clip.setPrimaryClip(ClipData.newPlainText("adb command", "adb shell pm grant com.bridge.android android.permission.READ_LOGS"))
-                Toast.makeText(this, "Command copied to clipboard", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("Close", null)
-            .show()
-    }
-
-    private fun showOverlayPermissionDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Allow automatic clipboard capture")
-            .setMessage("Android only lets Bridge read clipboard contents while it is visible. Allow “Display over other apps” so Bridge can briefly open its transparent reader after a clipboard change.")
-            .setPositiveButton("Open Settings") { _, _ ->
-                try {
-                    startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
-                } catch (e: Exception) {
-                    LogManager.e("Could not open overlay permission settings", e)
-                    startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
     }
 
     private fun checkAndRequestNotificationPermission() {

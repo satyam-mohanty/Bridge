@@ -64,7 +64,7 @@ class BridgeService : Service(), BridgeClientListener {
     private lateinit var connectivityManager: ConnectivityManager
 
     private var loopJob: Job? = null
-    private var backoffMs = 1000L
+    private var backoffMs = 2000L // Start at 2s instead of 1s
 
     private val clipListener = ClipboardManager.OnPrimaryClipChangedListener {
         LogManager.i("BridgeService: onPrimaryClipChanged event detected")
@@ -305,7 +305,22 @@ class BridgeService : Service(), BridgeClientListener {
 
     fun sendLocalBatteryStatus() {
         val info = com.bridge.android.util.BatterySyncHelper.getCurrentBattery(this) ?: return
-        client.sendBatteryStatus(info.level, info.isCharging)
+        val deviceName = getLocalDeviceName()
+        client.sendBatteryStatus(info.level, info.isCharging, deviceName)
+    }
+
+    private fun getLocalDeviceName(): String {
+        return try {
+            val userNamed = Settings.Global.getString(contentResolver, Settings.Global.DEVICE_NAME)
+            if (!userNamed.isNullOrBlank()) return userNamed
+            val model = Build.MODEL
+            val manufacturer = Build.MANUFACTURER.replaceFirstChar { it.uppercase() }
+            if (model.startsWith(manufacturer, ignoreCase = true)) model else "$manufacturer $model"
+        } catch (_: Exception) {
+            val model = Build.MODEL
+            val manufacturer = Build.MANUFACTURER.replaceFirstChar { it.uppercase() }
+            if (model.startsWith(manufacturer, ignoreCase = true)) model else "$manufacturer $model"
+        }
     }
 
     fun handleClipboardChanged(force: Boolean = false) {
@@ -633,9 +648,16 @@ class BridgeService : Service(), BridgeClientListener {
                     _isConnectedFlow.value = false
                     updateNotification("Mac not found. Retrying in ${backoffMs / 1000}s…")
                     delay(backoffMs)
-                    backoffMs = minOf(backoffMs * 2, 30000L)
+                    // Gentler backoff: 2s -> 4s -> 6s -> 8s -> 10s -> 15s -> 20s -> 30s
+                    if (backoffMs < 10000) {
+                        backoffMs = minOf(backoffMs + 2000, 10000)
+                    } else if (backoffMs < 20000) {
+                        backoffMs = minOf(backoffMs + 5000, 20000)
+                    } else {
+                        backoffMs = 30000
+                    }
                 } else {
-                    backoffMs = 5000L
+                    backoffMs = 2000L // Reset to 2s instead of 5s
                 }
             }
         }
@@ -665,6 +687,27 @@ class BridgeService : Service(), BridgeClientListener {
             _statusFlow.value = if (keyStoreManager.isSearchingEnabled()) "Disconnected" else "Searching Paused"
             updateNotification(_statusFlow.value)
             LogManager.i("BridgeService: Disconnected")
+            notifyWidgetUpdate()
+        }
+    }
+
+    override fun onUnpaired() {
+        serviceScope.launch(Dispatchers.Main) {
+            LogManager.i("BridgeService: Received unpaired signal from Mac. Clearing stored pairing.")
+            keyStoreManager.clear()
+            _statusFlow.value = "Unpaired by Mac (Scan QR Code)"
+            _isConnectedFlow.value = false
+            updateNotification("Device unpaired by Mac. Tap to pair.")
+            notifyWidgetUpdate()
+        }
+    }
+
+    override fun onRemoteDisconnected(reason: String) {
+        serviceScope.launch(Dispatchers.Main) {
+            LogManager.i("BridgeService: Disconnected by Mac ($reason)")
+            _statusFlow.value = "Disconnected by Mac"
+            _isConnectedFlow.value = false
+            updateNotification("Disconnected by Mac")
             notifyWidgetUpdate()
         }
     }

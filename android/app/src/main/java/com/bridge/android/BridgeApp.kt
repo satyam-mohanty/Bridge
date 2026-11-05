@@ -13,6 +13,9 @@ class BridgeApp : Application() {
         super.onCreate()
         LogManager.i("Bridge App starting up")
 
+        // Apply user preferred color mode (auto / light / dark)
+        com.bridge.android.util.ThemeManager.applyTheme(this)
+
         // Initialize Update System notifications & periodic background check
         UpdateNotificationHelper.createNotificationChannel(this)
         UpdateScheduler.schedulePeriodicCheck(this)

@@ -19,6 +19,7 @@ import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
+import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.nio.ByteBuffer
@@ -29,6 +30,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 interface BridgeClientListener {
     fun onConnected(ip: String)
     fun onDisconnected()
+    fun onRemoteDisconnected(reason: String) {}
+    fun onUnpaired() {}
     fun onTextMessageReceived(text: String, hash: String)
     fun onImageReceived(data: ByteArray, hash: String)
     fun onFileReceived(name: String, data: ByteArray, mime: String)
@@ -60,6 +63,7 @@ class BridgeClient(
 
     private var lastReceivedTime: Long = 0
     private var lastSentTime: Long = 0
+    private var consecutiveFailures = 0
 
     private var clientJob: Job? = null
     private var heartbeatJob: Job? = null
@@ -95,6 +99,11 @@ class BridgeClient(
         dataOut = null
         clientJob?.cancel()
         clientJob = null
+        // Clear pending transfer state
+        pendingImageStart = null
+        receivedChunks.clear()
+        pendingFileStart = null
+        receivedFileChunks.clear()
         _stateFlow.value = ConnectionState.Disconnected
         if (wasConnected) {
             listener.onDisconnected()
@@ -112,6 +121,7 @@ class BridgeClient(
             expectedIncomingCounter = 0
             lastReceivedTime = System.currentTimeMillis()
             lastSentTime = System.currentTimeMillis()
+            consecutiveFailures = 0
             pendingImageStart = null
             receivedChunks.clear()
             pendingFileStart = null
@@ -122,7 +132,7 @@ class BridgeClient(
             newSocket.keepAlive = true
             newSocket.sendBufferSize = 2 * 1024 * 1024 // 2 MB TCP send buffer
             newSocket.receiveBufferSize = 2 * 1024 * 1024 // 2 MB TCP receive buffer
-            newSocket.soTimeout = 0 // Blocking read, managed by heartbeat / timeout loop
+            newSocket.soTimeout = 35000 // 35s read timeout - exceeds 25s dead connection threshold
             newSocket.connect(InetSocketAddress(ip, BridgeProtocol.DEFAULT_PORT), 4000)
 
             socket = newSocket
@@ -155,15 +165,47 @@ class BridgeClient(
 
         while (scope.isActive && !isDisconnecting.get()) {
             // Read 4-byte big endian length
-            val frameLength = inputStream.readInt()
-            if (frameLength <= 0 || frameLength > BridgeProtocol.MAX_FRAME_SIZE) {
+            val frameLength = try {
+                inputStream.readInt()
+            } catch (e: java.net.SocketTimeoutException) {
+                // Heartbeat / read timeout
+                val now = System.currentTimeMillis()
+                if (now - lastReceivedTime >= 25000) {
+                    LogManager.i("Socket timeout: 25s of silence from Mac. Triggering reconnect.")
+                    if (!isDisconnecting.get()) stop()
+                    break
+                }
+                continue // Connection is still alive, continue waiting for next frame
+            } catch (e: java.io.IOException) {
+                // Socket timeout or connection reset - trigger reconnect
+                if (!isDisconnecting.get()) {
+                    LogManager.i("Read timeout or IOException: ${e.message}. Triggering reconnect.")
+                    stop()
+                }
+                break
+            }
+            // Handle EOF (-1) or invalid lengths
+            if (frameLength < 0) {
+                LogManager.i("EOF received (frameLength=-1). Connection closed by peer.")
+                if (!isDisconnecting.get()) stop()
+                break
+            }
+            if (frameLength == 0 || frameLength > BridgeProtocol.MAX_FRAME_SIZE) {
                 LogManager.e("Invalid frame length received: $frameLength. Terminating connection.")
                 break
             }
 
             // Read frame body
             val ciphertextWithTag = ByteArray(frameLength)
-            inputStream.readFully(ciphertextWithTag)
+            try {
+                inputStream.readFully(ciphertextWithTag)
+            } catch (e: java.io.IOException) {
+                if (!isDisconnecting.get()) {
+                    LogManager.i("ReadFully failed: ${e.message}. Triggering reconnect.")
+                    stop()
+                }
+                break
+            }
 
             val counter = expectedIncomingCounter
             val plaintext = try {
@@ -174,9 +216,17 @@ class BridgeClient(
                 )
                 expectedIncomingCounter++
                 lastReceivedTime = System.currentTimeMillis()
+                consecutiveFailures = 0 // Reset on success
                 pt
             } catch (e: Exception) {
-                LogManager.e("Auth / Decryption failed for frame counter $counter: silently dropping", e)
+                consecutiveFailures++
+                LogManager.e("Auth / Decryption failed for frame counter $counter (failures: $consecutiveFailures): silently dropping", e)
+                // After 2 consecutive decryption failures, force reconnect
+                if (consecutiveFailures >= 2) {
+                    if (!isDisconnecting.get()) {
+                        stop()
+                    }
+                }
                 break
             }
 
@@ -238,7 +288,16 @@ class BridgeClient(
                 LogManager.i("File transfer ACK from Mac: ${ack.status}")
             }
             BridgeProtocol.TYPE_DISCONNECT -> {
-                LogManager.i("Mac requested disconnect")
+                val jsonStr = try { String(payload, Charsets.UTF_8) } catch (_: Exception) { "" }
+                val reason = try {
+                    org.json.JSONObject(jsonStr).optString("reason", "user_disconnected")
+                } catch (_: Exception) { "user_disconnected" }
+                LogManager.i("Mac requested disconnect (reason=$reason)")
+                if (reason == "unpaired" || reason == "forgotten") {
+                    listener.onUnpaired()
+                } else {
+                    listener.onRemoteDisconnected(reason)
+                }
                 stop()
             }
             BridgeProtocol.TYPE_ICON_NEED -> {
@@ -492,11 +551,11 @@ class BridgeClient(
         }
     }
 
-    fun sendBatteryStatus(level: Int, isCharging: Boolean) {
+    fun sendBatteryStatus(level: Int, isCharging: Boolean, deviceName: String? = null) {
         scope.launch(Dispatchers.IO) {
-            val msg = BridgeProtocol.BatteryStatusMessage(level, isCharging)
+            val msg = BridgeProtocol.BatteryStatusMessage(level, isCharging, deviceName = deviceName)
             send(BridgeProtocol.TYPE_BATTERY_STATUS, msg.toJson().toByteArray(Charsets.UTF_8), flush = true)
-            LogManager.i("Sent battery status to Mac: $level%, isCharging=$isCharging")
+            LogManager.i("Sent battery status to Mac: $level%, isCharging=$isCharging, deviceName=$deviceName")
         }
     }
 
@@ -507,7 +566,7 @@ class BridgeClient(
         }
     }
 
-    fun sendImage(bytes: ByteArray, mime: String, hash: String, totalChunks: Int) {
+    fun sendImage(bytes: ByteArray, mime: String, hash: String) {
         scope.launch(Dispatchers.IO) {
             val transferId = java.util.UUID.randomUUID().toString()
             val chunks = ImageUtils.chunkBytes(bytes)
@@ -577,6 +636,12 @@ class BridgeClient(
             if (flush) {
                 out.flush()
             }
+        } catch (e: IOException) {
+            // Network write failure - trigger reconnect
+            LogManager.e("Send failed (IOException): ${e.message}")
+            if (!isDisconnecting.get()) {
+                stop()
+            }
         } catch (e: Exception) {
             LogManager.e("Failed to send frame (type=$type)", e)
         }
@@ -586,18 +651,18 @@ class BridgeClient(
         heartbeatJob?.cancel()
         heartbeatJob = scope.launch(Dispatchers.IO) {
             while (isActive && !isDisconnecting.get()) {
-                delay(15000)
+                delay(10000) // Check every 10s
                 val now = System.currentTimeMillis()
 
-                // Check 40-second dead connection timeout
-                if (now - lastReceivedTime >= 40000) {
-                    LogManager.e("No traffic from Mac for 40s (dead connection). Reconnecting.")
+                // Check 25-second dead connection timeout (aligns with TCP keepalive)
+                if (now - lastReceivedTime >= 25000) {
+                    LogManager.e("No traffic from Mac for 25s (dead connection). Reconnecting.")
                     stop()
                     break
                 }
 
-                // If idle for >= 15s since last send, ping
-                if (now - lastSentTime >= 15000) {
+                // If idle for >= 10s since last send, ping
+                if (now - lastSentTime >= 10000) {
                     sendPing()
                 }
             }

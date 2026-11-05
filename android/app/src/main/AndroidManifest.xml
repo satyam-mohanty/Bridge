@@ -90,6 +90,24 @@
             android:exported="false"
             android:label="Notifications" />
 
+        <!-- Clipboard Sync Activity -->
+        <activity
+            android:name=".ui.ClipboardSyncActivity"
+            android:exported="false"
+            android:label="Clipboard sync" />
+
+        <!-- Pair a Mac Activity -->
+        <activity
+            android:name=".ui.PairActivity"
+            android:exported="false"
+            android:label="Pair a Mac" />
+
+        <!-- Send Files Activity -->
+        <activity
+            android:name=".ui.SendFilesActivity"
+            android:exported="false"
+            android:label="Send files" />
+
         <!-- Foreground Service -->
         <service
             android:name=".service.BridgeService"

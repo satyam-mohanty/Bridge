@@ -407,13 +407,17 @@ object BridgeProtocol {
     data class BatteryStatusMessage(
         val level: Int,
         val isCharging: Boolean,
-        val ts: Long = System.currentTimeMillis()
+        val ts: Long = System.currentTimeMillis(),
+        val deviceName: String? = null
     ) {
         fun toJson(): String {
             val json = JSONObject()
             json.put("level", level)
             json.put("isCharging", isCharging)
             json.put("ts", ts)
+            if (!deviceName.isNullOrBlank()) {
+                json.put("deviceName", deviceName)
+            }
             return json.toString()
         }
 
@@ -423,7 +427,8 @@ object BridgeProtocol {
                 return BatteryStatusMessage(
                     level = json.getInt("level"),
                     isCharging = json.optBoolean("isCharging", false),
-                    ts = json.optLong("ts", System.currentTimeMillis())
+                    ts = json.optLong("ts", System.currentTimeMillis()),
+                    deviceName = json.optString("deviceName").takeIf { it.isNotBlank() }
                 )
             }
         }

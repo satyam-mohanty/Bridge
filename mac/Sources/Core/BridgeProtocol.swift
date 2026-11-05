@@ -339,11 +339,13 @@ public struct BatteryStatusMessage: Codable {
     public let level: Int
     public let isCharging: Bool
     public let ts: Int64
+    public let deviceName: String?
     
-    public init(level: Int, isCharging: Bool, ts: Int64 = Int64(Date().timeIntervalSince1970 * 1000)) {
+    public init(level: Int, isCharging: Bool, ts: Int64 = Int64(Date().timeIntervalSince1970 * 1000), deviceName: String? = nil) {
         self.level = level
         self.isCharging = isCharging
         self.ts = ts
+        self.deviceName = deviceName
     }
 }
 
