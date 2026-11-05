@@ -31,6 +31,8 @@ build/
 *.dmg
 *.zip
 dist/
+mac/build-derived/
+mac/build/
 
 # Release Signing Secrets (Never commit private keys!)
 *.pem
@@ -53,8 +55,18 @@ releases/*.jks
 releases/*.keystore
 *.idsig
 
+# User / Personal notes & local release files
+*release*.md
+*RELEASE*.md
+!docs/RELEASE_UPDATE_GUIDE.md
+HOW_TO_RUN.md
+CLAUDE.md
+fdrate*
+*fdroid*.md
+*fdroid*.yml
+
 # Brag outputs
 brag-output/
-HOW_TO_RUN.md
+
 
 
