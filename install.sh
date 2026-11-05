@@ -34,8 +34,12 @@ elif [[ "${ZIP_SOURCE}" == file://* ]]; then
     LOCAL_PATH="${ZIP_SOURCE#file://}"
     cp "${LOCAL_PATH}" "${ZIP_DEST}"
 else
-    # Download over HTTPS silently
-    curl -fsSL "${ZIP_SOURCE}" -o "${ZIP_DEST}"
+    # Download over HTTPS
+    if ! curl -fsSL "${ZIP_SOURCE}" -o "${ZIP_DEST}"; then
+        echo "Error: Failed to download Bridge.zip from ${ZIP_SOURCE}" >&2
+        echo "Please ensure Bridge.zip is uploaded to the latest GitHub Release." >&2
+        exit 1
+    fi
 fi
 
 # 4. Extract Bridge.app from the zip archive
