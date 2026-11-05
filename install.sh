@@ -21,7 +21,7 @@ trap cleanup EXIT
 # 2. Determine archive source
 # Default download URL points to the latest GitHub Release archive
 # Can be overridden via BRIDGE_ZIP_URL (supports local file paths for testing)
-DEFAULT_URL="https://github.com/yourname/Bridge/releases/latest/download/Bridge.zip"
+DEFAULT_URL="https://github.com/satyam-mohanty/Bridge/releases/latest/download/Bridge.zip"
 ZIP_SOURCE="${BRIDGE_ZIP_URL:-${DEFAULT_URL}}"
 ZIP_DEST="${TMP_DIR}/Bridge.zip"
 
