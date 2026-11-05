@@ -112,16 +112,27 @@ class MainActivity : AppCompatActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
             val statusBarInset = insets.getInsets(WindowInsetsCompat.Type.statusBars())
             val navBarInset = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            val density = resources.displayMetrics.density
 
+            // Push content below the status bar
             binding.viewStatusBarSpacer.layoutParams = binding.viewStatusBarSpacer.layoutParams.apply {
                 height = statusBarInset.top
             }
 
+            // Dock floats 6dp above gesture bar
+            val dockExtraMargin = (6 * density).toInt()
             val cardParams = binding.cardFloatingNav.layoutParams as? FrameLayout.LayoutParams
             if (cardParams != null) {
-                val extraMargin = (6 * resources.displayMetrics.density).toInt()
-                cardParams.bottomMargin = navBarInset.bottom + extraMargin
+                cardParams.bottomMargin = navBarInset.bottom + dockExtraMargin
                 binding.cardFloatingNav.layoutParams = cardParams
+            }
+
+            // Spacer at bottom of LinearLayout = dock height (68dp) + dock bottom margin + gesture bar height
+            // This prevents content from ever going behind the floating dock
+            val dockHeightPx = (68 * density).toInt()
+            val spacerHeight = dockHeightPx + dockExtraMargin + navBarInset.bottom
+            binding.viewNavSpacer.layoutParams = binding.viewNavSpacer.layoutParams.apply {
+                height = spacerHeight
             }
 
             insets

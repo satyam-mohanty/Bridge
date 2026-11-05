@@ -83,7 +83,7 @@
                 android:orientation="vertical"
                 android:paddingHorizontal="16dp"
                 android:paddingTop="20dp"
-                android:paddingBottom="110dp">
+                android:paddingBottom="24dp">
 
                 <!-- Header Title -->
                 <TextView
@@ -1011,7 +1011,7 @@
                 android:orientation="vertical"
                 android:paddingHorizontal="16dp"
                 android:paddingTop="16dp"
-                android:paddingBottom="110dp">
+                android:paddingBottom="24dp">
 
                 <!-- Subtitle -->
                 <TextView
@@ -1178,7 +1178,7 @@
                 android:orientation="vertical"
                 android:paddingHorizontal="16dp"
                 android:paddingTop="16dp"
-                android:paddingBottom="110dp">
+                android:paddingBottom="24dp">
 
                 <!-- Section: Devices & connection -->
                 <TextView
@@ -1757,6 +1757,12 @@
             </LinearLayout>
         </ScrollView>
     </FrameLayout>
+
+        <!-- Nav Dock Spacer: reserves space below content equal to dock height + gesture bar inset -->
+        <View
+            android:id="@+id/viewNavSpacer"
+            android:layout_width="match_parent"
+            android:layout_height="84dp" />
 
     </LinearLayout>
 
