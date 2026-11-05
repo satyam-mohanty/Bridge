@@ -61,60 +61,60 @@ public struct VisualEffectBackground: NSViewRepresentable {
 public struct BridgePalette {
     public let dark: Bool
 
-    // True Apple Liquid Glass Vibrancy (transparent backdrop so macOS wallpaper shines through)
+    // True dark / near-black tones for dark mode, crisp clean light tones for light mode
     public var canvas: Color {
-        .clear
+        dark ? Color(red: 0.06, green: 0.06, blue: 0.07) : Color(red: 250/255, green: 249/255, blue: 247/255) // #0F0F12
     }
     public var sidebar: Color {
-        .clear
+        dark ? Color(red: 0.035, green: 0.035, blue: 0.04) : Color(red: 238/255, green: 237/255, blue: 233/255) // #09090A deep black
     }
     public var surface: Color {
-        dark ? Color.white.opacity(0.09) : Color.white.opacity(0.70)
+        dark ? Color(red: 0.09, green: 0.09, blue: 0.10) : .white // #17171A
     }
     public var secondarySurface: Color {
-        dark ? Color.white.opacity(0.06) : Color.black.opacity(0.04)
+        dark ? Color(red: 0.14, green: 0.14, blue: 0.15) : Color(red: 244/255, green: 243/255, blue: 240/255) // #242426
     }
     public var border: Color {
-        dark ? Color.white.opacity(0.12) : Color.black.opacity(0.06)
+        dark ? Color.white.opacity(0.08) : Color(red: 227/255, green: 227/255, blue: 222/255) // #E3E3DE
     }
     public var text: Color {
-        Color(nsColor: .labelColor)
+        dark ? Color(white: 0.96) : Color(red: 41/255, green: 43/255, blue: 46/255) // #F5F5F5
     }
     public var muted: Color {
-        Color(nsColor: .secondaryLabelColor)
+        dark ? Color(white: 0.52) : Color(red: 142/255, green: 144/255, blue: 148/255) // #8E9094
     }
     public var accent: Color {
-        Color(red: 0, green: 122/255, blue: 1) // Apple System Blue (#007AFF)
+        dark ? Color.white : Color(red: 35/255, green: 35/255, blue: 38/255) // Zero blue! Monochrome high-contrast in dark
     }
     public var buttonText: Color {
-        .white
+        dark ? Color.black : Color.white
     }
     public var linkAccent: Color {
-        Color(red: 0, green: 122/255, blue: 1)
+        dark ? Color(white: 0.90) : Color(red: 40/255, green: 40/255, blue: 44/255)
     }
     public var selected: Color {
-        dark ? Color.white.opacity(0.14) : Color(red: 0, green: 122/255, blue: 1).opacity(0.12)
+        dark ? Color.white.opacity(0.12) : Color.black.opacity(0.06) // Sleek neutral active pill, zero blue
     }
     public var selectedText: Color {
-        dark ? Color.white : Color(red: 0, green: 122/255, blue: 1)
+        dark ? Color.white : Color(red: 20/255, green: 20/255, blue: 22/255)
     }
     public var successBannerBg: Color {
-        dark ? Color.green.opacity(0.15) : Color(red: 52/255, green: 199/255, blue: 89/255).opacity(0.12)
+        dark ? Color(red: 0.08, green: 0.15, blue: 0.10) : Color(red: 237/255, green: 243/255, blue: 238/255) // #EDF3EE
     }
     public var successBannerBorder: Color {
-        dark ? Color.green.opacity(0.30) : Color(red: 52/255, green: 199/255, blue: 89/255).opacity(0.22)
+        dark ? Color.white.opacity(0.08) : Color(red: 224/255, green: 233/255, blue: 225/255) // #E0E9E1
     }
     public var success: Color {
-        Color(red: 52/255, green: 199/255, blue: 89/255) // Apple System Green
+        dark ? Color(red: 0.38, green: 0.82, blue: 0.52) : Color(red: 45/255, green: 119/255, blue: 71/255) // #2D7747
     }
     public var dropZoneBorder: Color {
-        accent.opacity(dark ? 0.45 : 0.40)
+        dark ? Color.white.opacity(0.16) : Color(red: 215/255, green: 215/255, blue: 218/255)
     }
     public var dropZoneBg: Color {
-        dark ? Color.white.opacity(0.04) : accent.opacity(0.04)
+        dark ? Color(red: 0.08, green: 0.08, blue: 0.09) : Color(red: 248/255, green: 248/255, blue: 250/255)
     }
     public var toggleTint: Color {
-        accent
+        success
     }
 }
 
@@ -262,7 +262,6 @@ public struct MainWindowView: View {
     public var body: some View {
         HStack(spacing: 0) {
             sidebar
-                .background(VisualEffectBackground(material: .sidebar, blendingMode: .behindWindow))
 
             VStack(spacing: 0) {
                 toolbar
@@ -277,11 +276,12 @@ public struct MainWindowView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(VisualEffectBackground(material: .underWindowBackground, blendingMode: .behindWindow))
+            .background(palette.canvas)
         }
         .frame(minWidth: 920, minHeight: 650)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WindowConfigurator())
+        .background(palette.canvas)
         .foregroundStyle(palette.text)
         .preferredColorScheme(windowScheme)
         .tint(palette.accent)
@@ -495,7 +495,6 @@ public struct MainWindowView: View {
             }
         }
         .frame(width: 215)
-        .background(VisualEffectBackground(material: .sidebar, blendingMode: .behindWindow))
         .background(palette.sidebar)
         .overlay(alignment: .trailing) {
             Rectangle()
@@ -3079,17 +3078,14 @@ public final class WindowConfiguratorNSView: NSView {
         super.viewDidMoveToWindow()
         guard let window = self.window else { return }
 
-        // Enable smooth background dragging across displays
+        // Window sizing & dragging
         window.isMovableByWindowBackground = true
         window.isMovable = true
         window.minSize = NSSize(width: 900, height: 640)
 
-        // Apple Liquid Glass native window properties
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.styleMask.insert(.fullSizeContentView)
-        window.isOpaque = false
-        window.backgroundColor = .clear
 
         // Smooth CoreAnimation layering without continuous redraw cascades
         window.contentView?.wantsLayer = true
