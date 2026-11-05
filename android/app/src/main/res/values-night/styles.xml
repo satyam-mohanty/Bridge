@@ -16,6 +16,12 @@
         <item name="android:height">0dp</item>
     </style>
 
+    <style name="Widget.Bridge.Nav.Text" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textSize">10sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="fontFamily">sans-serif-medium</item>
+    </style>
+
     <style name="Theme.Bridge.Transparent" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
