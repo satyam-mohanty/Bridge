@@ -78,16 +78,10 @@ adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 3. Long-press any text field on your phone and tap **Paste**.
 4. **Expected Result**: The exact text from your Mac appears on your phone.
 
-### Test B: Real-Time Text Sync (Android ➔ Mac)
-1. Ensure Bridge is enabled in **Settings ➔ Accessibility ➔ Downloaded Apps ➔ Bridge** (or run `adb shell settings put secure enabled_accessibility_services com.bridge.android/.service.BridgeAccessibilityService && adb shell settings put secure accessibility_enabled 1`).
-2. Copy any text anywhere on your phone (e.g. in Chrome, WhatsApp, Notes, Twitter).
-3. The copied text is automatically detected and sent to your Mac in real time!
-4. Switch to your Mac and press `Cmd + V`.
-5. **Expected Result**: The text copied on your phone appears immediately on your Mac.
-
-### Test B2: Text Sync (Android ➔ Mac via Quick Settings Tile or Notification)
-1. Pull down the notification shade and tap **"Send to Mac"** directly from the persistent Bridge notification, or use the **"Send to Mac"** Quick Settings tile.
+### Test B: Text Sync (Android ➔ Mac)
+1. In the Android Bridge app, pull down the notification shade and tap **"Send to Mac"** from the persistent Bridge notification, or tap the **"Send to Mac"** Quick Settings tile, or tap **"Send Clipboard"** directly within the Bridge app.
 2. Switch to your Mac and press `Cmd + V`.
+3. **Expected Result**: The text copied on your phone appears immediately on your Mac.
 
 ### Test C: Image Sync (Mac ➔ Android)
 1. On your Mac, copy an image to your clipboard (e.g., right-click an image in a browser and choose "Copy Image", or take a screenshot to clipboard with `Cmd + Ctrl + Shift + 4`).
@@ -126,17 +120,6 @@ adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 2. Turn on **Personal Hotspot** on your Android phone.
 3. Connect your Mac's Wi-Fi to your phone's Hotspot.
 4. **Expected Result**: Bridge's subnet scanner (`192.168.43.x`) automatically discovers your Mac on the hotspot subnet and establishes the secure link!
-
-### Test G: Optional "Auto Mode" (Background Capture via ADB)
-Android blocks background apps from reading the clipboard unless triggered by the user (Tile or Share Sheet). If you want 100% automatic phone-to-Mac copy without tapping anything:
-1. Connect phone to Mac via USB and run:
-   ```bash
-   adb shell pm grant com.bridge.android android.permission.READ_LOGS
-   ```
-2. In Android settings, allow Bridge's **Display over other apps** permission. Bridge uses a transparent reader because Android 10+ prevents background apps from reading clipboard content.
-3. In the Android Bridge app, toggle **"Auto-Sync Clipboard"** to ON.
-4. Copy any text anywhere on your phone.
-5. **Expected Result**: Bridge detects the system clipboard copy event in logcat, briefly reads it, and syncs it to your Mac clipboard automatically.
 
 ### Test H: Android Phone Notifications on Mac (Stage A)
 

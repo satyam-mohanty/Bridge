@@ -1,24 +1,36 @@
 package com.bridge.android.ui
 
+import android.app.Activity
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.Base64
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import com.bridge.android.camera.CameraScanActivity
 import com.bridge.android.crypto.KeyStoreManager
 import com.bridge.android.databinding.ActivityPairBinding
 import com.bridge.android.protocol.BridgeProtocol
 import com.bridge.android.service.BridgeService
 import com.bridge.android.util.LogManager
 import com.bridge.android.util.ThemeManager
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 
 class PairActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityPairBinding
     private lateinit var keyStoreManager: KeyStoreManager
+
+    private val qrScannerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val payload = result.data?.getStringExtra(CameraScanActivity.EXTRA_PAIRING_PAYLOAD)
+            if (!payload.isNullOrEmpty()) {
+                processPairingPayload(payload)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,25 +66,8 @@ class PairActivity : AppCompatActivity() {
     }
 
     private fun startQrScanner() {
-        val options = GmsBarcodeScannerOptions.Builder()
-            .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
-            .enableAutoZoom()
-            .build()
-
-        val scanner = GmsBarcodeScanning.getClient(this, options)
-        scanner.startScan()
-            .addOnSuccessListener { barcode ->
-                val rawValue = barcode.rawValue
-                if (rawValue != null) {
-                    processPairingPayload(rawValue)
-                } else {
-                    Toast.makeText(this, "Empty QR code scanned", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .addOnFailureListener { e ->
-                LogManager.e("Barcode scanner failed", e)
-                Toast.makeText(this, "Scanner error: ${e.message}", Toast.LENGTH_LONG).show()
-            }
+        val intent = Intent(this, CameraScanActivity::class.java)
+        qrScannerLauncher.launch(intent)
     }
 
     private fun processPairingPayload(payload: String) {

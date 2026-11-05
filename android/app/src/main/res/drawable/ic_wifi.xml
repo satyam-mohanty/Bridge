@@ -1,9 +1,22 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp"
-    android:height="24dp"
+    android:width="26dp"
+    android:height="26dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-  <path
-      android:fillColor="@color/icon_tint"
-      android:pathData="M12,4C7.31,4 3.07,5.9 0,8.98L12,21L24,8.98C20.93,5.9 16.69,4 12,4ZM2.92,9.98C5.52,7.5 8.6,6 12,6C15.4,6 18.48,7.5 21.08,9.98L12,19.08L2.92,9.98Z"/>
+    <!-- Center Dot -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M12,18.5a1.5,1.5 0,1 1,0 -3a1.5,1.5 0,0 1,0 3z" />
+    <!-- Inner Arc -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M12,11.8c-1.77,0 -3.42,0.67 -4.67,1.83a1,1 0,0 1,-1.36 -1.46c1.62,-1.51 3.75,-2.37 6.03,-2.37s4.41,0.86 6.03,2.37a1,1 0,0 1,-1.36 1.46C15.42,12.47 13.77,11.8 12,11.8z" />
+    <!-- Middle Arc -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M12,7.3c-2.99,0 -5.8,1.13 -7.95,3.14a1,1 0,0 1,-1.34 -1.48c2.51,-2.34 5.79,-3.66 9.29,-3.66s6.78,1.32 9.29,3.66a1,1 0,1 1,-1.34 1.48C17.8,8.43 14.99,7.3 12,7.3z" />
+    <!-- Outer Arc -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M12,2.8c-4.22,0 -8.18,1.59 -11.23,4.44a1,1 0,1 1,-1.34 -1.48c3.41,-3.18 7.82,-4.96 12.57,-4.96s9.16,1.78 12.57,4.96a1,1 0,0 1,-1.34 1.48C20.18,4.39 16.22,2.8 12,2.8z" />
 </vector>

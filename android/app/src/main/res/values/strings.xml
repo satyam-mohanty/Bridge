@@ -10,8 +10,5 @@
     <string name="btn_battery_opt">Battery Optimization</string>
     <string name="btn_autostart_info">OEM Background Settings</string>
     <string name="btn_copy_logs">Copy Diagnostics</string>
-    <string name="auto_mode_title">Auto-Sync Clipboard (Foreground Capture)</string>
-    <string name="auto_mode_desc">Requires READ_LOGS permission via adb. Automatically captures clipboard changes when copied.</string>
-    <string name="accessibility_service_desc">Enables real-time automatic clipboard synchronization with your Mac whenever text or images are copied.</string>
     <string name="widget_description">Toggle searching and view Bridge connection status</string>
 </resources>

@@ -60,6 +60,18 @@ struct BridgeApp: App {
         .windowResizability(.contentMinSize)
         .defaultSize(width: 1040, height: 740)
         .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button("About Bridge") {
+                    NSApp.activate(ignoringOtherApps: true)
+                    for window in NSApp.windows {
+                        if window.canBecomeMain {
+                            window.makeKeyAndOrderFront(nil)
+                            break
+                        }
+                    }
+                    NotificationCenter.default.post(name: .openAboutPage, object: nil)
+                }
+            }
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") {
                     updateManager.checkForUpdates()

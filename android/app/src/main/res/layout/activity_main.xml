@@ -1,13 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/surface"
-    android:orientation="vertical">
+    android:background="@color/surface">
 
-    <!-- Top App Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Top App Bar -->
     <LinearLayout
         android:id="@+id/layoutTopBar"
         android:layout_width="match_parent"
@@ -64,7 +68,8 @@
             android:id="@+id/tabContentBridge"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:fillViewport="true">
+            android:fillViewport="true"
+            android:clipToPadding="false">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -72,7 +77,7 @@
                 android:orientation="vertical"
                 android:paddingHorizontal="16dp"
                 android:paddingTop="20dp"
-                android:paddingBottom="24dp">
+                android:paddingBottom="108dp">
 
                 <!-- Header Title -->
                 <TextView
@@ -975,7 +980,7 @@
                         android:layout_marginBottom="16dp"
                         android:clickable="true"
                         android:focusable="true"
-                        android:text="Help &amp; troubleshooting →"
+                        android:text="Help &amp; Troubleshooting"
                         android:textColor="@color/primary"
                         android:textSize="14sp"
                         android:textStyle="bold" />
@@ -991,6 +996,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:fillViewport="true"
+            android:clipToPadding="false"
             android:visibility="gone">
 
             <LinearLayout
@@ -999,7 +1005,7 @@
                 android:orientation="vertical"
                 android:paddingHorizontal="16dp"
                 android:paddingTop="16dp"
-                android:paddingBottom="24dp">
+                android:paddingBottom="108dp">
 
                 <!-- Subtitle -->
                 <TextView
@@ -1157,6 +1163,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:fillViewport="true"
+            android:clipToPadding="false"
             android:visibility="gone">
 
             <LinearLayout
@@ -1165,7 +1172,7 @@
                 android:orientation="vertical"
                 android:paddingHorizontal="16dp"
                 android:paddingTop="16dp"
-                android:paddingBottom="24dp">
+                android:paddingBottom="108dp">
 
                 <!-- Section: Devices & connection -->
                 <TextView
@@ -1286,7 +1293,7 @@
                             android:layout_height="wrap_content"
                             android:clickable="true"
                             android:focusable="true"
-                            android:text="Manage device →"
+                            android:text="Manage Device"
                             android:textColor="@color/primary"
                             android:textSize="14sp"
                             android:textStyle="bold" />
@@ -1398,7 +1405,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="Real-time"
+                                android:text="Auto sync from Mac &amp; one-tap send"
                                 android:textColor="@color/text_secondary"
                                 android:textSize="13sp" />
                         </LinearLayout>
@@ -1745,24 +1752,38 @@
         </ScrollView>
     </FrameLayout>
 
-    <!-- Bottom Navigation Bar Divider -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="@color/card_stroke" />
+    </LinearLayout>
 
-    <!-- Bottom Navigation Bar -->
-    <com.google.android.material.bottomnavigation.BottomNavigationView
-        android:id="@+id/bottomNav"
+    <!-- Apple Floating Navigation Dock -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardFloatingNav"
         android:layout_width="match_parent"
         android:layout_height="64dp"
-        android:background="@color/surface"
-        app:elevation="0dp"
-        app:itemActiveIndicatorStyle="@style/Widget.Material3.BottomNavigationView.ActiveIndicator"
-        app:itemIconSize="22dp"
-        app:itemIconTint="@color/nav_item_tint"
-        app:itemRippleColor="#1A1D61E0"
-        app:itemTextColor="@color/nav_item_tint"
-        app:labelVisibilityMode="labeled"
-        app:menu="@menu/bottom_nav_menu" />
-</LinearLayout>
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="24dp"
+        app:cardCornerRadius="32dp"
+        app:cardElevation="14dp"
+        app:cardBackgroundColor="@color/nav_pill_bg"
+        app:strokeWidth="0dp"
+        android:outlineSpotShadowColor="@color/nav_shadow_spot"
+        android:outlineAmbientShadowColor="@color/nav_shadow_ambient"
+        tools:targetApi="p">
+
+        <com.google.android.material.bottomnavigation.BottomNavigationView
+            android:id="@+id/bottomNav"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:background="@android:color/transparent"
+            app:elevation="0dp"
+            app:itemActiveIndicatorStyle="@style/Widget.Material3.BottomNavigationView.ActiveIndicator"
+            app:itemIconSize="26dp"
+            app:itemIconTint="@color/nav_item_tint"
+            app:itemRippleColor="#15007AFF"
+            app:itemTextColor="@color/nav_item_tint"
+            app:labelVisibilityMode="labeled"
+            app:menu="@menu/bottom_nav_menu" />
+    </com.google.android.material.card.MaterialCardView>
+</FrameLayout>

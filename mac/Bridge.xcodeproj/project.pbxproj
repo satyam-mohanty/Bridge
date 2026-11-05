@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		292FBF8E05F0FA55A3BD0C60 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6253903B7E870A455E8BA8F3 /* OnboardingView.swift */; };
 		3C9B4832B2D308C7F77C59BA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ED1F9A0D6747EDD4616D35D6 /* Assets.xcassets */; };
 		4D55FBCBD7A3E849B87D730A /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 1C0540D877E4AB8B698A831D /* AppIcon.icns */; };
 		606DF41014DA4AC0F0F4C560 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B0D6028B1CBCA5FFD068D2F /* AppModel.swift */; };
@@ -63,6 +64,7 @@
 		4EC043699431402415083C53 /* MacBatteryMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacBatteryMonitor.swift; sourceTree = "<group>"; };
 		58E003C57BDD9F417908C0C4 /* Bridge.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Bridge.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C97E3A63B80162C763EEF65 /* BridgeLogo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = BridgeLogo.png; sourceTree = "<group>"; };
+		6253903B7E870A455E8BA8F3 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		73D38E121A6338F9EF13F37C /* PairingQRView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingQRView.swift; sourceTree = "<group>"; };
 		78251410F8CAFC32A793DAC3 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		80B60C1D82FC8580B36639BA /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
@@ -98,6 +100,7 @@
 			children = (
 				8DB2E16F39BBFF1609F8CA66 /* MainWindowView.swift */,
 				20EF774C4A758C61BE0B277A /* MenuBarView.swift */,
+				6253903B7E870A455E8BA8F3 /* OnboardingView.swift */,
 				73D38E121A6338F9EF13F37C /* PairingQRView.swift */,
 				3FE990B5F46635A403B5E05A /* SettingsView.swift */,
 			);
@@ -313,6 +316,7 @@
 				6D6D0127B8FA20C325902C36 /* MenuBarView.swift in Sources */,
 				D0B78115E842AE6532B8A2A2 /* NetworkMonitor.swift in Sources */,
 				86F00F27FA2E616940DEE049 /* NetworkServer.swift in Sources */,
+				292FBF8E05F0FA55A3BD0C60 /* OnboardingView.swift in Sources */,
 				6E3263BA1FDAD4F0D1FE1202 /* PairingQRView.swift in Sources */,
 				9DF074947B790BD276B6CAA9 /* SettingsView.swift in Sources */,
 				D575CA859C89FBFCFF806065 /* UpdateManager.swift in Sources */,

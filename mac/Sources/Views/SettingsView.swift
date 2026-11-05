@@ -10,19 +10,25 @@ public struct SettingsView: View {
     
     public var body: some View {
         TabView {
-            notificationsTab
-                .tabItem {
-                    Label("Notifications", systemImage: "bell.badge")
-                }
-                .tag(0)
-            
             generalTab
                 .tabItem {
                     Label("General", systemImage: "gear")
                 }
+                .tag(0)
+
+            notificationsTab
+                .tabItem {
+                    Label("Notifications", systemImage: "bell.badge")
+                }
                 .tag(1)
+
+            aboutTab
+                .tabItem {
+                    Label("About", systemImage: "info.circle")
+                }
+                .tag(2)
         }
-        .frame(width: 520, height: 480)
+        .frame(width: 520, height: 500)
     }
     
     public var notificationsTab: some View {
@@ -155,6 +161,25 @@ public struct SettingsView: View {
             } header: {
                 Text("Application")
             }
+
+            Section {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Setup & Onboarding Guide")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text("Revisit the step-by-step setup walkthrough for permissions and pairing.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Button("Open Guide") {
+                        model.replayOnboarding()
+                    }
+                }
+            } header: {
+                Text("Onboarding")
+            }
             
             Section {
                 Toggle("Automatically check for updates", isOn: $updateManager.automaticallyChecksForUpdates)
@@ -196,6 +221,111 @@ public struct SettingsView: View {
             } footer: {
                 Text("Updates are delivered over secure HTTPS and verified cryptographically with EdDSA signatures.")
                     .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+    
+    public var aboutTab: some View {
+        Form {
+            Section {
+                HStack(spacing: 16) {
+                    if let image = NSImage(named: "BridgeLogo") {
+                        Image(nsImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 44, height: 44)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Bridge")
+                            .font(.headline)
+                        Text(updateManager.currentVersionString)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        updateManager.checkForUpdates()
+                    }) {
+                        if updateManager.isChecking {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Text("Check Now")
+                        }
+                    }
+                    .disabled(!updateManager.canCheckForUpdates || updateManager.isChecking)
+                }
+                .padding(.vertical, 4)
+            }
+            
+            Section {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Built by Satyam Mohanty, an independent developer who builds cool things.")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    
+                    HStack(spacing: 12) {
+                        Link("Website", destination: URL(string: "https://www.satyammohanty.com")!)
+                        Text("•").foregroundColor(.secondary)
+                        Link("GitHub", destination: URL(string: "https://github.com/satyam-mohanty")!)
+                        Text("•").foregroundColor(.secondary)
+                        Link("X", destination: URL(string: "https://x.com/isatymm")!)
+                        Text("•").foregroundColor(.secondary)
+                        Link("LinkedIn", destination: URL(string: "https://www.linkedin.com/in/satyam-mohanty")!)
+                    }
+                    .font(.caption)
+                    .padding(.top, 2)
+                }
+                .padding(.vertical, 2)
+            } header: {
+                Text("Developer")
+            }
+            
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Zero Telemetry & Zero Cloud")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Text("Bridge contains no telemetry, analytics, or third-party trackers. All communication stays on your local Wi-Fi network.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Divider()
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Authenticated End-to-End Encryption")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Text("Data packets are encrypted using AES-256-GCM. Cryptographic keys are saved securely in macOS Keychain.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Divider()
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Local Storage & Notification Previews")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Text("Notification and clipboard history stay strictly local. Previews can be masked at any time from Notifications preferences.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+            } header: {
+                Text("Privacy Policy")
+            } footer: {
+                Text("© 2026 Satyam Mohanty. All rights reserved.")
+                    .font(.caption2)
                     .foregroundColor(.secondary)
             }
         }

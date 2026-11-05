@@ -26,6 +26,7 @@ class ClipboardSyncManager(private val context: Context) {
     private var lastLocalSentTime: Long = 0L
 
     fun handleRemoteText(text: String, hash: String) {
+        if (!com.bridge.android.crypto.KeyStoreManager(context).isClipboardSyncEnabled()) return
         val lowerHash = hash.lowercase()
         lastRemoteReceivedHash = lowerHash
 
@@ -41,6 +42,7 @@ class ClipboardSyncManager(private val context: Context) {
     }
 
     fun handleRemoteImage(data: ByteArray, hash: String) {
+        if (!com.bridge.android.crypto.KeyStoreManager(context).isClipboardSyncEnabled()) return
         val lowerHash = hash.lowercase()
         lastRemoteReceivedHash = lowerHash
 
@@ -74,6 +76,7 @@ class ClipboardSyncManager(private val context: Context) {
         force: Boolean = false,
         activeContext: Context = this.context
     ): Boolean {
+        if (!force && !com.bridge.android.crypto.KeyStoreManager(context).isClipboardSyncEnabled()) return false
         try {
             val clip = clipManager.primaryClip ?: run {
                 LogManager.d("Local clipboard primaryClip is null")

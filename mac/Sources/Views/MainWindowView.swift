@@ -26,63 +26,95 @@ public enum BridgePage: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - Native Apple macOS Visual Effect Vibrancy
+public struct VisualEffectBackground: NSViewRepresentable {
+    public let material: NSVisualEffectView.Material
+    public let blendingMode: NSVisualEffectView.BlendingMode
+    public let state: NSVisualEffectView.State
+
+    public init(
+        material: NSVisualEffectView.Material = .underWindowBackground,
+        blendingMode: NSVisualEffectView.BlendingMode = .behindWindow,
+        state: NSVisualEffectView.State = .active
+    ) {
+        self.material = material
+        self.blendingMode = blendingMode
+        self.state = state
+    }
+
+    public func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = state
+        view.autoresizingMask = [.width, .height]
+        return view
+    }
+
+    public func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = blendingMode
+        nsView.state = state
+    }
+}
+
 public struct BridgePalette {
     public let dark: Bool
 
-    // True dark / near-black tones for dark mode, crisp clean light tones for light mode
+    // True Apple Liquid Glass Vibrancy (transparent backdrop so macOS wallpaper shines through)
     public var canvas: Color {
-        dark ? Color(red: 0.06, green: 0.06, blue: 0.07) : Color(red: 250/255, green: 249/255, blue: 247/255) // #0F0F12
+        .clear
     }
     public var sidebar: Color {
-        dark ? Color(red: 0.035, green: 0.035, blue: 0.04) : Color(red: 238/255, green: 237/255, blue: 233/255) // #09090A deep black
+        .clear
     }
     public var surface: Color {
-        dark ? Color(red: 0.09, green: 0.09, blue: 0.10) : .white // #17171A
+        dark ? Color.white.opacity(0.09) : Color.white.opacity(0.70)
     }
     public var secondarySurface: Color {
-        dark ? Color(red: 0.14, green: 0.14, blue: 0.15) : Color(red: 244/255, green: 243/255, blue: 240/255) // #242426
+        dark ? Color.white.opacity(0.06) : Color.black.opacity(0.04)
     }
     public var border: Color {
-        dark ? Color.white.opacity(0.08) : Color(red: 227/255, green: 227/255, blue: 222/255) // #E3E3DE
+        dark ? Color.white.opacity(0.12) : Color.black.opacity(0.06)
     }
     public var text: Color {
-        dark ? Color(white: 0.96) : Color(red: 41/255, green: 43/255, blue: 46/255) // #F5F5F5
+        Color(nsColor: .labelColor)
     }
     public var muted: Color {
-        dark ? Color(white: 0.52) : Color(red: 142/255, green: 144/255, blue: 148/255) // #8E9094
+        Color(nsColor: .secondaryLabelColor)
     }
     public var accent: Color {
-        dark ? Color.white : Color(red: 35/255, green: 35/255, blue: 38/255) // Zero blue! Monochrome high-contrast in dark
+        Color(red: 0, green: 122/255, blue: 1) // Apple System Blue (#007AFF)
     }
     public var buttonText: Color {
-        dark ? Color.black : Color.white
+        .white
     }
     public var linkAccent: Color {
-        dark ? Color(white: 0.90) : Color(red: 40/255, green: 40/255, blue: 44/255)
+        Color(red: 0, green: 122/255, blue: 1)
     }
     public var selected: Color {
-        dark ? Color.white.opacity(0.12) : Color.black.opacity(0.06) // Sleek neutral active pill, zero blue
+        dark ? Color.white.opacity(0.14) : Color(red: 0, green: 122/255, blue: 1).opacity(0.12)
     }
     public var selectedText: Color {
-        dark ? Color.white : Color(red: 20/255, green: 20/255, blue: 22/255)
+        dark ? Color.white : Color(red: 0, green: 122/255, blue: 1)
     }
     public var successBannerBg: Color {
-        dark ? Color(red: 0.08, green: 0.15, blue: 0.10) : Color(red: 237/255, green: 243/255, blue: 238/255) // #EDF3EE
+        dark ? Color.green.opacity(0.15) : Color(red: 52/255, green: 199/255, blue: 89/255).opacity(0.12)
     }
     public var successBannerBorder: Color {
-        dark ? Color.white.opacity(0.08) : Color(red: 224/255, green: 233/255, blue: 225/255) // #E0E9E1
+        dark ? Color.green.opacity(0.30) : Color(red: 52/255, green: 199/255, blue: 89/255).opacity(0.22)
     }
     public var success: Color {
-        dark ? Color(red: 0.38, green: 0.82, blue: 0.52) : Color(red: 45/255, green: 119/255, blue: 71/255) // #2D7747
+        Color(red: 52/255, green: 199/255, blue: 89/255) // Apple System Green
     }
     public var dropZoneBorder: Color {
-        dark ? Color.white.opacity(0.16) : Color(red: 215/255, green: 215/255, blue: 218/255)
+        accent.opacity(dark ? 0.45 : 0.40)
     }
     public var dropZoneBg: Color {
-        dark ? Color(red: 0.08, green: 0.08, blue: 0.09) : Color(red: 248/255, green: 248/255, blue: 250/255)
+        dark ? Color.white.opacity(0.04) : accent.opacity(0.04)
     }
     public var toggleTint: Color {
-        success
+        accent
     }
 }
 
@@ -230,31 +262,34 @@ public struct MainWindowView: View {
     public var body: some View {
         HStack(spacing: 0) {
             sidebar
+                .background(VisualEffectBackground(material: .sidebar, blendingMode: .behindWindow))
+
             VStack(spacing: 0) {
                 toolbar
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 22) {
                         pageContent
                     }
-                    .padding(.horizontal, 28)
-                    .padding(.top, 10)
-                    .padding(.bottom, 18)
+                    .padding(.horizontal, 36)
+                    .padding(.top, 18)
+                    .padding(.bottom, 36)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                statusBar
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(palette.canvas)
+            .background(VisualEffectBackground(material: .underWindowBackground, blendingMode: .behindWindow))
         }
-        .frame(minWidth: 880, minHeight: 620)
+        .frame(minWidth: 920, minHeight: 650)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WindowConfigurator())
-        .background(palette.canvas)
         .foregroundStyle(palette.text)
         .preferredColorScheme(windowScheme)
         .tint(palette.accent)
         .sheet(isPresented: $showDiagnosticsSheet) {
             diagnosticsSheetView
+        }
+        .sheet(isPresented: $model.showOnboarding) {
+            MacOnboardingView(model: model)
         }
         .alert("Reset pairing?", isPresented: $showClearConfirm) {
             Button("Reset Pairing", role: .destructive) { model.clearAndResetPairing() }
@@ -273,28 +308,47 @@ public struct MainWindowView: View {
                 clipboardText = NSPasteboard.general.string(forType: .string) ?? ""
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openAboutPage)) { _ in
+            page = .preferences
+            preferencesTab = 2
+        }
     }
 
     // MARK: - Sidebar
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Space for macOS traffic light buttons
+            // Space for macOS traffic light buttons with proper breathing room
             Color.clear
-                .frame(height: 20)
+                .frame(height: 38)
                 .background(WindowDragArea())
 
             // Brand Header: Official Logo + Title
-            HStack(spacing: 9) {
+            HStack(spacing: 10) {
                 BridgeMark()
                     .frame(width: 28, height: 28)
-                Text("Bridge")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(palette.text)
+                    .shadow(color: Color.black.opacity(palette.dark ? 0.35 : 0.12), radius: 4, x: 0, y: 2)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Bridge")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(palette.text)
+                    Text("Device Sync")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(palette.muted)
+                }
             }
             .allowsHitTesting(false)
             .padding(.leading, 18)
-            .padding(.bottom, 12)
+            .padding(.bottom, 16)
             .background(WindowDragArea())
+
+            // Section Label
+            Text("CONNECTIVITY")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(0.6)
+                .foregroundStyle(palette.muted)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 6)
 
             // Primary Navigation Items
             VStack(spacing: 3) {
@@ -308,31 +362,38 @@ public struct MainWindowView: View {
 
             Spacer(minLength: 12)
 
-            // SUPPORT Section
+            // SUPPORT & SYSTEM Section
             VStack(alignment: .leading, spacing: 8) {
                 Text("SUPPORT")
                     .font(.system(size: 10, weight: .bold))
                     .tracking(0.6)
                     .foregroundStyle(palette.muted)
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, 12)
 
                 // Buy me a coffee Button
                 Link(destination: URL(string: "https://buymeacoffee.com/satyammohanty")!) {
                     HStack(spacing: 9) {
                         Image(systemName: "cup.and.saucer.fill")
                             .font(.system(size: 13))
-                            .foregroundStyle(palette.accent)
+                            .foregroundStyle(Color.orange)
                         Text("Buy me a coffee")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(palette.text)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 11)
-                    .frame(height: 35)
-                    .background(palette.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .frame(height: 34)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(palette.border, lineWidth: 1)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(palette.dark ? 0.18 : 0.60), Color.clear],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ),
+                                lineWidth: 0.75
+                            )
                     )
                 }
                 .buttonStyle(.plain)
@@ -343,13 +404,18 @@ public struct MainWindowView: View {
                     page = .devices
                 } label: {
                     HStack(spacing: 9) {
-                        Image(systemName: model.hasPairedDevice ? "iphone" : "iphone.slash")
-                            .font(.system(size: 16))
-                            .foregroundStyle(palette.muted)
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(model.isConnected ? Color.blue.opacity(0.2) : Color.gray.opacity(0.15))
+                            Image(systemName: model.hasPairedDevice ? "iphone" : "iphone.slash")
+                                .font(.system(size: 14))
+                                .foregroundStyle(model.isConnected ? palette.accent : palette.muted)
+                        }
+                        .frame(width: 26, height: 26)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(model.hasPairedDevice ? deviceName : "No device paired")
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.system(size: 11.5, weight: .medium))
                                 .foregroundStyle(palette.text)
                                 .lineLimit(1)
 
@@ -357,8 +423,9 @@ public struct MainWindowView: View {
                                 Circle()
                                     .fill(model.isConnected ? palette.success : palette.muted)
                                     .frame(width: 5, height: 5)
+                                    .shadow(color: (model.isConnected ? palette.success : Color.clear).opacity(0.5), radius: 2)
                                 Text(deviceSubtitle)
-                                    .font(.system(size: 9.5))
+                                    .font(.system(size: 10))
                                     .foregroundStyle(model.isConnected ? palette.success : palette.muted)
                             }
                         }
@@ -367,10 +434,17 @@ public struct MainWindowView: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(palette.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(palette.border, lineWidth: 1)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(palette.dark ? 0.18 : 0.60), Color.clear],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ),
+                                lineWidth: 0.75
+                            )
                     )
                 }
                 .buttonStyle(.plain)
@@ -391,53 +465,99 @@ public struct MainWindowView: View {
                     .foregroundStyle(page == .preferences ? palette.selectedText : palette.text)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 10)
-                    .frame(height: 35)
+                    .frame(height: 34)
                     .background(
-                        page == .preferences ? palette.selected : Color.clear,
-                        in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        Group {
+                            if page == .preferences {
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(palette.selected)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .strokeBorder(
+                                                LinearGradient(
+                                                    colors: [Color.white.opacity(palette.dark ? 0.20 : 0.60), Color.clear],
+                                                    startPoint: .top,
+                                                    endPoint: .bottom
+                                                ),
+                                                lineWidth: 0.75
+                                            )
+                                    )
+                            } else {
+                                Color.clear
+                            }
+                        }
                     )
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 10)
                 .padding(.top, 4)
-                .padding(.bottom, 12)
+                .padding(.bottom, 14)
             }
         }
-        .frame(width: 200)
+        .frame(width: 215)
+        .background(VisualEffectBackground(material: .sidebar, blendingMode: .behindWindow))
         .background(palette.sidebar)
         .overlay(alignment: .trailing) {
             Rectangle()
                 .fill(palette.border)
-                .frame(width: 1)
+                .frame(width: 0.5)
         }
     }
 
     private func sidebarNavItem(_ target: BridgePage, title: String, badgeCount: Int? = nil) -> some View {
         Button {
-            page = target
+            withAnimation(.easeInOut(duration: 0.12)) {
+                page = target
+            }
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: target.icon)
-                    .font(.system(size: 13))
-                    .frame(width: 18)
+                    .font(.system(size: 13.5, weight: page == target ? .semibold : .medium))
+                    .frame(width: 20)
+                    .foregroundStyle(page == target ? (palette.dark ? Color.white : palette.accent) : palette.muted)
 
                 Text(title)
                     .font(.system(size: 13, weight: page == target ? .semibold : .regular))
+                    .foregroundStyle(page == target ? (palette.dark ? Color.white : palette.text) : palette.text)
 
                 Spacer(minLength: 0)
 
                 if let count = badgeCount {
                     Text("\(count)")
-                        .font(.system(size: 11, weight: .regular))
-                        .foregroundStyle(palette.muted)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(page == target ? (palette.dark ? Color.white : palette.accent) : palette.muted)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(page == target ? Color.white.opacity(0.2) : palette.secondarySurface)
+                        )
                 }
             }
             .foregroundStyle(page == target ? palette.selectedText : palette.text)
             .padding(.horizontal, 10)
-            .frame(height: 35)
+            .frame(height: 34)
             .background(
-                page == target ? palette.selected : Color.clear,
-                in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+                Group {
+                    if page == target {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(palette.selected)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .strokeBorder(
+                                        LinearGradient(
+                                            colors: [Color.white.opacity(palette.dark ? 0.20 : 0.60), Color.clear],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        ),
+                                        lineWidth: 0.75
+                                    )
+                            )
+                            .shadow(color: Color.black.opacity(palette.dark ? 0.25 : 0.04), radius: 4, x: 0, y: 1.5)
+                    } else {
+                        Color.clear
+                    }
+                }
             )
             .contentShape(Rectangle())
         }
@@ -452,30 +572,41 @@ public struct MainWindowView: View {
     private var toolbar: some View {
         HStack {
             Text(toolbarTitle)
-                .font(.system(size: 13.5, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(palette.text)
 
             Spacer()
 
-            HStack(spacing: 6) {
+            HStack(spacing: 7) {
                 Circle()
                     .fill(statusIndicatorColor)
-                    .frame(width: 6, height: 6)
+                    .frame(width: 7, height: 7)
+                    .shadow(color: statusIndicatorColor.opacity(model.isConnected ? 0.6 : 0.2), radius: 3)
 
                 Text(statusIndicatorText)
-                    .font(.system(size: 12))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(palette.muted)
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(
+                Capsule()
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [Color.white.opacity(palette.dark ? 0.20 : 0.60), Color.clear],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 0.75
+                    )
+            )
+            .shadow(color: Color.black.opacity(palette.dark ? 0.20 : 0.04), radius: 4, x: 0, y: 1)
         }
         .allowsHitTesting(false)
         .padding(.horizontal, 28)
-        .frame(height: 40)
+        .frame(height: 52)
         .background(WindowDragArea())
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(palette.border)
-                .frame(height: 1)
-        }
     }
 
     private var toolbarTitle: String {
@@ -647,37 +778,62 @@ public struct MainWindowView: View {
     }
 
     private var connectedDeviceCard: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 16) {
             ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(palette.secondarySurface)
-                Image(systemName: "iphone")
-                    .font(.system(size: 22))
-                    .foregroundStyle(Color(red: 64/255, green: 66/255, blue: 69/255))
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0, green: 122/255, blue: 1).opacity(0.18),
+                                Color(red: 0, green: 122/255, blue: 1).opacity(0.06)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(Color(red: 0, green: 122/255, blue: 1).opacity(0.25), lineWidth: 1)
+                    )
+                Image(systemName: "iphone.gen3")
+                    .font(.system(size: 24, weight: .regular))
+                    .foregroundStyle(Color(red: 0, green: 122/255, blue: 1))
             }
-            .frame(width: 44, height: 48)
+            .frame(width: 52, height: 52)
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     Text(deviceName)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(palette.text)
 
-                    HStack(spacing: 4) {
+                    HStack(spacing: 5) {
                         Circle()
-                            .fill(palette.success)
-                            .frame(width: 5, height: 5)
+                            .fill(Color(red: 52/255, green: 199/255, blue: 89/255))
+                            .frame(width: 6, height: 6)
+                            .shadow(color: Color(red: 52/255, green: 199/255, blue: 89/255).opacity(0.6), radius: 3)
                         Text("Connected")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(palette.success)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color(red: 52/255, green: 199/255, blue: 89/255))
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(palette.successBannerBg, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 3.5)
+                    .background(
+                        Capsule()
+                            .fill(palette.successBannerBg)
+                    )
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(palette.successBannerBorder, lineWidth: 1)
+                    )
                 }
 
                 HStack(spacing: 14) {
-                    Text("Wi-Fi · \(model.networkName)")
+                    HStack(spacing: 4) {
+                        Image(systemName: "wifi")
+                            .font(.system(size: 11))
+                        Text(model.networkName)
+                    }
                     if let batt = batteryText {
                         HStack(spacing: 4) {
                             Image(systemName: model.isPeerCharging ? "battery.100percent.bolt" : "battery.100percent")
@@ -692,12 +848,19 @@ public struct MainWindowView: View {
 
             Spacer()
 
-            Button("Manage device") {
+            Button("Manage Device") {
                 page = .devices
             }
             .buttonStyle(.plain)
-            .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(palette.linkAccent)
+            .font(.system(size: 12.5, weight: .medium))
+            .padding(.horizontal, 14)
+            .frame(height: 30)
+            .background(palette.secondarySurface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(palette.border, lineWidth: 1)
+            )
+            .foregroundStyle(palette.text)
         }
         .padding(18)
         .bridgeCard(palette)
@@ -706,20 +869,37 @@ public struct MainWindowView: View {
     private var sendFilesCard: some View {
         HStack(spacing: 20) {
             ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(palette.secondarySurface)
-                Image(systemName: isDropTargeted ? "arrow.down.doc" : "arrow.up.doc")
-                    .font(.system(size: 22))
-                    .foregroundStyle(palette.text)
-            }
-            .frame(width: 48, height: 48)
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: isDropTargeted ? [
+                                Color(red: 0, green: 122/255, blue: 1).opacity(0.35),
+                                Color(red: 0, green: 122/255, blue: 1).opacity(0.15)
+                            ] : [
+                                palette.secondarySurface,
+                                palette.secondarySurface.opacity(0.6)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 52, height: 52)
+                    .overlay(
+                        Circle()
+                            .strokeBorder(isDropTargeted ? Color(red: 0, green: 122/255, blue: 1).opacity(0.6) : palette.border, lineWidth: 1)
+                    )
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text(isDropTargeted ? "Drop files to send" : "Drop files to send to your phone")
+                Image(systemName: isDropTargeted ? "airdrop" : "arrow.up.circle")
+                    .font(.system(size: 26, weight: .regular))
+                    .foregroundStyle(isDropTargeted ? Color(red: 0, green: 122/255, blue: 1) : palette.text)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(isDropTargeted ? "Drop files to beam to your phone" : "Drop files to send to your phone")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(palette.text)
 
-                Text("Photos, documents, or a whole folder. Sent directly, without the cloud.")
+                Text("Photos, documents, or folders. Sent directly peer-to-peer at full Wi-Fi speed.")
                     .font(.system(size: 12.5))
                     .foregroundStyle(palette.muted)
             }
@@ -731,11 +911,27 @@ public struct MainWindowView: View {
             }
             .bridgePrimaryButton(color: palette.accent, textColor: palette.buttonText)
         }
-        .padding(22)
-        .background(palette.dropZoneBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(isDropTargeted ? Color(red: 0, green: 122/255, blue: 1).opacity(0.08) : palette.dropZoneBg)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.ultraThinMaterial)
+        )
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(isDropTargeted ? palette.accent : palette.dropZoneBorder, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(
+                    isDropTargeted ? Color(red: 0, green: 122/255, blue: 1) : palette.dropZoneBorder,
+                    style: StrokeStyle(lineWidth: isDropTargeted ? 2 : 1, dash: [7, 5])
+                )
+        )
+        .shadow(
+            color: isDropTargeted ? Color(red: 0, green: 122/255, blue: 1).opacity(0.25) : Color.black.opacity(palette.dark ? 0.20 : 0.04),
+            radius: isDropTargeted ? 12 : 6,
+            x: 0,
+            y: 3
         )
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             handleDroppedFiles(providers: providers)
@@ -2060,13 +2256,14 @@ public struct MainWindowView: View {
     private var preferencesPage: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .center) {
-                pageHeading("Preferences", subtitle: preferencesTab == 0 ? "A few things to make Bridge your own." : "Choose what makes it across to your Mac.")
+                pageHeading("Preferences", subtitle: preferencesSubtitle)
 
                 Spacer()
 
                 HStack(spacing: 2) {
                     preferencesTabButton("General", tag: 0)
                     preferencesTabButton("Notifications", tag: 1)
+                    preferencesTabButton("About", tag: 2)
                 }
                 .padding(3)
                 .background(palette.secondarySurface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -2074,9 +2271,19 @@ public struct MainWindowView: View {
 
             if preferencesTab == 0 {
                 generalPreferencesView
-            } else {
+            } else if preferencesTab == 1 {
                 notificationsPreferencesView
+            } else {
+                aboutPreferencesView
             }
+        }
+    }
+
+    private var preferencesSubtitle: String {
+        switch preferencesTab {
+        case 0: return "A few things to make Bridge your own."
+        case 1: return "Choose what makes it across to your Mac."
+        default: return "About Bridge, the developer, and privacy policy."
         }
     }
 
@@ -2277,10 +2484,53 @@ public struct MainWindowView: View {
             }
             .bridgeCard(palette)
 
+            Text("About & developer")
+                .font(.system(size: 13.5, weight: .semibold))
+                .foregroundStyle(palette.text)
+
+            VStack(spacing: 0) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("About Bridge")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(palette.text)
+                        Text("Built by Satyam Mohanty · Privacy Policy & Details")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(palette.muted)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        preferencesTab = 2
+                    } label: {
+                        HStack(spacing: 5) {
+                            Text("Open About")
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 11))
+                        }
+                        .font(.system(size: 12, weight: .medium))
+                        .padding(.horizontal, 12)
+                        .frame(height: 28)
+                        .background(palette.surface, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .stroke(palette.border, lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(18)
+            }
+            .bridgeCard(palette)
+
             HStack {
-                Text("Bridge 1.4.2 · Made for Android & Mac")
-                    .font(.system(size: 11))
-                    .foregroundStyle(palette.muted)
+                Button("Bridge 1.4.2 · Built by Satyam Mohanty") {
+                    preferencesTab = 2
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 11))
+                .foregroundStyle(palette.muted)
 
                 Spacer()
 
@@ -2457,6 +2707,208 @@ public struct MainWindowView: View {
         .padding(.vertical, 12)
     }
 
+    // MARK: - Preferences: About
+    private var aboutPreferencesView: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            // App & Developer Info Card
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(spacing: 16) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(palette.secondarySurface)
+                        BridgeMark()
+                            .frame(width: 36, height: 36)
+                    }
+                    .frame(width: 58, height: 58)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(palette.border, lineWidth: 1)
+                    )
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text("Bridge")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundStyle(palette.text)
+
+                            Text(updateManager.currentVersionString)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(palette.muted)
+                        }
+
+                        Text("Cross-device continuity, clipboard sync, notifications & files.")
+                            .font(.system(size: 12.5))
+                            .foregroundStyle(palette.muted)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        updateManager.checkForUpdates()
+                    } label: {
+                        HStack(spacing: 6) {
+                            if updateManager.isChecking {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                    .font(.system(size: 11))
+                                Text("Check for Updates")
+                            }
+                        }
+                        .font(.system(size: 12, weight: .medium))
+                        .padding(.horizontal, 12)
+                        .frame(height: 30)
+                        .background(palette.surface, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .stroke(palette.border, lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!updateManager.canCheckForUpdates || updateManager.isChecking)
+                }
+
+                Divider()
+                    .overlay(palette.border)
+
+                // Highlighted developer statement
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(palette.text)
+                            .padding(.top, 1)
+
+                        Text("Built by Satyam Mohanty, an independent developer who builds cool things.")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(palette.text)
+                    }
+
+                    HStack(spacing: 12) {
+                        Link(destination: URL(string: "https://www.satyammohanty.com")!) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "globe")
+                                Text("Website")
+                            }
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundStyle(palette.linkAccent)
+                        }
+
+                        Text("·").foregroundStyle(palette.muted)
+
+                        Link(destination: URL(string: "https://github.com/satyam-mohanty")!) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "curlybraces")
+                                Text("GitHub")
+                            }
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundStyle(palette.linkAccent)
+                        }
+
+                        Text("·").foregroundStyle(palette.muted)
+
+                        Link(destination: URL(string: "https://x.com/isatymm")!) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "bubble.left")
+                                Text("X / Twitter")
+                            }
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundStyle(palette.linkAccent)
+                        }
+
+                        Text("·").foregroundStyle(palette.muted)
+
+                        Link(destination: URL(string: "https://www.linkedin.com/in/satyam-mohanty")!) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "person.crop.circle")
+                                Text("LinkedIn")
+                            }
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundStyle(palette.linkAccent)
+                        }
+                    }
+                    .padding(.top, 2)
+                }
+            }
+            .padding(18)
+            .bridgeCard(palette)
+
+            // Privacy Policy Section
+            Text("Privacy Policy")
+                .font(.system(size: 13.5, weight: .semibold))
+                .foregroundStyle(palette.text)
+
+            VStack(spacing: 0) {
+                privacyRow(
+                    icon: "lock.shield",
+                    title: "Privacy First & Zero Telemetry",
+                    description: "Bridge contains zero tracking SDKs, zero advertising frameworks, and zero analytics beacons. We do not collect, process, or sell any personal data."
+                )
+
+                Divider().overlay(palette.border)
+
+                privacyRow(
+                    icon: "network",
+                    title: "100% Local Peer-to-Peer Communication",
+                    description: "All transfers occur exclusively across your local Wi-Fi network (LAN) over encrypted TCP port 48250. Your data never touches any external cloud server or intermediate relay."
+                )
+
+                Divider().overlay(palette.border)
+
+                privacyRow(
+                    icon: "key.fill",
+                    title: "End-to-End Cryptography",
+                    description: "Every payload—clipboard text, images, and file packets—is encrypted end-to-end using authenticated AES-256-GCM. Pairing keys are stored securely inside macOS Keychain."
+                )
+
+                Divider().overlay(palette.border)
+
+                privacyRow(
+                    icon: "eye.slash.fill",
+                    title: "Notification Masking & Local Storage",
+                    description: "Previews can be masked at any time. Synced notification history and clipboard snippets remain strictly on your local device and can be cleared whenever you choose."
+                )
+            }
+            .bridgeCard(palette)
+
+            HStack {
+                Text("Bridge · © 2026 Satyam Mohanty. All rights reserved.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(palette.muted)
+
+                Spacer()
+            }
+            .padding(.top, 4)
+        }
+    }
+
+    private func privacyRow(icon: String, title: String, description: String) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(palette.secondarySurface)
+                Image(systemName: icon)
+                    .font(.system(size: 14))
+                    .foregroundStyle(palette.text)
+            }
+            .frame(width: 34, height: 34)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(palette.text)
+                Text(description)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(palette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+        }
+        .padding(16)
+    }
+
     // MARK: - Helper Methods
     private func copyCurrentClipboard() {
         guard !clipboardText.isEmpty else { return }
@@ -2521,18 +2973,57 @@ public struct MainWindowView: View {
 // MARK: - View Extension
 public extension View {
     func bridgeCard(_ palette: BridgePalette) -> some View {
-        background(palette.surface, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(palette.border, lineWidth: 1)
-            )
+        background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(palette.surface)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.ultraThinMaterial)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(palette.dark ? 0.22 : 0.65),
+                            Color.white.opacity(palette.dark ? 0.04 : 0.15),
+                            Color.clear
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.8
+                )
+        )
+        .shadow(
+            color: Color.black.opacity(palette.dark ? 0.35 : 0.06),
+            radius: 12,
+            x: 0,
+            y: 4
+        )
     }
 
-    func bridgePrimaryButton(color: Color = .white, textColor: Color = .black) -> some View {
-        font(.system(size: 12.5, weight: .semibold))
-            .padding(.horizontal, 14)
+    func bridgePrimaryButton(color: Color = Color(red: 0, green: 122/255, blue: 1), textColor: Color = .white) -> some View {
+        font(.system(size: 13, weight: .semibold))
+            .padding(.horizontal, 16)
             .frame(height: 32)
-            .background(color, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .background(
+                LinearGradient(
+                    colors: [
+                        color.opacity(0.95),
+                        color
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ),
+                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.28), lineWidth: 0.5)
+            )
+            .shadow(color: color.opacity(0.30), radius: 4, x: 0, y: 2)
             .foregroundStyle(textColor)
             .buttonStyle(.plain)
     }
@@ -2591,7 +3082,14 @@ public final class WindowConfiguratorNSView: NSView {
         // Enable smooth background dragging across displays
         window.isMovableByWindowBackground = true
         window.isMovable = true
-        window.minSize = NSSize(width: 880, height: 620)
+        window.minSize = NSSize(width: 900, height: 640)
+
+        // Apple Liquid Glass native window properties
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.styleMask.insert(.fullSizeContentView)
+        window.isOpaque = false
+        window.backgroundColor = .clear
 
         // Smooth CoreAnimation layering without continuous redraw cascades
         window.contentView?.wantsLayer = true
@@ -2625,4 +3123,8 @@ public final class WindowConfiguratorNSView: NSView {
         if let obs = screenChangeObserver { NotificationCenter.default.removeObserver(obs) }
         if let obs = backingObserver { NotificationCenter.default.removeObserver(obs) }
     }
+}
+
+public extension Notification.Name {
+    static let openAboutPage = Notification.Name("openAboutPage")
 }

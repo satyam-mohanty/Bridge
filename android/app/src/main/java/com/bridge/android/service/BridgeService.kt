@@ -31,7 +31,6 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.provider.Settings
 import android.widget.Toast
-import com.bridge.android.ui.LogcatWatcherService
 import com.bridge.android.ui.MainActivity
 import com.bridge.android.util.AndroidFileManager
 import com.bridge.android.util.ConnectivityHelper
@@ -158,7 +157,6 @@ class BridgeService : Service(), BridgeClientListener {
         registerConnectivityReceiver()
         registerNetworkCallback()
         startConnectionLoop()
-        syncAutoModeState()
         registerClipboardListeners()
         registerBatteryReceiver()
         com.bridge.android.notification.CallSyncManager.register(this)
@@ -235,7 +233,6 @@ class BridgeService : Service(), BridgeClientListener {
         unregisterBatteryReceiver()
         unregisterClipboardListeners()
         unregisterConnectivityReceiver()
-        LogcatWatcherService.stopWatching()
         unregisterNetworkCallback()
         loopJob?.cancel()
         loopJob = null
@@ -326,29 +323,14 @@ class BridgeService : Service(), BridgeClientListener {
     fun handleClipboardChanged(force: Boolean = false) {
         if (!_isConnectedFlow.value) return
 
-        // 1. First attempt: Direct read via BridgeAccessibilityService context
-        val a11y = BridgeAccessibilityService.instance
-        if (a11y != null && BridgeAccessibilityService.isRunning) {
-            try {
-                val clipManager = a11y.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val sent = clipboardSyncManager.sendLocalClipboardToMac(client, clipManager, force = force, activeContext = a11y)
-                if (sent) {
-                    LogManager.i("Direct read via BridgeAccessibilityService SUCCEEDED")
-                    return
-                }
-            } catch (e: Throwable) {
-                LogManager.d("Direct read via a11y failed: ${e.message}")
-            }
-        }
-
-        // 2. Direct read from BridgeService (succeeds if application is in focus)
+        // 1. Direct read from BridgeService (succeeds if application is in focus)
         try {
             val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val sent = clipboardSyncManager.sendLocalClipboardToMac(client, clipManager, force = force, activeContext = this)
             if (sent) return
         } catch (_: Throwable) {}
 
-        // 3. ONLY launch TransparentClipReaderActivity if this was an EXPLICIT user action (force == true),
+        // 2. ONLY launch TransparentClipReaderActivity if this was an EXPLICIT user action (force == true),
         // such as tapping "Send to Mac" in notification or widget.
         // NEVER launch it in the background during passive events, as doing so steals focus from Recent Apps and foreground activities.
         if (force) {
@@ -359,9 +341,7 @@ class BridgeService : Service(), BridgeClientListener {
     fun triggerTransparentClipReader(force: Boolean = false) {
         if (!_isConnectedFlow.value) return
         try {
-            val a11y = BridgeAccessibilityService.instance
-            val launchContext: Context = if (a11y != null && BridgeAccessibilityService.isRunning) a11y else this
-            val intent = Intent(launchContext, com.bridge.android.ui.TransparentClipReaderActivity::class.java).apply {
+            val intent = Intent(this, com.bridge.android.ui.TransparentClipReaderActivity::class.java).apply {
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_NO_ANIMATION or
@@ -381,28 +361,17 @@ class BridgeService : Service(), BridgeClientListener {
                 } catch (_: Throwable) {}
             }
 
-            // 1. If AccessibilityService is connected and active, launch directly through its system context
-            if (a11y != null && BridgeAccessibilityService.isRunning) {
-                try {
-                    a11y.startActivity(intent, options.toBundle())
-                    LogManager.i("Triggered TransparentClipReaderActivity via A11y (force=$force)")
-                    return
-                } catch (e: Throwable) {
-                    LogManager.d("Direct launch via A11y failed: ${e.message}")
-                }
-            }
-
-            // 2. PendingIntent dispatch with background activity permission
+            // 1. PendingIntent dispatch with background activity permission
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 try {
                     val pi = PendingIntent.getActivity(
-                        launchContext,
+                        this,
                         (System.currentTimeMillis() % 10000).toInt(),
                         intent,
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                         options.toBundle()
                     )
-                    pi.send(launchContext, 0, null, null, null, null, options.toBundle())
+                    pi.send(this, 0, null, null, null, null, options.toBundle())
                     LogManager.i("Triggered TransparentClipReaderActivity via PendingIntent (force=$force)")
                     return
                 } catch (e: Throwable) {
@@ -410,24 +379,11 @@ class BridgeService : Service(), BridgeClientListener {
                 }
             }
 
-            // 3. Direct launch fallback
-            launchContext.startActivity(intent, options.toBundle())
+            // 2. Direct launch fallback
+            startActivity(intent, options.toBundle())
             LogManager.i("Triggered TransparentClipReaderActivity via Context (force=$force)")
         } catch (e: Exception) {
             LogManager.e("Error triggering TransparentClipReaderActivity", e)
-        }
-    }
-
-    fun syncAutoModeState() {
-        val hasReadLogs = checkSelfPermission(android.Manifest.permission.READ_LOGS) == PackageManager.PERMISSION_GRANTED
-        val isAutoEnabled = keyStoreManager.isAutoModeEnabled() && hasReadLogs
-        LogManager.i("syncAutoModeState: hasReadLogs=$hasReadLogs, isAutoEnabled=$isAutoEnabled (pref=${keyStoreManager.isAutoModeEnabled()})")
-        if (isAutoEnabled) {
-            if (!LogcatWatcherService.isWatching()) {
-                LogcatWatcherService.startWatching(this, serviceScope)
-            }
-        } else {
-            LogcatWatcherService.stopWatching()
         }
     }
 
@@ -673,7 +629,6 @@ class BridgeService : Service(), BridgeClientListener {
             updateNotification("Connected to $macName")
             LogManager.i("BridgeService: Link established with $ip")
             sendLocalBatteryStatus()
-            syncAutoModeState()
             com.bridge.android.notification.BridgeNotificationListenerService.rebind(this@BridgeService)
             com.bridge.android.notification.NotificationSyncManager.flushOfflineQueue(client)
             notifyWidgetUpdate()

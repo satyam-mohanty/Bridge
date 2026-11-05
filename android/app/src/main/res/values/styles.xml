@@ -11,9 +11,9 @@
     </style>
 
     <style name="Widget.Material3.BottomNavigationView.ActiveIndicator" parent="">
-        <item name="android:color">@color/nav_active_indicator</item>
-        <item name="android:width">58dp</item>
-        <item name="android:height">30dp</item>
+        <item name="android:color">@android:color/transparent</item>
+        <item name="android:width">0dp</item>
+        <item name="android:height">0dp</item>
     </style>
 
     <style name="Theme.Bridge.Transparent" parent="Theme.MaterialComponents.DayNight.NoActionBar">

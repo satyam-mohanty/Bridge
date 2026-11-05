@@ -98,6 +98,7 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
     @Published public var recentClipboardSnippets: [ClipboardSnippetItem] = []
     @Published public var connectedDeviceName: String = UserDefaults.standard.string(forKey: "connectedDeviceName") ?? ""
     @Published public var hasPairedDevice: Bool = (UserDefaults.standard.string(forKey: "connectedDeviceName") != nil)
+    @Published public var showOnboarding: Bool = false
     @Published public var networkName: String = "Local Wi-Fi"
     @Published public var deviceIpAddress: String = "—"
     @Published public var pairingCode: String = "482 916"
@@ -134,6 +135,17 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
         // Load appearance mode
         let savedMode = UserDefaults.standard.string(forKey: "appearanceMode")
         self.appearanceMode = savedMode ?? "auto"
+
+        // Onboarding first-run check
+        let hasCompletedMacOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedMacOnboarding")
+        if !hasCompletedMacOnboarding {
+            if self.hasPairedDevice {
+                UserDefaults.standard.set(true, forKey: "hasCompletedMacOnboarding")
+                self.showOnboarding = false
+            } else if !isTesting {
+                self.showOnboarding = true
+            }
+        }
 
         if isTesting {
             return
@@ -695,5 +707,16 @@ public final class AppModel: ObservableObject, NetworkServerDelegate, NetworkMon
         pb.clearContents()
         pb.setString(pairingJson, forType: .string)
         LogManager.shared.log("Pairing code copied to pasteboard")
+    }
+
+    public func completeOnboarding() {
+        UserDefaults.standard.set(true, forKey: "hasCompletedMacOnboarding")
+        showOnboarding = false
+        LogManager.shared.log("User completed macOS onboarding")
+    }
+
+    public func replayOnboarding() {
+        showOnboarding = true
+        LogManager.shared.log("User initiated replay of macOS onboarding")
     }
 }

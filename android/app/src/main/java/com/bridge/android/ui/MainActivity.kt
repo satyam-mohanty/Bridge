@@ -38,7 +38,6 @@ import com.bridge.android.history.RecentNotificationHistoryManager
 import com.bridge.android.history.TransferHistoryManager
 import com.bridge.android.history.TransferItem
 import com.bridge.android.notification.NotificationPreferences
-import com.bridge.android.service.BridgeAccessibilityService
 import com.bridge.android.service.BridgeService
 import com.bridge.android.update.UpdateManager
 import com.bridge.android.update.data.ManifestFetchResult
@@ -152,7 +151,6 @@ class MainActivity : AppCompatActivity() {
         updateSettingsValues()
         updateClipboardPreview()
         renderActivityList()
-        BridgeService.instance?.syncAutoModeState()
         try {
             val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipManager.addPrimaryClipChangedListener(clipListener)
@@ -370,15 +368,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.switchSettingsClipboardSync.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                if (isAccessibilityServiceEnabled()) {
-                    Toast.makeText(this, "Clipboard sync active ✓", Toast.LENGTH_SHORT).show()
-                } else {
-                    showClipboardOptionsDialog()
-                }
-            } else {
-                Toast.makeText(this, "Turn off Accessibility to disable background capture", Toast.LENGTH_SHORT).show()
-            }
+            keyStoreManager.setClipboardSyncEnabled(isChecked)
+            updateContinuityPills()
         }
 
         binding.switchSettingsBackgroundSync.setOnCheckedChangeListener { _, isChecked ->
@@ -645,36 +636,6 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, "Reconnecting…", Toast.LENGTH_SHORT).show()
     }
 
-    private fun openAccessibilitySettings() {
-        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-        try {
-            startActivity(intent)
-            Toast.makeText(this, "Find 'Bridge' under Downloaded apps and turn it ON", Toast.LENGTH_LONG).show()
-        } catch (e: Exception) {
-            LogManager.e("Failed to open accessibility settings", e)
-        }
-    }
-
-    private fun showClipboardOptionsDialog() {
-        val isA11y = isAccessibilityServiceEnabled()
-        val options = arrayOf(
-            if (isA11y) "Accessibility Service (Active ✓)" else "Enable Real-Time Sync (Accessibility)",
-            "Setup Foreground Auto-Sync (via ADB)",
-            "Cancel"
-        )
-
-        AlertDialog.Builder(this)
-            .setTitle("Universal Clipboard Setup")
-            .setItems(options) { dialog, which ->
-                when (which) {
-                    0 -> openAccessibilitySettings()
-                    1 -> showAdbPermissionDialog()
-                    else -> dialog.dismiss()
-                }
-            }
-            .show()
-    }
-
     private fun showReliabilityOptionsDialog() {
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         val isIgnoring = pm.isIgnoringBatteryOptimizations(packageName)
@@ -735,27 +696,6 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun showAdbPermissionDialog() {
-        val message = """
-            To enable automatic background clipboard sync via ADB:
-            
-            adb shell pm grant com.bridge.android android.permission.READ_LOGS
-            
-            Once granted, flip this switch on!
-        """.trimIndent()
-
-        AlertDialog.Builder(this)
-            .setTitle("Grant READ_LOGS via ADB")
-            .setMessage(message)
-            .setPositiveButton("Copy ADB Command") { _, _ ->
-                val clip = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clip.setPrimaryClip(ClipData.newPlainText("adb command", "adb shell pm grant com.bridge.android android.permission.READ_LOGS"))
-                Toast.makeText(this, "Command copied to clipboard", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("Close", null)
-            .show()
-    }
-
     private fun updateClipboardPreview() {
         try {
             val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -783,8 +723,8 @@ class MainActivity : AppCompatActivity() {
             "Off"
         }
 
-        val isA11y = isAccessibilityServiceEnabled()
-        binding.tvClipboardStatusPill.text = if (isA11y) "Real-time" else "Foreground"
+        val isClipEnabled = keyStoreManager.isClipboardSyncEnabled()
+        binding.tvClipboardStatusPill.text = if (isClipEnabled) "Active" else "Off"
 
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         val isIgnoring = pm.isIgnoringBatteryOptimizations(packageName)
@@ -824,7 +764,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.switchSettingsSearchSync.isChecked = isSearching
-        binding.switchSettingsClipboardSync.isChecked = isAccessibilityServiceEnabled()
+        binding.switchSettingsClipboardSync.isChecked = keyStoreManager.isClipboardSyncEnabled()
         binding.switchSettingsBackgroundSync.isChecked = (getSystemService(Context.POWER_SERVICE) as PowerManager).isIgnoringBatteryOptimizations(packageName)
 
         val notifPrefs = NotificationPreferences(this)
@@ -1249,22 +1189,5 @@ class MainActivity : AppCompatActivity() {
                 requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
             }
         }
-    }
-
-    private fun isAccessibilityServiceEnabled(): Boolean {
-        if (BridgeAccessibilityService.isRunning) {
-            return true
-        }
-        val expectedComponentName = ComponentName(this, BridgeAccessibilityService::class.java).flattenToString()
-        val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
-        val colonSplitter = TextUtils.SimpleStringSplitter(':')
-        colonSplitter.setString(enabledServices)
-        while (colonSplitter.hasNext()) {
-            val componentName = colonSplitter.next()
-            if (componentName.equals(expectedComponentName, ignoreCase = true)) {
-                return true
-            }
-        }
-        return false
     }
 }

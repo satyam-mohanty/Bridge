@@ -6,10 +6,10 @@
 	<integer>13</integer>
 	<key>logs</key>
 	<dict>
-		<key>37BE119F-E425-47D9-B09A-B025DE0BFB72</key>
+		<key>344AAF06-AC4C-4CF7-AD83-2FD6BF5214BA</key>
 		<dict>
 			<key>auxiliaryLogUniqueIdentifier</key>
-			<string>D19A884F-1D7E-4F20-9D3D-66252B165AB2</string>
+			<string>3128E615-387C-491A-BCB6-CDBC52CA4859</string>
 			<key>auxiliaryObservable</key>
 			<dict>
 				<key>highLevelStatus</key>
@@ -30,7 +30,7 @@
 			<key>domainType</key>
 			<string>com.apple.dt.unit.cocoaUnitTest</string>
 			<key>fileName</key>
-			<string>Test-Bridge-2026.10.30_02-49-24-+0530.xcresult</string>
+			<string>Test-Bridge-2026.11.05_23-58-30-+0530.xcresult</string>
 			<key>hasAuxiliaryLog</key>
 			<true/>
 			<key>hasCoverageData</key>
@@ -42,7 +42,7 @@
 				<key>highLevelStatus</key>
 				<string>W</string>
 				<key>totalCodeCoverage</key>
-				<real>0.23145040348496751</real>
+				<real>0.1925128097877235</real>
 				<key>totalNumberOfAnalyzerIssues</key>
 				<integer>0</integer>
 				<key>totalNumberOfErrors</key>
@@ -61,76 +61,13 @@
 			<key>signature</key>
 			<string>Test Bridge</string>
 			<key>timeStartedRecording</key>
-			<real>815001564.26419103</real>
+			<real>815596110.60692704</real>
 			<key>timeStoppedRecording</key>
-			<real>815001566.93036199</real>
+			<real>815596113.52746797</real>
 			<key>title</key>
 			<string>Test Bridge</string>
 			<key>uniqueIdentifier</key>
-			<string>37BE119F-E425-47D9-B09A-B025DE0BFB72</string>
-		</dict>
-		<key>BB602521-0D38-4A75-A262-ABF7346E7D16</key>
-		<dict>
-			<key>auxiliaryLogUniqueIdentifier</key>
-			<string>53B8963C-D6ED-4948-B5B0-D70C2D062FF7</string>
-			<key>auxiliaryObservable</key>
-			<dict>
-				<key>highLevelStatus</key>
-				<string>W</string>
-				<key>totalNumberOfAnalyzerIssues</key>
-				<integer>0</integer>
-				<key>totalNumberOfErrors</key>
-				<integer>0</integer>
-				<key>totalNumberOfTestFailures</key>
-				<integer>0</integer>
-				<key>totalNumberOfWarnings</key>
-				<integer>2</integer>
-			</dict>
-			<key>className</key>
-			<string>IDESchemeActionsInvocationRecord</string>
-			<key>documentTypeString</key>
-			<string>&lt;nil&gt;</string>
-			<key>domainType</key>
-			<string>com.apple.dt.unit.cocoaUnitTest</string>
-			<key>fileName</key>
-			<string>Test-Bridge-2026.10.30_02-44-02-+0530.xcresult</string>
-			<key>hasAuxiliaryLog</key>
-			<true/>
-			<key>hasCoverageData</key>
-			<true/>
-			<key>hasPrimaryLog</key>
-			<true/>
-			<key>primaryObservable</key>
-			<dict>
-				<key>highLevelStatus</key>
-				<string>W</string>
-				<key>totalCodeCoverage</key>
-				<real>0.2282530553558591</real>
-				<key>totalNumberOfAnalyzerIssues</key>
-				<integer>0</integer>
-				<key>totalNumberOfErrors</key>
-				<integer>0</integer>
-				<key>totalNumberOfTestFailures</key>
-				<integer>0</integer>
-				<key>totalNumberOfWarnings</key>
-				<integer>2</integer>
-			</dict>
-			<key>schemeIdentifier-containerName</key>
-			<string>Bridge project</string>
-			<key>schemeIdentifier-schemeName</key>
-			<string>Bridge</string>
-			<key>schemeIdentifier-sharedScheme</key>
-			<integer>1</integer>
-			<key>signature</key>
-			<string>Test Bridge</string>
-			<key>timeStartedRecording</key>
-			<real>815001242.96206796</real>
-			<key>timeStoppedRecording</key>
-			<real>815001245.67160797</real>
-			<key>title</key>
-			<string>Test Bridge</string>
-			<key>uniqueIdentifier</key>
-			<string>BB602521-0D38-4A75-A262-ABF7346E7D16</string>
+			<string>344AAF06-AC4C-4CF7-AD83-2FD6BF5214BA</string>
 		</dict>
 	</dict>
 </dict>

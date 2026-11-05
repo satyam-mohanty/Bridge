@@ -128,14 +128,12 @@ class BridgeWidgetProvider : AppWidgetProvider() {
             val service = BridgeService.instance
             if (service != null) {
                 if (!setText.isNullOrEmpty()) {
-                    val a11y = com.bridge.android.service.BridgeAccessibilityService.instance
-                    val launchCtx: Context = if (a11y != null && com.bridge.android.service.BridgeAccessibilityService.isRunning) a11y else context
-                    val actIntent = Intent(launchCtx, com.bridge.android.ui.TransparentClipReaderActivity::class.java).apply {
+                    val actIntent = Intent(context, com.bridge.android.ui.TransparentClipReaderActivity::class.java).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
                         putExtra("set_clip", setText)
                         putExtra("force", true)
                     }
-                    launchCtx.startActivity(actIntent)
+                    context.startActivity(actIntent)
                 } else {
                     service.handleClipboardChanged(force = force)
                 }

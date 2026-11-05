@@ -1,37 +1,47 @@
 <resources>
-    <!-- Brand & Accent -->
-    <color name="primary">#3B82F6</color>
-    <color name="primary_dark">#1D61E0</color>
-    <color name="accent">#3B82F6</color>
+    <!-- Apple System Colors -->
+    <color name="primary">#0A84FF</color>
+    <color name="primary_dark">#004DA6</color>
+    <color name="accent">#0A84FF</color>
     
     <!-- Status Colors -->
-    <color name="status_green">#22C55E</color>
-    <color name="status_orange">#F59E0B</color>
-    <color name="status_red">#EF4444</color>
-    <color name="status_gray">#6B7280</color>
+    <color name="status_green">#30D158</color>
+    <color name="status_orange">#FF9F0A</color>
+    <color name="status_red">#FF453A</color>
+    <color name="status_gray">#8E8E93</color>
     
-    <!-- Dark Mode Surfaces & Text -->
-    <color name="surface">#0F1012</color>
-    <color name="card_background">#18191D</color>
-    <color name="card_stroke">#27282D</color>
-    <color name="card_highlight">#222328</color>
-    <color name="icon_tint">#F9FAFB</color>
-    <color name="neutral_icon_bg">#27282D</color>
-    <color name="blue_icon_bg">#1E293B</color>
-    <color name="text_primary">#F9FAFB</color>
-    <color name="text_secondary">#9CA3AF</color>
-    <color name="text_tertiary">#6B7280</color>
-    <color name="chevron_color">#6B7280</color>
+    <!-- Dark Mode Surfaces & Text (Apple iOS Dark Background) -->
+    <color name="surface">#000000</color>
+    <color name="card_background">#1C1C1E</color>
+    <color name="card_stroke">#00000000</color>
+    <color name="card_highlight">#2C2C2E</color>
+    <color name="icon_tint">#FFFFFF</color>
+    <color name="neutral_icon_bg">#2C2C2E</color>
+    <color name="blue_icon_bg">#152D4A</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#8E8E93</color>
+    <color name="text_tertiary">#636366</color>
+    <color name="chevron_color">#48484A</color>
 
-    <!-- Nav Bar Colors -->
-    <color name="nav_active_indicator">#1E293B</color>
-    <color name="nav_active_tint">#3B82F6</color>
-    <color name="nav_inactive_tint">#9CA3AF</color>
+    <!-- Apple Floating Navigation Dock Colors -->
+    <color name="nav_active_indicator">#00000000</color>
+    <color name="nav_active_tint">#0A84FF</color>
+    <color name="nav_inactive_tint">#8E8E93</color>
+    <color name="nav_pill_bg">#FA1C1C1E</color>
+    <color name="nav_shadow_spot">#66000000</color>
+    <color name="nav_shadow_ambient">#33000000</color>
 
     <!-- Subtle Tinted Status Pill Backgrounds (Dark Mode) -->
-    <color name="pill_green_bg">#142E1B</color>
-    <color name="pill_orange_bg">#33220A</color>
-    <color name="pill_blue_bg">#1E293B</color>
-    <color name="pill_red_bg">#341514</color>
-    <color name="pill_gray_bg">#222328</color>
+    <color name="pill_green_bg">#0D2818</color>
+    <color name="pill_orange_bg">#331E05</color>
+    <color name="pill_blue_bg">#0C2340</color>
+    <color name="pill_red_bg">#330E0C</color>
+    <color name="pill_gray_bg">#2C2C2E</color>
+
+    <!-- Legacy / Fallback aliases -->
+    <color name="nav_glass_base">#FA1C1C1E</color>
+    <color name="nav_glass_top">#FA2C2C2E</color>
+    <color name="nav_glass_bottom">#FA1C1C1E</color>
+    <color name="nav_glass_stroke">#00000000</color>
+    <color name="nav_glass_inner_glow">#00000000</color>
 </resources>
