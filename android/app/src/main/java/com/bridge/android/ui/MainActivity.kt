@@ -28,6 +28,9 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.bridge.android.R
 import com.bridge.android.crypto.KeyStoreManager
@@ -89,8 +92,40 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ThemeManager.applyTheme(this)
+
+        // Edge-to-edge transparent system bars (Apple style)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+            window.isStatusBarContrastEnforced = false
+        }
+        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+        val isNight = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        insetsController.isAppearanceLightStatusBars = !isNight
+        insetsController.isAppearanceLightNavigationBars = !isNight
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            val statusBarInset = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+            val navBarInset = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+
+            binding.viewStatusBarSpacer.layoutParams = binding.viewStatusBarSpacer.layoutParams.apply {
+                height = statusBarInset.top
+            }
+
+            val cardParams = binding.cardFloatingNav.layoutParams as? FrameLayout.LayoutParams
+            if (cardParams != null) {
+                val extraMargin = (6 * resources.displayMetrics.density).toInt()
+                cardParams.bottomMargin = navBarInset.bottom + extraMargin
+                binding.cardFloatingNav.layoutParams = cardParams
+            }
+
+            insets
+        }
 
         keyStoreManager = KeyStoreManager(this)
         updateManager = UpdateManager.getInstance(this)

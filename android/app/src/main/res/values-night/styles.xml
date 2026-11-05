@@ -4,10 +4,12 @@
         <item name="colorPrimaryDark">@color/surface</item>
         <item name="colorAccent">@color/accent</item>
         <item name="android:windowBackground">@color/surface</item>
-        <item name="android:statusBarColor">@color/surface</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:navigationBarColor">@color/surface</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">false</item>
+        <item name="android:enforceNavigationBarContrast" tools:targetApi="q">false</item>
+        <item name="android:enforceStatusBarContrast" tools:targetApi="q">false</item>
     </style>
 
     <style name="Widget.Material3.BottomNavigationView.ActiveIndicator" parent="">
@@ -17,9 +19,17 @@
     </style>
 
     <style name="Widget.Bridge.Nav.Text" parent="TextAppearance.MaterialComponents.Caption">
-        <item name="android:textSize">10sp</item>
+        <item name="android:textSize">12sp</item>
         <item name="android:fontFamily">sans-serif-medium</item>
         <item name="fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="Widget.Bridge.Nav.Text.Active" parent="Widget.Bridge.Nav.Text">
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="Widget.Bridge.Nav.Text.Inactive" parent="Widget.Bridge.Nav.Text">
+        <item name="android:textStyle">normal</item>
     </style>
 
     <style name="Theme.Bridge.Transparent" parent="Theme.MaterialComponents.DayNight.NoActionBar">

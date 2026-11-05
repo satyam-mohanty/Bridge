@@ -11,14 +11,20 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
+        <!-- Status Bar Spacer for transparent edge-to-edge -->
+        <View
+            android:id="@+id/viewStatusBarSpacer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp" />
+
         <!-- Top App Bar -->
-    <LinearLayout
-        android:id="@+id/layoutTopBar"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingHorizontal="16dp">
+        <LinearLayout
+            android:id="@+id/layoutTopBar"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp">
 
         <ImageView
             android:id="@+id/ivAppLogo"
@@ -77,7 +83,7 @@
                 android:orientation="vertical"
                 android:paddingHorizontal="16dp"
                 android:paddingTop="20dp"
-                android:paddingBottom="84dp">
+                android:paddingBottom="110dp">
 
                 <!-- Header Title -->
                 <TextView
@@ -1005,7 +1011,7 @@
                 android:orientation="vertical"
                 android:paddingHorizontal="16dp"
                 android:paddingTop="16dp"
-                android:paddingBottom="84dp">
+                android:paddingBottom="110dp">
 
                 <!-- Subtitle -->
                 <TextView
@@ -1172,7 +1178,7 @@
                 android:orientation="vertical"
                 android:paddingHorizontal="16dp"
                 android:paddingTop="16dp"
-                android:paddingBottom="84dp">
+                android:paddingBottom="110dp">
 
                 <!-- Section: Devices & connection -->
                 <TextView
@@ -1758,12 +1764,12 @@
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardFloatingNav"
         android:layout_width="match_parent"
-        android:layout_height="64dp"
+        android:layout_height="68dp"
         android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="4dp"
-        app:cardCornerRadius="32dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="8dp"
+        app:cardCornerRadius="34dp"
         app:cardElevation="12dp"
         app:cardBackgroundColor="@color/nav_pill_bg"
         app:strokeWidth="0dp"
@@ -1779,11 +1785,11 @@
             android:background="@android:color/transparent"
             app:elevation="0dp"
             app:itemActiveIndicatorStyle="@style/Widget.Material3.BottomNavigationView.ActiveIndicator"
-            app:itemIconSize="28dp"
-            app:itemPaddingTop="5dp"
-            app:itemPaddingBottom="4dp"
-            app:itemTextAppearanceActive="@style/Widget.Bridge.Nav.Text"
-            app:itemTextAppearanceInactive="@style/Widget.Bridge.Nav.Text"
+            app:itemIconSize="26dp"
+            app:itemPaddingTop="8dp"
+            app:itemPaddingBottom="8dp"
+            app:itemTextAppearanceActive="@style/Widget.Bridge.Nav.Text.Active"
+            app:itemTextAppearanceInactive="@style/Widget.Bridge.Nav.Text.Inactive"
             app:itemIconTint="@color/nav_item_tint"
             app:itemRippleColor="#15007AFF"
             app:itemTextColor="@color/nav_item_tint"
