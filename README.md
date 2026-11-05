@@ -23,17 +23,17 @@ Bridge is not distributed through the official Apple App Store or Google Play St
 
 Choose whichever option you prefer:
 
-#### Option A: Quick Source Build & Install (Recommended)
+#### Option A: One-Line Terminal Install (Recommended)
 
-If you have Xcode tools and Homebrew installed, one command builds and installs Bridge directly into `~/Applications`:
+Run this command in Terminal to install Bridge:
 
 ```bash
-git clone https://github.com/satyam-mohanty/Bridge.git
-cd Bridge
-./install-mac.sh
+curl -fsSL https://raw.githubusercontent.com/yourname/Bridge/main/install.sh | bash
 ```
 
-The script checks your environment, generates the project, compiles the release binary, installs it to `~/Applications/Bridge.app`, strips Gatekeeper quarantine flags, and launches the app.
+After install, Bridge opens like any app. You never need Terminal again.
+
+> Piping scripts into bash means you trust the author. Read the script first: [install.sh](install.sh).
 
 ---
 

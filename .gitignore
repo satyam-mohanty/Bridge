@@ -29,6 +29,7 @@ build/
 # Build Artifacts
 *.apk
 *.dmg
+*.zip
 dist/
 
 # Release Signing Secrets (Never commit private keys!)
