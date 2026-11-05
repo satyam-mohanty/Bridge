@@ -117,7 +117,32 @@ Bridge communicates directly over the hotspot network at full local speeds with 
 
 ---
 
-## Building from Source
+## Upcoming Features & Roadmap
+
+Bridge is constantly evolving! Here are some of the ambitious features currently planned or in development:
+
+- **Attending & Answering Calls Directly from Mac**: Take incoming phone calls and talk straight through your Mac speakers and microphone.
+- **Android as a Secondary Camera**: Turn your high-quality Android camera into an ultra-sharp wireless webcam for Zoom, Google Meet, Teams, FaceTime, and streaming on macOS.
+- **Screen Mirroring & Mac Remote Control**: Mirror your Android display seamlessly onto your Mac desktop and control your phone with your Mac keyboard and trackpad.
+
+---
+
+## Open Source & Welcoming Contributions!
+
+**Bridge is 100% Free & Open Source.** 
+
+I passionately believe in building community-driven, private, cloudless software. Contributions of all kinds are warmly welcomed! Whether you are:
+- An Android or macOS / Swift developer excited about implementing call integration, camera streaming, or remote screen mirroring
+- A UI/UX designer with ideas to refine our native interfaces
+- Someone reporting edge cases or fixing localization and bugs
+
+If you'd like to collaborate, feel free to open an issue, submit a pull request, or start a discussion. Let's make cross-platform connectivity effortless for everyone!
+
+Reach out to me at [contact@satyammohanty.com](mailto:contact@satyammohanty.com)
+
+---
+
+## Building from Source (for Developers)
 
 ### Mac App
 ```bash
@@ -130,29 +155,6 @@ To compile a signed release APK using your own local keystore:
 ./build-android-release.sh -k path/to/release.keystore -a bridge
 ```
 The signed APK will be generated at `releases/bridge-vX.Y.apk`.
-
----
-
-## 🚀 Upcoming Features & Roadmap
-
-Bridge is constantly evolving! Here are some of the ambitious features currently planned or in development:
-
-- 📞 **Attending & Answering Calls Directly from Mac**: Take incoming phone calls and talk straight through your Mac speakers and microphone.
-- 📷 **Android as a Secondary Camera**: Turn your high-quality Android camera into an ultra-sharp wireless webcam for Zoom, Google Meet, Teams, FaceTime, and streaming on macOS.
-- 🖥️ **Screen Mirroring & Mac Remote Control**: Mirror your Android display seamlessly onto your Mac desktop and control your phone with your Mac keyboard and trackpad.
-
----
-
-## 🤝 Open Source & Welcoming Contributions!
-
-**Bridge is 100% Free & Open Source.** 
-
-We passionately believe in building community-driven, private, cloudless software. Contributions of all kinds are warmly welcomed! Whether you are:
-- An Android or macOS / Swift developer excited about implementing call integration, camera streaming, or remote screen mirroring
-- A UI/UX designer with ideas to refine our native interfaces
-- Someone reporting edge cases or fixing localization and bugs
-
-If you'd like to collaborate, feel free to open an issue, submit a pull request, or start a discussion. Let's make cross-platform connectivity effortless for everyone!
 
 ---
 
