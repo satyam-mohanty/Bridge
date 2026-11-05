@@ -557,49 +557,21 @@ public struct MacOnboardingView: View {
                         .foregroundStyle(Color(nsColor: .secondaryLabelColor))
                 }
 
-                // 6-digit Code & Instructions
-                VStack(alignment: .leading, spacing: 10) {
+                // Instructions
+                VStack(alignment: .leading, spacing: 12) {
                     Text("1. Open Bridge on Android")
-                        .font(.system(size: 12, weight: .medium))
-                    Text("2. Tap Scan QR Code (or Pair)")
-                        .font(.system(size: 12, weight: .medium))
-                    Text("3. Scan this screen or type code:")
-                        .font(.system(size: 12, weight: .medium))
-
-                    HStack(spacing: 8) {
-                        Text(model.pairingCode)
-                            .font(.system(size: 20, weight: .bold, design: .monospaced))
-                            .tracking(2)
-
-                        Button {
-                            model.copySnippet(model.pairingCode)
-                            copiedCode = true
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                                copiedCode = false
-                            }
-                        } label: {
-                            Image(systemName: copiedCode ? "checkmark.circle.fill" : "doc.on.doc")
-                                .font(.system(size: 13))
-                                .foregroundStyle(copiedCode ? Color(red: 52/255, green: 199/255, blue: 89/255) : Color(nsColor: .secondaryLabelColor))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(
-                        Capsule()
-                            .fill(Color(nsColor: .controlBackgroundColor).opacity(0.55))
-                    )
-                    .overlay(
-                        Capsule()
-                            .strokeBorder(Color(nsColor: .separatorColor).opacity(0.4), lineWidth: 0.8)
-                    )
+                        .font(.system(size: 13, weight: .medium))
+                    Text("2. Tap Scan QR Code")
+                        .font(.system(size: 13, weight: .medium))
+                    Text("3. Point camera at this screen to pair")
+                        .font(.system(size: 13, weight: .medium))
 
                     Button("Regenerate Pairing Key") {
                         model.regenerateKey()
                     }
                     .font(.system(size: 11))
                     .buttonStyle(.borderless)
+                    .padding(.top, 4)
                 }
             }
             .padding(14)

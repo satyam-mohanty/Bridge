@@ -54,15 +54,6 @@ class PairActivity : AppCompatActivity() {
         binding.cardQrScannerTrigger.setOnClickListener {
             startQrScanner()
         }
-
-        binding.btnPairWithCode.setOnClickListener {
-            val code = binding.etPairingCode.text.toString().trim()
-            if (code.isEmpty()) {
-                Toast.makeText(this, "Please enter pairing code", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            processPairingPayload(code)
-        }
     }
 
     private fun startQrScanner() {

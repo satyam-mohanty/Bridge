@@ -62,8 +62,6 @@ class OnboardingActivity : AppCompatActivity() {
             val payload = result.data?.getStringExtra(CameraScanActivity.EXTRA_PAIRING_PAYLOAD)
             if (!payload.isNullOrEmpty()) {
                 handlePairingPayload(payload)
-            } else if (result.data?.getBooleanExtra(CameraScanActivity.EXTRA_MANUAL_CODE_REQUESTED, false) == true) {
-                showManualCodeDialog()
             }
         }
     }
@@ -393,11 +391,7 @@ class OnboardingActivity : AppCompatActivity() {
             goToNextStep()
         }
 
-        binding.btnAlternativeAction.visibility = View.VISIBLE
-        binding.btnAlternativeAction.text = "Enter 6-digit code manually"
-        binding.btnAlternativeAction.setOnClickListener {
-            showManualCodeDialog()
-        }
+        binding.btnAlternativeAction.visibility = View.GONE
     }
 
     // Step 7: ALL SET

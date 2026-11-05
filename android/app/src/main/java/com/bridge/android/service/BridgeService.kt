@@ -496,21 +496,21 @@ class BridgeService : Service(), BridgeClientListener {
     }
 
     private fun handleConnectivityChange() {
-        val wifiOn = ConnectivityHelper.isWifiEnabled(this)
-        LogManager.i("BridgeService: Connectivity change (Wi-Fi=$wifiOn)")
+        val networkAvailable = ConnectivityHelper.isLocalNetworkAvailable(this)
+        LogManager.i("BridgeService: Connectivity change (localNetworkAvailable=$networkAvailable)")
 
-        if (!wifiOn) {
+        if (!networkAvailable) {
             loopJob?.cancel()
             loopJob = null
             client.stop()
             _isConnectedFlow.value = false
-            val reason = "Wi-Fi is Off"
+            val reason = "No Wi-Fi or Hotspot"
             _statusFlow.value = reason
             updateNotification(reason)
             notifyWidgetUpdate()
         } else {
             if (keyStoreManager.isSearchingEnabled() && !_isConnectedFlow.value && (loopJob == null || !loopJob!!.isActive)) {
-                LogManager.i("BridgeService: Wi-Fi is ON. Starting connection loop.")
+                LogManager.i("BridgeService: Local network/hotspot is active. Starting connection loop.")
                 startConnectionLoop()
             }
         }
@@ -518,7 +518,12 @@ class BridgeService : Service(), BridgeClientListener {
 
     private fun registerConnectivityReceiver() {
         try {
-            val filter = IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION)
+            val filter = IntentFilter().apply {
+                addAction(WifiManager.WIFI_STATE_CHANGED_ACTION)
+                addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION)
+                addAction("android.net.wifi.WIFI_AP_STATE_CHANGED")
+                addAction("android.net.conn.CONNECTIVITY_CHANGE")
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 registerReceiver(connectivityReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
             } else {
@@ -551,8 +556,8 @@ class BridgeService : Service(), BridgeClientListener {
             return
         }
 
-        if (!ConnectivityHelper.isWifiEnabled(this)) {
-            val reason = "Wi-Fi is Off"
+        if (!ConnectivityHelper.isLocalNetworkAvailable(this)) {
+            val reason = "No Wi-Fi or Hotspot"
             _statusFlow.value = reason
             _isConnectedFlow.value = false
             updateNotification(reason)
@@ -561,7 +566,7 @@ class BridgeService : Service(), BridgeClientListener {
         }
 
         loopJob = serviceScope.launch(Dispatchers.IO) {
-            while (isActive && keyStoreManager.isSearchingEnabled() && ConnectivityHelper.isWifiEnabled(this@BridgeService)) {
+            while (isActive && keyStoreManager.isSearchingEnabled() && ConnectivityHelper.isLocalNetworkAvailable(this@BridgeService)) {
                 val key = keyStoreManager.loadSharedKey()
                 if (key == null) {
                     _statusFlow.value = "Not Paired (Scan QR Code)"
@@ -583,7 +588,7 @@ class BridgeService : Service(), BridgeClientListener {
                 }
 
                 // 2. If last known IP failed or is not available, discover Mac
-                if (!sessionSucceeded && isActive && keyStoreManager.isSearchingEnabled() && ConnectivityHelper.isWifiEnabled(this@BridgeService)) {
+                if (!sessionSucceeded && isActive && keyStoreManager.isSearchingEnabled() && ConnectivityHelper.isLocalNetworkAvailable(this@BridgeService)) {
                     _statusFlow.value = "Searching for Mac…"
                     _isConnectedFlow.value = false
                     updateNotification("Searching for Mac…")
@@ -599,7 +604,7 @@ class BridgeService : Service(), BridgeClientListener {
                 }
 
                 // 3. If still not connected, backoff before retry
-                if (!sessionSucceeded && isActive && keyStoreManager.isSearchingEnabled() && ConnectivityHelper.isWifiEnabled(this@BridgeService)) {
+                if (!sessionSucceeded && isActive && keyStoreManager.isSearchingEnabled() && ConnectivityHelper.isLocalNetworkAvailable(this@BridgeService)) {
                     _statusFlow.value = "Mac not found. Retrying in ${backoffMs / 1000}s…"
                     _isConnectedFlow.value = false
                     updateNotification("Mac not found. Retrying in ${backoffMs / 1000}s…")
@@ -730,11 +735,11 @@ class BridgeService : Service(), BridgeClientListener {
         }
 
         override fun onLost(network: Network) {
-            if (!ConnectivityHelper.isWifiEnabled(this@BridgeService)) {
-                LogManager.i("Wi-Fi network lost: resetting client")
+            if (!ConnectivityHelper.isLocalNetworkAvailable(this@BridgeService)) {
+                LogManager.i("Local network lost: resetting client")
                 client.stop()
             } else {
-                LogManager.d("Non-Wi-Fi network lost, Wi-Fi is still active -> keeping connection intact")
+                LogManager.d("Network lost but local network/hotspot is still active -> keeping connection intact")
             }
         }
     }

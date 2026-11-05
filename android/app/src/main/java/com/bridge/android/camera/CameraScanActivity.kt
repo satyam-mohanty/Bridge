@@ -87,14 +87,6 @@ class CameraScanActivity : AppCompatActivity() {
         binding.btnTorch.setOnClickListener {
             toggleTorch()
         }
-
-        binding.btnManualCode.setOnClickListener {
-            val resultIntent = Intent().apply {
-                putExtra(EXTRA_MANUAL_CODE_REQUESTED, true)
-            }
-            setResult(Activity.RESULT_OK, resultIntent)
-            finish()
-        }
     }
 
     private fun showScanner() {

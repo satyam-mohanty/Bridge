@@ -74,46 +74,10 @@ public struct PairingQRView: View {
                         .frame(width: 204, height: 204)
                 }
 
-                // Or enter 6-digit code capsule
-                VStack(spacing: 6) {
-                    Text("Or enter this pairing code")
-                        .font(.system(size: 11.5, weight: .medium))
-                        .foregroundStyle(Color(nsColor: .secondaryLabelColor))
-
-                    HStack(spacing: 10) {
-                        Text(model.pairingCode)
-                            .font(.system(size: 22, weight: .bold, design: .monospaced))
-                            .tracking(2)
-                            .foregroundStyle(Color(nsColor: .labelColor))
-
-                        Button {
-                            model.copySnippet(model.pairingCode)
-                            copied = true
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                                copied = false
-                            }
-                        } label: {
-                            Image(systemName: copied ? "checkmark.circle.fill" : "doc.on.doc")
-                                .font(.system(size: 14))
-                                .foregroundStyle(copied ? Color(red: 52/255, green: 199/255, blue: 89/255) : Color(nsColor: .secondaryLabelColor))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(
-                        Capsule()
-                            .fill(Color(nsColor: .controlBackgroundColor).opacity(0.55))
-                    )
-                    .background(
-                        Capsule()
-                            .fill(.ultraThinMaterial)
-                    )
-                    .overlay(
-                        Capsule()
-                            .strokeBorder(Color.white.opacity(isDark ? 0.2 : 0.6), lineWidth: 0.8)
-                    )
-                }
+                Text("Scan using the Bridge app on your Android phone")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color(nsColor: .secondaryLabelColor))
+                    .padding(.top, 4)
 
                 Spacer(minLength: 0)
 

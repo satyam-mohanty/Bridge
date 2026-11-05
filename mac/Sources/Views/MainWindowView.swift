@@ -2150,37 +2150,13 @@ public struct MainWindowView: View {
                                 )
                         }
 
-                        VStack(spacing: 4) {
-                            Text("Or enter this pairing code")
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(palette.muted)
-
-                            HStack(spacing: 8) {
-                                Text(model.pairingCode)
-                                    .font(.system(size: 26, weight: .bold, design: .rounded))
-                                    .foregroundStyle(palette.text)
-
-                                Button {
-                                    model.copySnippet(model.pairingCode)
-                                    pairingCodeCopied = true
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                                        pairingCodeCopied = false
-                                    }
-                                } label: {
-                                    Image(systemName: pairingCodeCopied ? "checkmark" : "doc.on.doc")
-                                        .font(.system(size: 13))
-                                        .foregroundStyle(palette.muted)
-                                }
-                                .buttonStyle(.plain)
-                            }
-
-                            Text("Expires in 04:58 · Refresh")
-                                .font(.system(size: 11))
-                                .foregroundStyle(palette.muted)
-                                .padding(.top, 2)
-                        }
+                        Text("Scan this QR code using the Bridge app on your Android phone")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(palette.muted)
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 4)
                     }
-                    .frame(width: 260)
+                    .frame(width: 240)
 
                     // Right Column: Steps
                     VStack(alignment: .leading, spacing: 22) {
@@ -2189,8 +2165,8 @@ public struct MainWindowView: View {
                             .foregroundStyle(palette.text)
 
                         stepItem(number: "1", title: "Open Bridge on your phone", detail: "Install the Bridge companion app if you haven’t already.")
-                        stepItem(number: "2", title: "Choose “Pair with Mac”", detail: "Keep both devices on the same Wi-Fi network.")
-                        stepItem(number: "3", title: "Scan this QR code", detail: "Or choose “Enter code” and type the six digits shown here.")
+                        stepItem(number: "2", title: "Choose “Pair with Mac”", detail: "Keep both devices on the same Wi-Fi or phone hotspot.")
+                        stepItem(number: "3", title: "Scan this QR code", detail: "Point your phone's camera at this screen to pair instantly.")
 
                         Link("Get Bridge for Android ↗", destination: URL(string: "https://github.com/satyam-mohanty/Bridge/releases/latest")!)
                             .font(.system(size: 12.5, weight: .medium))
