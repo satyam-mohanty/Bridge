@@ -71,7 +71,6 @@ Bridge only asks for permissions necessary for features you choose to use. None 
 | **Notification Listener** | Optional | Allows Bridge to forward notification banners from apps you select to your Mac. You can filter specific apps and hide sensitive previews. |
 | **Storage / Photos** | Required for files & images | Lets Bridge save files and images received from your Mac into your public `Downloads` folder. |
 | **Camera** | Optional | Used only when you tap "Scan QR Code" during pairing to scan the QR code displayed on your Mac screen. |
-| **Accessibility Service** | Optional | Detects when you copy text on your phone so it can immediately push it to your Mac clipboard in real time without opening the app. |
 | **Phone & Contacts** | Optional (Requested only if turned ON) | If you enable "Incoming call alerts", Bridge checks incoming call state and displays the caller's name on your Mac desktop. |
 
 ---
@@ -90,7 +89,7 @@ Read our full [Privacy Policy](PRIVACY.md).
 ## Troubleshooting
 
 ### 1. Notification Access Greyed Out ("Restricted setting")
-On Android 13 and newer, Android automatically locks down accessibility and notification listening permissions for sideloaded apps:
+On Android 13 and newer, Android automatically restricts notification listening permissions for sideloaded apps:
 1. Open your phone's **Settings** > **Apps** > **Bridge**.
 2. Tap the **three vertical dots (⋮)** in the top right corner.
 3. Tap **Allow restricted settings**.
