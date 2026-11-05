@@ -28,7 +28,12 @@ Choose whichever option you prefer:
 Run this command in Terminal to install Bridge:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/satyam-mohanty/Bridge/main/install.sh | bash
+curl --connect-timeout 3 -fsSL https://raw.githubusercontent.com/satyam-mohanty/Bridge/main/install.sh | bash
+```
+
+*(Or if your ISP is throttling GitHub's raw domain, you can also use:)*
+```bash
+curl -fsSL https://cdn.jsdelivr.net/gh/satyam-mohanty/Bridge@main/install.sh | bash
 ```
 
 After install, Bridge opens like any app. You never need Terminal again.
