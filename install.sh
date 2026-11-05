@@ -25,17 +25,22 @@ DEFAULT_URL="https://github.com/satyam-mohanty/Bridge/releases/latest/download/B
 ZIP_SOURCE="${BRIDGE_ZIP_URL:-${DEFAULT_URL}}"
 ZIP_DEST="${TMP_DIR}/Bridge.zip"
 
+echo "==> Installing Bridge for macOS..."
+
 # 3. Fetch the release archive
 if [[ -f "${ZIP_SOURCE}" ]]; then
     # Local file path provided (useful for offline testing)
+    echo "==> Using local archive..."
     cp "${ZIP_SOURCE}" "${ZIP_DEST}"
 elif [[ "${ZIP_SOURCE}" == file://* ]]; then
     # file:// URI provided
     LOCAL_PATH="${ZIP_SOURCE#file://}"
+    echo "==> Using local archive..."
     cp "${LOCAL_PATH}" "${ZIP_DEST}"
 else
-    # Download over HTTPS
-    if ! curl -fsSL "${ZIP_SOURCE}" -o "${ZIP_DEST}"; then
+    # Download over HTTPS with visual progress bar
+    echo "==> Downloading Bridge.zip..."
+    if ! curl -# -fL "${ZIP_SOURCE}" -o "${ZIP_DEST}"; then
         echo "Error: Failed to download Bridge.zip from ${ZIP_SOURCE}" >&2
         echo "Please ensure Bridge.zip is uploaded to the latest GitHub Release." >&2
         exit 1
@@ -43,6 +48,7 @@ else
 fi
 
 # 4. Extract Bridge.app from the zip archive
+echo "==> Unpacking Bridge.app..."
 unzip -q "${ZIP_DEST}" -d "${TMP_DIR}"
 
 # 5. Check that Bridge.app was extracted properly
@@ -52,14 +58,17 @@ if [[ ! -d "${TMP_DIR}/Bridge.app" ]]; then
 fi
 
 # 6. Install Bridge.app to ~/Applications
+echo "==> Moving to ~/Applications..."
 mkdir -p "${HOME}/Applications"
 rm -rf "${HOME}/Applications/Bridge.app"
 cp -R "${TMP_DIR}/Bridge.app" "${HOME}/Applications/"
 
 # 7. Remove Gatekeeper quarantine attribute so Bridge opens seamlessly
+echo "==> Configuring permissions..."
 xattr -dr com.apple.quarantine "${HOME}/Applications/Bridge.app" 2>/dev/null || true
 
 # 8. Launch Bridge
+echo "==> Launching Bridge..."
 open "${HOME}/Applications/Bridge.app"
 
 # 9. Output final confirmation message
