@@ -115,6 +115,18 @@ public struct MacOnboardingView: View {
 
             Spacer()
 
+            // Skip to app directly at any time
+            Button {
+                model.completeOnboarding()
+                dismiss()
+            } label: {
+                Text("Skip to App")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(Color(nsColor: .tertiaryLabelColor))
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 10)
+
             // Progress Pills
             HStack(spacing: 6) {
                 ForEach(MacOnboardingStep.allCases, id: \.self) { step in
@@ -732,11 +744,16 @@ public struct MacOnboardingView: View {
             } else {
                 // Secondary "Skip / I'll do this later" option
                 Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        goToNextStep()
+                    if currentStep == .welcome {
+                        model.completeOnboarding()
+                        dismiss()
+                    } else {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            goToNextStep()
+                        }
                     }
                 } label: {
-                    Text(currentStep == .welcome ? "Quick Setup" : "Skip for now")
+                    Text(currentStep == .welcome ? "Skip Setup for Now" : "Skip step")
                         .font(.system(size: 12))
                         .foregroundStyle(Color(nsColor: .secondaryLabelColor))
                         .padding(.horizontal, 10)

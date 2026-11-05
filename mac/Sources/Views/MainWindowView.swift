@@ -1882,16 +1882,38 @@ public struct MainWindowView: View {
                     .multilineTextAlignment(.center)
             }
 
-            Button {
-                openPairing(from: .devices)
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "qrcode")
-                        .font(.system(size: 12, weight: .semibold))
-                    Text("Pair Android Phone")
+            HStack(spacing: 12) {
+                Button {
+                    openPairing(from: .devices)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "qrcode")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Open Setup & Pair")
+                    }
                 }
+                .bridgePrimaryButton(color: palette.accent, textColor: palette.buttonText)
+
+                Button {
+                    model.replayOnboarding()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 12))
+                        Text("View Setup Guide")
+                    }
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(palette.linkAccent)
+                .padding(.horizontal, 14)
+                .frame(height: 34)
+                .background(palette.secondarySurface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(palette.border, lineWidth: 1)
+                )
             }
-            .bridgePrimaryButton(color: palette.accent, textColor: palette.buttonText)
         }
         .padding(.vertical, 48)
         .padding(.horizontal, 24)

@@ -411,6 +411,15 @@ class MainActivity : AppCompatActivity() {
             showReliabilityOptionsDialog()
         }
 
+        // Unpaired State: Open Setup & Pair Mac
+        binding.btnOpenSetup.setOnClickListener {
+            startActivity(Intent(this, PairActivity::class.java))
+        }
+
+        binding.btnGetStartedGuide.setOnClickListener {
+            startActivity(Intent(this, OnboardingActivity::class.java))
+        }
+
         // Disconnected State: Try Reconnecting
         binding.btnTryReconnecting.setOnClickListener {
             triggerReconnect()
@@ -887,9 +896,15 @@ class MainActivity : AppCompatActivity() {
 
         val networkName = ConnectivityHelper.getWifiNetworkName(this)
 
-        if (hasKey && isConnected) {
+        if (!hasKey) {
+            // UNPAIRED STATE: Hide connected and disconnected/waiting states; show clean Get Started / Open Setup screen
+            binding.layoutConnectedState.visibility = View.GONE
+            binding.layoutDisconnectedState.visibility = View.GONE
+            binding.layoutUnpairedState.visibility = View.VISIBLE
+        } else if (isConnected) {
             binding.layoutConnectedState.visibility = View.VISIBLE
             binding.layoutDisconnectedState.visibility = View.GONE
+            binding.layoutUnpairedState.visibility = View.GONE
 
             val dot = binding.dotConnectedStatus.background as? GradientDrawable
             dot?.setColor(ContextCompat.getColor(this, R.color.status_green))
@@ -908,6 +923,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             binding.layoutConnectedState.visibility = View.GONE
             binding.layoutDisconnectedState.visibility = View.VISIBLE
+            binding.layoutUnpairedState.visibility = View.GONE
 
             binding.tvDisconnectedStatusSubtitle.text = if (isSearching) "Searching on $networkName" else "Offline"
             binding.tvDisconnectedSearchSubtitle.text = if (isSearching) "Searching on $networkName" else "Paused"
