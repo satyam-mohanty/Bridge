@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
@@ -119,21 +120,35 @@ class MainActivity : AppCompatActivity() {
                 height = statusBarInset.top
             }
 
-            // Dock floats 6dp above gesture bar
-            val dockExtraMargin = (6 * density).toInt()
+            // Dock floats 4dp above gesture bar (closer to bottom)
+            val dockExtraMargin = (4 * density).toInt()
             val cardParams = binding.cardFloatingNav.layoutParams as? FrameLayout.LayoutParams
             if (cardParams != null) {
                 cardParams.bottomMargin = navBarInset.bottom + dockExtraMargin
                 binding.cardFloatingNav.layoutParams = cardParams
             }
 
-            // Spacer at bottom of LinearLayout = dock height (68dp) + dock bottom margin + gesture bar height
-            // This prevents content from ever going behind the floating dock
-            val dockHeightPx = (68 * density).toInt()
-            val spacerHeight = dockHeightPx + dockExtraMargin + navBarInset.bottom
-            binding.viewNavSpacer.layoutParams = binding.viewNavSpacer.layoutParams.apply {
-                height = spacerHeight
-            }
+            // Ensure scrollable content padding accounts for bottom insets and floating dock
+            val dockHeightPx = (64 * density).toInt()
+            val totalBottomPadding = dockHeightPx + dockExtraMargin + navBarInset.bottom + (16 * density).toInt()
+            binding.tabContentBridge.getChildAt(0)?.setPadding(
+                (16 * density).toInt(),
+                (20 * density).toInt(),
+                (16 * density).toInt(),
+                totalBottomPadding
+            )
+            binding.tabContentActivity.getChildAt(0)?.setPadding(
+                (16 * density).toInt(),
+                (16 * density).toInt(),
+                (16 * density).toInt(),
+                totalBottomPadding
+            )
+            binding.tabContentSettings.getChildAt(0)?.setPadding(
+                (16 * density).toInt(),
+                (16 * density).toInt(),
+                (16 * density).toInt(),
+                totalBottomPadding
+            )
 
             insets
         }
@@ -238,8 +253,30 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupNavigation() {
-        binding.bottomNav.setOnItemSelectedListener { item ->
-            when (item.itemId) {
+        val activeColor = ContextCompat.getColor(this, R.color.nav_active_tint)
+        val inactiveColor = ContextCompat.getColor(this, R.color.nav_inactive_tint)
+
+        fun selectTab(selectedId: Int) {
+            // Update Home Tab
+            val isHome = selectedId == R.id.nav_home
+            binding.ivNavHome.imageTintList = ColorStateList.valueOf(if (isHome) activeColor else inactiveColor)
+            binding.tvNavHome.setTextColor(if (isHome) activeColor else inactiveColor)
+            binding.tvNavHome.typeface = if (isHome) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+
+            // Update Activity Tab
+            val isActivity = selectedId == R.id.nav_activity
+            binding.ivNavActivity.imageTintList = ColorStateList.valueOf(if (isActivity) activeColor else inactiveColor)
+            binding.tvNavActivity.setTextColor(if (isActivity) activeColor else inactiveColor)
+            binding.tvNavActivity.typeface = if (isActivity) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+
+            // Update Settings Tab
+            val isSettings = selectedId == R.id.nav_settings
+            binding.ivNavSettings.imageTintList = ColorStateList.valueOf(if (isSettings) activeColor else inactiveColor)
+            binding.tvNavSettings.setTextColor(if (isSettings) activeColor else inactiveColor)
+            binding.tvNavSettings.typeface = if (isSettings) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+
+            // Switch page content
+            when (selectedId) {
                 R.id.nav_home -> {
                     binding.tabContentBridge.visibility = View.VISIBLE
                     binding.tabContentActivity.visibility = View.GONE
@@ -248,7 +285,6 @@ class MainActivity : AppCompatActivity() {
                     binding.tvAppTitle.text = "Bridge"
                     updateConnectionStatus()
                     updateContinuityPills()
-                    true
                 }
                 R.id.nav_activity -> {
                     binding.tabContentBridge.visibility = View.GONE
@@ -257,7 +293,6 @@ class MainActivity : AppCompatActivity() {
                     binding.ivAppLogo.visibility = View.GONE
                     binding.tvAppTitle.text = "Activity"
                     renderActivityList()
-                    true
                 }
                 R.id.nav_settings -> {
                     binding.tabContentBridge.visibility = View.GONE
@@ -266,11 +301,13 @@ class MainActivity : AppCompatActivity() {
                     binding.ivAppLogo.visibility = View.GONE
                     binding.tvAppTitle.text = "Settings"
                     updateSettingsValues()
-                    true
                 }
-                else -> false
             }
         }
+
+        binding.navTabHome.setOnClickListener { selectTab(R.id.nav_home) }
+        binding.navTabActivity.setOnClickListener { selectTab(R.id.nav_activity) }
+        binding.navTabSettings.setOnClickListener { selectTab(R.id.nav_settings) }
     }
 
     private fun setupListeners() {
@@ -437,7 +474,7 @@ class MainActivity : AppCompatActivity() {
 
         // Support & About
         binding.rowSettingsBuyCoffee.setOnClickListener {
-            openUrl("https://buymeacoffee.com/satyam")
+            openUrl("https://buymeacoffee.com/satyammohanty")
         }
 
         binding.rowSettingsHelp.setOnClickListener {

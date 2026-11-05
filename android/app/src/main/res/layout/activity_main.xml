@@ -83,7 +83,7 @@
                 android:orientation="vertical"
                 android:paddingHorizontal="16dp"
                 android:paddingTop="20dp"
-                android:paddingBottom="24dp">
+                android:paddingBottom="100dp">
 
                 <!-- Header Title -->
                 <TextView
@@ -1011,7 +1011,7 @@
                 android:orientation="vertical"
                 android:paddingHorizontal="16dp"
                 android:paddingTop="16dp"
-                android:paddingBottom="24dp">
+                android:paddingBottom="100dp">
 
                 <!-- Subtitle -->
                 <TextView
@@ -1178,7 +1178,7 @@
                 android:orientation="vertical"
                 android:paddingHorizontal="16dp"
                 android:paddingTop="16dp"
-                android:paddingBottom="24dp">
+                android:paddingBottom="100dp">
 
                 <!-- Section: Devices & connection -->
                 <TextView
@@ -1757,49 +1757,126 @@
             </LinearLayout>
         </ScrollView>
     </FrameLayout>
-
-        <!-- Nav Dock Spacer: reserves space below content equal to dock height + gesture bar inset -->
-        <View
-            android:id="@+id/viewNavSpacer"
-            android:layout_width="match_parent"
-            android:layout_height="84dp" />
-
     </LinearLayout>
 
     <!-- Apple Floating Navigation Dock -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardFloatingNav"
-        android:layout_width="match_parent"
-        android:layout_height="68dp"
+        android:layout_width="290dp"
+        android:layout_height="64dp"
         android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginStart="20dp"
-        android:layout_marginEnd="20dp"
         android:layout_marginBottom="8dp"
-        app:cardCornerRadius="34dp"
-        app:cardElevation="12dp"
-        app:cardBackgroundColor="@color/nav_pill_bg"
+        app:cardCornerRadius="32dp"
+        app:cardElevation="10dp"
+        app:cardBackgroundColor="@android:color/transparent"
         app:strokeWidth="0dp"
         android:outlineSpotShadowColor="@color/nav_shadow_spot"
         android:outlineAmbientShadowColor="@color/nav_shadow_ambient"
         tools:targetApi="p">
 
-        <com.google.android.material.bottomnavigation.BottomNavigationView
-            android:id="@+id/bottomNav"
+        <LinearLayout
+            android:id="@+id/layoutNavContainer"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_gravity="center"
-            android:background="@android:color/transparent"
-            app:elevation="0dp"
-            app:itemActiveIndicatorStyle="@style/Widget.Material3.BottomNavigationView.ActiveIndicator"
-            app:itemIconSize="26dp"
-            app:itemPaddingTop="8dp"
-            app:itemPaddingBottom="8dp"
-            app:itemTextAppearanceActive="@style/Widget.Bridge.Nav.Text.Active"
-            app:itemTextAppearanceInactive="@style/Widget.Bridge.Nav.Text.Inactive"
-            app:itemIconTint="@color/nav_item_tint"
-            app:itemRippleColor="#15007AFF"
-            app:itemTextColor="@color/nav_item_tint"
-            app:labelVisibilityMode="labeled"
-            app:menu="@menu/bottom_nav_menu" />
+            android:background="@drawable/bg_nav_glass_liquid"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="6dp">
+
+            <!-- Home Tab -->
+            <LinearLayout
+                android:id="@+id/navTabHome"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@drawable/bg_nav_item_ripple"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:id="@+id/ivNavHome"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:src="@drawable/ic_nav_home"
+                    app:tint="@color/nav_active_tint" />
+
+                <TextView
+                    android:id="@+id/tvNavHome"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:includeFontPadding="false"
+                    android:text="Home"
+                    android:textColor="@color/nav_active_tint"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <!-- Activity Tab -->
+            <LinearLayout
+                android:id="@+id/navTabActivity"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@drawable/bg_nav_item_ripple"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:id="@+id/ivNavActivity"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:src="@drawable/ic_nav_activity"
+                    app:tint="@color/nav_inactive_tint" />
+
+                <TextView
+                    android:id="@+id/tvNavActivity"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:includeFontPadding="false"
+                    android:text="Activity"
+                    android:textColor="@color/nav_inactive_tint"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <!-- Settings Tab -->
+            <LinearLayout
+                android:id="@+id/navTabSettings"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@drawable/bg_nav_item_ripple"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:id="@+id/ivNavSettings"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:src="@drawable/ic_nav_settings"
+                    app:tint="@color/nav_inactive_tint" />
+
+                <TextView
+                    android:id="@+id/tvNavSettings"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:includeFontPadding="false"
+                    android:text="Settings"
+                    android:textColor="@color/nav_inactive_tint"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+        </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 </FrameLayout>

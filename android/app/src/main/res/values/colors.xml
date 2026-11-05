@@ -24,12 +24,14 @@
     <color name="chevron_color">#C7C7CC</color>
 
     <!-- Apple Floating Navigation Dock Colors -->
+    <!-- Apple Floating Navigation Dock Colors (Liquid Glass Semi-Transparent) -->
     <color name="nav_active_indicator">#00000000</color>
     <color name="nav_active_tint">#007AFF</color>
-    <color name="nav_inactive_tint">#8E8E93</color>
-    <color name="nav_pill_bg">#FAFFFFFF</color>
-    <color name="nav_shadow_spot">#33000000</color>
-    <color name="nav_shadow_ambient">#18000000</color>
+    <color name="nav_inactive_tint">#000000</color>
+    <color name="nav_pill_bg">#00000000</color>
+    <color name="nav_pill_stroke">#00000000</color>
+    <color name="nav_shadow_spot">#20000000</color>
+    <color name="nav_shadow_ambient">#10000000</color>
 
     <!-- Subtle Tinted Status Pill Backgrounds -->
     <color name="pill_green_bg">#E8F8ED</color>
@@ -38,10 +40,10 @@
     <color name="pill_red_bg">#FEECEC</color>
     <color name="pill_gray_bg">#E5E5EA</color>
 
-    <!-- Legacy / Fallback aliases -->
-    <color name="nav_glass_base">#FAFFFFFF</color>
-    <color name="nav_glass_top">#FAFFFFFF</color>
-    <color name="nav_glass_bottom">#F2F2F7</color>
-    <color name="nav_glass_stroke">#00000000</color>
+    <!-- Liquid Glass Dense Frosted Material (Light Mode) -->
+    <color name="nav_glass_base">#F5FFFFFF</color>
+    <color name="nav_glass_top">#F8FFFFFF</color>
+    <color name="nav_glass_bottom">#EDF2F2F7</color>
+    <color name="nav_glass_stroke">#14000000</color>
     <color name="nav_glass_inner_glow">#00000000</color>
 </resources>
