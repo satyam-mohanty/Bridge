@@ -26,7 +26,7 @@
     <!-- Apple Floating Navigation Dock Colors -->
     <color name="nav_active_indicator">#00000000</color>
     <color name="nav_active_tint">#0A84FF</color>
-    <color name="nav_inactive_tint">#8E8E93</color>
+    <color name="nav_inactive_tint">#98989D</color>
     <color name="nav_pill_bg">#FA1C1C1E</color>
     <color name="nav_shadow_spot">#66000000</color>
     <color name="nav_shadow_ambient">#33000000</color>
