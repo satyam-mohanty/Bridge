@@ -43,6 +43,7 @@ import com.bridge.android.history.TransferHistoryManager
 import com.bridge.android.history.TransferItem
 import com.bridge.android.notification.NotificationPreferences
 import com.bridge.android.service.BridgeService
+import com.bridge.android.util.OnboardingManager
 import com.bridge.android.update.UpdateManager
 import com.bridge.android.update.data.ManifestFetchResult
 import com.bridge.android.update.installer.InstallationResult
@@ -158,6 +159,11 @@ class MainActivity : AppCompatActivity() {
         clipboardHistoryManager = ClipboardHistoryManager(this)
         transferHistoryManager = TransferHistoryManager(this)
         notificationHistoryManager = RecentNotificationHistoryManager(this)
+
+        // First-run onboarding check: launch onboarding if not yet completed
+        if (!OnboardingManager.isOnboardingCompleted(this)) {
+            startActivity(Intent(this, OnboardingActivity::class.java))
+        }
 
         setupNavigation()
         setupListeners()
@@ -479,6 +485,10 @@ class MainActivity : AppCompatActivity() {
 
         binding.rowSettingsHelp.setOnClickListener {
             showHelpDialog()
+        }
+
+        binding.rowSettingsOnboarding.setOnClickListener {
+            startActivity(Intent(this, OnboardingActivity::class.java))
         }
 
         binding.rowSettingsAbout.setOnClickListener {

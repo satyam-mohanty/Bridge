@@ -1695,6 +1695,49 @@
                         android:layout_height="1dp"
                         android:background="@color/card_stroke" />
 
+                    <!-- Setup & Onboarding Guide -->
+                    <LinearLayout
+                        android:id="@+id/rowSettingsOnboarding"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="16dp"
+                        android:paddingVertical="14dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:contentDescription="Setup"
+                            android:src="@drawable/ic_settings"
+                            app:tint="@color/icon_tint" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp"
+                            android:layout_weight="1"
+                            android:text="Setup &amp; onboarding guide"
+                            android:textColor="@color/text_primary"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:contentDescription="Arrow"
+                            android:src="@drawable/ic_chevron_right"
+                            app:tint="@color/chevron_color" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/card_stroke" />
+
                     <!-- About Bridge -->
                     <LinearLayout
                         android:id="@+id/rowSettingsAbout"
