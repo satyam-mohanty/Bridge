@@ -2,17 +2,24 @@
 
 > Seamless, zero-cloud peer-to-peer clipboard sync, file sharing, and notification mirroring between macOS and Android over your local Wi-Fi.
 
-<!-- SCREENSHOT: Bridge running on macOS and Android side-by-side -->
-![Bridge Screenshot Placeholder](Bridge.png)
+![Bridge Screenshot](https://pro.satyammohanty.com/Bridge/bridge_screen.webp)
 
 ---
 
 ## Why Isn't Bridge on the App Store or Google Play?
 
-Bridge is not distributed through the official Apple App Store or Google Play Store. Here is the honest reason why:
+Bridge is currently distributed outside the official Apple App Store and Google Play Store.
 
-1. **No Paid Developer Accounts:** Both Apple ($99/year) and Google charge fees to distribute software through their proprietary stores and notarization channels. Bridge is a completely free, independent passion project with zero revenue, zero subscriptions, and zero ads.
-2. **Platform Restrictions:** Official app stores impose aggressive sandboxing and policy restrictions that cripple local peer-to-peer networking, background clipboard synchronization, and notification mirroring.
+> **A note from the developer:**  
+> I sincerely apologize for not having Bridge directly available on the Google Play Store and Mac App Store yet. Publishing on official app stores requires paid developer memberships ($99/year for Apple and registration fees for Google) as well as navigating complex policy review cycles.
+> 
+> I am actively working on bringing Bridge to the Google Play Store very soon! As an independent developer building Bridge completely free without ads, subscriptions, or tracking, your support makes a world of difference.
+> 
+> If you love Bridge and would like to help me fund the official Google Play and App Store releases, please consider supporting me here:  
+> ☕ **[Buy Me a Coffee](https://buymeacoffee.com/satyammohanty)**
+
+1. **Independent Passion Project:** Bridge is a free, open-source project with zero subscriptions, zero telemetry, and zero ads.
+2. **Platform Restrictions:** Official app stores impose aggressive sandboxing policies that restrict local peer-to-peer networking, background clipboard synchronization, and notification mirroring.
 3. **100% Free & Open Source:** The entire source code for both the macOS and Android apps is published right here under the [MIT License](LICENSE). You can inspect every line of code, verify how your data is handled, and build it from source yourself.
 
 ---
@@ -21,68 +28,38 @@ Bridge is not distributed through the official Apple App Store or Google Play St
 
 ### Mac Installation
 
-Choose whichever option you prefer:
-
-#### Option A: One-Line Terminal Install (Recommended)
-
-Run this command in Terminal to install Bridge:
+Run this one-line command in your Mac Terminal to install Bridge:
 
 ```bash
 curl --connect-timeout 3 -fsSL https://raw.githubusercontent.com/satyam-mohanty/Bridge/main/install.sh | bash
 ```
 
-*(Or if your ISP is throttling GitHub's raw domain, you can also use:)*
+*(Or if your network is throttling GitHub's raw domain, use the CDN mirror:)*
 ```bash
 curl -fsSL https://cdn.jsdelivr.net/gh/satyam-mohanty/Bridge@main/install.sh | bash
 ```
 
-After install, Bridge opens like any app. You never need Terminal again.
-
-> Piping scripts into bash means you trust the author. Read the script first: [install.sh](install.sh).
-
----
-
-#### Option B: Download Pre-Built `Bridge.app`
-
-Because Bridge is distributed outside Apple's paid Developer Program, macOS Gatekeeper requires a one-time manual approval on first launch:
-
-1. Download the latest release from the [Releases](https://github.com/satyam-mohanty/Bridge/releases) page and move `Bridge.app` into your `Applications` (or `~/Applications`) folder.
-2. Double-click **Bridge.app** to open it.
-3. You will see an Apple warning dialog:
-   > *"Bridge cannot be opened because Apple cannot check it for malicious software."*
-   
-   <!-- SCREENSHOT: macOS Gatekeeper "cannot check it for malicious software" warning dialog -->
-   *(Screenshot placeholder: Gatekeeper warning alert)*
-
-   Click **Done** (or **OK**).
-4. Open **System Settings** on your Mac.
-5. Navigate to **Privacy & Security** and scroll down to the **Security** section.
-6. You will see a message:
-   > *"Bridge was blocked from use because it is not from an identified developer."*
-   
-   Click the **Open Anyway** button next to it.
-   
-   <!-- SCREENSHOT: System Settings > Privacy & Security showing "Open Anyway" button -->
-   *(Screenshot placeholder: System Settings Security section with "Open Anyway")*
-
-7. A confirmation prompt will appear asking if you are sure. Click **Open** (and enter your Mac password or Touch ID if requested).
-   
-   <!-- SCREENSHOT: Final confirmation dialog with "Open" button -->
-   *(Screenshot placeholder: macOS confirmation dialog)*
-
-8. Bridge will launch immediately and run from your menu bar and Dock without asking again!
+The script will automatically download the latest `Bridge.app`, place it cleanly into your `~/Applications` folder, configure permissions, and launch the app. After install, Bridge opens like any native macOS app—you won't need Terminal again.
 
 ---
 
 ### Android Installation
 
-1. On your Android phone, download the latest release APK (`bridge-vX.Y.apk`) from the [Releases](https://github.com/satyam-mohanty/Bridge/releases) page.
-2. Open your device's **Downloads** or **Files** app and tap the downloaded APK file.
-3. If prompted with *"Install unknown apps"*, tap **Settings** and toggle **Allow from this source** for your browser or file manager.
-4. **Google Play Protect Warning**: Because the APK is sideloaded without a paid Play Store listing, Google Play Protect may show a warning:
-   - Tap **"More details"**.
-   - Tap **"Install anyway"**.
-5. Once installed, tap **Open**.
+1. **Download the APK**: On your Android phone, download the latest [`Bridge.apk`](https://github.com/satyam-mohanty/Bridge/releases/latest/download/Bridge.apk) from the [Releases](https://github.com/satyam-mohanty/Bridge/releases) page.
+2. **Open the APK**: Open your device's **Files** or **Downloads** app and tap `Bridge.apk`.
+3. **Allow Unknown Sources**: If prompted with *"For your security, your phone is not allowed to install unknown apps from this source"*, tap **Settings** and toggle **Allow from this source**.
+4. **Google Play Protect**: Because Bridge is a direct release APK not yet indexed by Google's automated scanners, Google Play Protect may show a warning or prevent the install prompt.
+   * **If prompted with a warning dialog**:
+     1. Tap **More details** (or the small dropdown arrow).
+     2. Tap **Install anyway**.
+   * **If the install button is blocked or doesn't appear**:
+     1. Open the **Google Play Store** app on your phone.
+     2. Tap your **profile icon** in the top-right corner.
+     3. Tap **Play Protect**.
+     4. Tap the **Settings (gear icon ⚙️)** in the top-right corner.
+     5. Temporarily toggle **OFF** *"Scan apps with Play Protect"*.
+     6. Return to your **Files/Downloads** app and tap `Bridge.apk` to install. (You can turn Play Protect back on afterward).
+5. **Open Bridge**: Tap **Open** and follow the quick setup guide to pair with your Mac!
 
 #### Android Permissions Explained (In Plain English)
 
