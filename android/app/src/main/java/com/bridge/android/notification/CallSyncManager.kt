@@ -36,6 +36,11 @@ object CallSyncManager {
 
     fun register(context: Context) {
         val appContext = context.applicationContext
+        val prefs = NotificationPreferences(appContext)
+        if (!prefs.showIncomingCalls) {
+            LogManager.i("CallSyncManager.register: incoming calls disabled in settings, skipping listener registration")
+            return
+        }
 
         // 1. Register TelephonyManager.ACTION_PHONE_STATE_CHANGED broadcast receiver
         if (telephonyReceiver == null) {

@@ -1,5 +1,6 @@
 package com.bridge.android.ui
 
+import android.Manifest
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -12,6 +13,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -21,6 +24,7 @@ import com.bridge.android.R
 import com.bridge.android.crypto.KeyStoreManager
 import com.bridge.android.databinding.ActivityNotificationSettingsBinding
 import com.bridge.android.databinding.ItemAppNotificationBinding
+import com.bridge.android.notification.CallSyncManager
 import com.bridge.android.notification.NotificationPreferences
 import com.bridge.android.util.LogManager
 import com.google.android.material.switchmaterial.SwitchMaterial
@@ -37,6 +41,23 @@ class NotificationSettingsActivity : AppCompatActivity() {
     private val iconCache = object : LruCache<String, Drawable>(120) {}
     private var appsList = listOf<AppEntry>()
     private var appsAdapter: AppsAdapter? = null
+
+    private val callPermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        val hasPhone = results[Manifest.permission.READ_PHONE_STATE] == true
+        if (hasPhone) {
+            prefs.showIncomingCalls = true
+            binding.switchIncomingCalls.isChecked = true
+            CallSyncManager.register(this)
+            LogManager.i("Call permissions granted; incoming call alerts enabled")
+        } else {
+            prefs.showIncomingCalls = false
+            binding.switchIncomingCalls.isChecked = false
+            Toast.makeText(this, "Phone state permission is required to detect incoming calls", Toast.LENGTH_SHORT).show()
+            LogManager.i("Call permissions denied; incoming call alerts disabled")
+        }
+    }
 
     data class AppEntry(
         val packageName: String,
@@ -61,6 +82,8 @@ class NotificationSettingsActivity : AppCompatActivity() {
         super.onResume()
         updateNotificationAccessStatus()
         updateAppCounts()
+        val hasCallPerms = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
+        binding.switchIncomingCalls.isChecked = prefs.showIncomingCalls && hasCallPerms
     }
 
     private fun setupUI() {
@@ -85,6 +108,30 @@ class NotificationSettingsActivity : AppCompatActivity() {
         binding.switchOnlyWhenMacUnlocked.setOnCheckedChangeListener { _, isChecked ->
             prefs.onlyWhenMacUnlocked = isChecked
             LogManager.i("Only when Mac is unlocked set to $isChecked")
+        }
+
+        // "Incoming call alerts" (Requested only when feature is turned on)
+        val hasCallPerms = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
+        binding.switchIncomingCalls.isChecked = prefs.showIncomingCalls && hasCallPerms
+        binding.switchIncomingCalls.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
+                    prefs.showIncomingCalls = true
+                    CallSyncManager.register(this)
+                    LogManager.i("Incoming call alerts enabled (permissions already granted)")
+                } else {
+                    callPermissionsLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.READ_PHONE_STATE,
+                            Manifest.permission.READ_CONTACTS
+                        )
+                    )
+                }
+            } else {
+                prefs.showIncomingCalls = false
+                CallSyncManager.unregister(this)
+                LogManager.i("Incoming call alerts disabled")
+            }
         }
 
         // Mac name in footer

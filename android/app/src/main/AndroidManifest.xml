@@ -6,7 +6,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
     <!-- Foreground Service (Android 14+ connectedDevice type) -->
@@ -21,23 +20,25 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
-    <!-- Optional Auto-Mode Clipboard Trigger (Granted via adb: pm grant com.bridge.android android.permission.READ_LOGS) -->
+    <!-- Optional Auto-Mode Clipboard Trigger (Granted via adb when feature is turned on: pm grant com.bridge.android android.permission.READ_LOGS) -->
     <uses-permission android:name="android.permission.READ_LOGS" tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <!-- Package Query for Notification App Selection (Android 11+) -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
 
-    <!-- Telephony & Contacts for Incoming Call Alerts (Stage B) -->
+    <!-- Telephony & Contacts for Incoming Call Alerts (Requested only when feature is turned on) -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-    <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
     <!-- Storage and Media for Clipboard & File Sharing -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" tools:ignore="ScopedStorage" />
+
+    <!-- Camera for Built-in QR Scanner -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
     <application
         android:name=".BridgeApp"
@@ -107,6 +108,19 @@
             android:name=".ui.SendFilesActivity"
             android:exported="false"
             android:label="Send files" />
+
+        <!-- User Onboarding Activity -->
+        <activity
+            android:name=".ui.OnboardingActivity"
+            android:exported="false"
+            android:label="Welcome to Bridge" />
+
+        <!-- Custom In-App Camera QR Scanner (No Google Play Services camera) -->
+        <activity
+            android:name=".camera.CameraScanActivity"
+            android:exported="false"
+            android:label="Scan Bridge QR"
+            android:screenOrientation="portrait" />
 
         <!-- Foreground Service -->
         <service

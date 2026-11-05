@@ -42,6 +42,16 @@ mac/Config/Local.xcconfig
 scripts/release/keys/
 secrets/
 
+# Android Keystores & Signing Credentials (Never commit keystores or passwords!)
+*.jks
+*.keystore
+keystore.properties
+*.signing.properties
+release-keystore/
+releases/*.jks
+releases/*.keystore
+*.idsig
+
 # Brag outputs
 brag-output/
 HOW_TO_RUN.md
